@@ -1,0 +1,8 @@
+{
+  "type": "postgresql",
+  "host": "localhost",
+  "port": 5432,
+  "database": "dev_sre_internal_portal",
+  "user": "rishabacharjee",
+  "password": "123@Acharjee"
+}
