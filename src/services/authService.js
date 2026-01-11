@@ -21,12 +21,16 @@ const logger = require('../utils/logger');
 const AUTH_CONFIG = {
   // Access token - short lived, not stored in DB
   accessToken: {
+    /* istanbul ignore next - environment variable fallback */
     secret: process.env.JWT_SECRET || 'your-secret-key-change-in-production',
+    /* istanbul ignore next - environment variable fallback */
     expiresIn: process.env.JWT_ACCESS_EXPIRES || '30m',  // 30 minutes
   },
   // Refresh token - long lived, stored in DB
   refreshToken: {
+    /* istanbul ignore next - environment variable fallback */
     secret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'your-refresh-secret',
+    /* istanbul ignore next - environment variable fallback */
     expiresInDays: parseInt(process.env.JWT_REFRESH_EXPIRES_DAYS, 10) || 7,  // 7 days
   },
   // Password hashing

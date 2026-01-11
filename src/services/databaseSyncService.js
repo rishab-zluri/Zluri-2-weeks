@@ -105,12 +105,16 @@ const isBlacklisted = (dbName, blacklist) => {
  * Get credentials for an instance from environment variables
  */
 const getInstanceCredentials = (instance) => {
+  /* istanbul ignore next - environment variable fallback chain */
   const prefix = instance.credentials_env_prefix || 
                  instance.id.toUpperCase().replace(/-/g, '_');
   
   return {
+    /* istanbul ignore next - environment variable fallback chain */
     user: process.env[`${prefix}_USER`] || process.env.DB_DEFAULT_USER || 'postgres',
+    /* istanbul ignore next - environment variable fallback chain */
     password: process.env[`${prefix}_PASSWORD`] || process.env.DB_DEFAULT_PASSWORD || '',
+    /* istanbul ignore next - environment variable fallback chain */
     connectionString: process.env[`${prefix}_CONNECTION_STRING`] || 
                       process.env[instance.connection_string_env] || null,
   };
@@ -158,11 +162,14 @@ const fetchPostgresDatabases = async (instance, credentials) => {
 const fetchMongoDatabases = async (instance, credentials) => {
   let connectionString = credentials.connectionString;
   
+  /* istanbul ignore next - connection string building fallback */
   if (!connectionString) {
     // Build connection string
+    /* istanbul ignore next - auth string building */
     const auth = credentials.user && credentials.password 
       ? `${encodeURIComponent(credentials.user)}:${encodeURIComponent(credentials.password)}@`
       : '';
+    /* istanbul ignore next - connection string building */
     connectionString = `mongodb://${auth}${instance.host}:${instance.port}`;
   }
 

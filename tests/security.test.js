@@ -213,7 +213,8 @@ describe('Security and Penetration Tests', () => {
       }));
       
       const { requireRole } = require('../src/middleware/auth');
-      const middleware = requireRole(['admin', 'manager']);
+      // requireRole takes spread arguments, not an array
+      const middleware = requireRole('admin', 'manager');
       
       const req = { user: { role: 'admin' } };
       const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };

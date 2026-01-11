@@ -168,8 +168,9 @@ describe('Static Data Configuration', () => {
       
       expect(result).toBeDefined();
       expect(result.id).toBe('database-1');
-      expect(result._connection).toBeDefined();
-      expect(result._connection.host).toBeDefined();
+      // Connection details are at top level, not nested in _connection
+      expect(result.host).toBeDefined();
+      expect(result.port).toBeDefined();
     });
 
     it('should return null for invalid ID', () => {
@@ -183,7 +184,8 @@ describe('Static Data Configuration', () => {
       
       expect(result).toBeDefined();
       expect(result.type).toBe('mongodb');
-      expect(result._connection.connectionString).toBeDefined();
+      // MongoDB uses uri at top level
+      expect(result.uri).toBeDefined();
     });
   });
 

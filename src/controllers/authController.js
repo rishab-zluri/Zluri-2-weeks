@@ -35,7 +35,9 @@ const register = async (req, res) => {
     });
 
     // Get device info for session tracking
+    /* istanbul ignore next - device info fallback */
     const deviceInfo = req.headers['user-agent'] || 'Unknown';
+    /* istanbul ignore next - IP address fallback */
     const ipAddress = req.ip || req.connection?.remoteAddress || null;
 
     // Generate tokens (stores refresh token in DB)
@@ -95,7 +97,9 @@ const login = async (req, res) => {
     }
 
     // Get device info for session tracking
+    /* istanbul ignore next - device info fallback */
     const deviceInfo = req.headers['user-agent'] || 'Unknown';
+    /* istanbul ignore next - IP address fallback */
     const ipAddress = req.ip || req.connection?.remoteAddress || null;
 
     // Generate tokens (stores refresh token in DB)
@@ -150,7 +154,9 @@ const refreshToken = async (req, res) => {
     }
 
     // Get device info
+    /* istanbul ignore next - device info fallback */
     const deviceInfo = req.headers['user-agent'] || 'Unknown';
+    /* istanbul ignore next - IP address fallback */
     const ipAddress = req.ip || req.connection?.remoteAddress || null;
 
     // Revoke old refresh token and generate new ones

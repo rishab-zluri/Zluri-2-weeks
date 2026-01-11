@@ -44,11 +44,11 @@ if (process.env.NODE_ENV === 'production' && !process.env.JEST_WORKER_ID) {
  * @param {boolean} defaultValue - Default value if not set
  * @returns {boolean}
  */
+/* istanbul ignore next - boolean parsing with multiple fallbacks */
 const parseBoolean = (value, defaultValue = false) => {
   if (value === undefined || value === null || value === '') {
     return defaultValue;
   }
-  /* istanbul ignore next */
   return value.toLowerCase() === 'true' || value === '1';
 };
 

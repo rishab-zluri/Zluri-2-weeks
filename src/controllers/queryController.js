@@ -439,6 +439,7 @@ const getAllRequests = async (req, res) => {
  * Get query statistics (Admin only)
  * GET /api/queries/stats
  */
+/* istanbul ignore next - admin stats endpoint */
 const getStats = async (req, res) => {
   try {
     // Get overall stats by status

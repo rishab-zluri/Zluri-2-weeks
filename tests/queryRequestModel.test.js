@@ -577,3 +577,124 @@ describe('QueryRequest Model', () => {
     });
   });
 });
+
+
+describe('QueryRequest Model - Stats Functions', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('getStatusCounts', () => {
+    it('should get status counts', async () => {
+      query.mockResolvedValueOnce({
+        rows: [
+          { status: 'pending', count: '5' },
+          { status: 'completed', count: '10' },
+        ],
+      });
+
+      const result = await QueryRequest.getStatusCounts();
+
+      expect(result.pending).toBe(5);
+      expect(result.completed).toBe(10);
+      expect(result.total).toBe(15);
+    });
+
+    it('should throw DatabaseError on failure', async () => {
+      query.mockRejectedValueOnce(new Error('DB error'));
+
+      await expect(QueryRequest.getStatusCounts()).rejects.toThrow('Failed to get status counts');
+    });
+  });
+
+  describe('getStatsByPod', () => {
+    it('should get stats by POD', async () => {
+      query.mockResolvedValueOnce({
+        rows: [
+          { pod_id: 'pod-1', pod_name: 'Pod 1', status: 'pending', count: '3' },
+          { pod_id: 'pod-1', pod_name: 'Pod 1', status: 'completed', count: '7' },
+          { pod_id: 'pod-2', pod_name: 'Pod 2', status: 'pending', count: '2' },
+        ],
+      });
+
+      const result = await QueryRequest.getStatsByPod();
+
+      expect(result['pod-1'].name).toBe('Pod 1');
+      expect(result['pod-1'].pending).toBe(3);
+      expect(result['pod-1'].completed).toBe(7);
+      expect(result['pod-1'].total).toBe(10);
+    });
+
+    it('should throw DatabaseError on failure', async () => {
+      query.mockRejectedValueOnce(new Error('DB error'));
+
+      await expect(QueryRequest.getStatsByPod()).rejects.toThrow('Failed to get stats by POD');
+    });
+  });
+
+  describe('getStatsByDatabaseType', () => {
+    it('should get stats by database type', async () => {
+      query.mockResolvedValueOnce({
+        rows: [
+          { database_type: 'postgresql', status: 'pending', count: '5' },
+          { database_type: 'postgresql', status: 'completed', count: '10' },
+          { database_type: 'mongodb', status: 'pending', count: '3' },
+        ],
+      });
+
+      const result = await QueryRequest.getStatsByDatabaseType();
+
+      expect(result.postgresql.pending).toBe(5);
+      expect(result.postgresql.completed).toBe(10);
+      expect(result.mongodb.pending).toBe(3);
+    });
+
+    it('should handle unknown database type', async () => {
+      query.mockResolvedValueOnce({
+        rows: [
+          { database_type: 'unknown', status: 'pending', count: '1' },
+        ],
+      });
+
+      const result = await QueryRequest.getStatsByDatabaseType();
+
+      expect(result.unknown).toBeDefined();
+    });
+
+    it('should throw DatabaseError on failure', async () => {
+      query.mockRejectedValueOnce(new Error('DB error'));
+
+      await expect(QueryRequest.getStatsByDatabaseType()).rejects.toThrow('Failed to get stats by database type');
+    });
+  });
+
+  describe('getRecentActivity', () => {
+    it('should get recent activity', async () => {
+      query.mockResolvedValueOnce({
+        rows: [
+          { date: '2024-01-01', count: '5' },
+          { date: '2024-01-02', count: '10' },
+        ],
+      });
+
+      const result = await QueryRequest.getRecentActivity(7);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].count).toBe(5);
+    });
+
+    it('should use default days parameter', async () => {
+      query.mockResolvedValueOnce({ rows: [] });
+
+      await QueryRequest.getRecentActivity();
+
+      expect(query).toHaveBeenCalled();
+    });
+
+    it('should throw DatabaseError on failure', async () => {
+      query.mockRejectedValueOnce(new Error('DB error'));
+
+      await expect(QueryRequest.getRecentActivity()).rejects.toThrow('Failed to get recent activity');
+    });
+  });
+});

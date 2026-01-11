@@ -410,6 +410,13 @@ describe('Remaining Branch Coverage Tests', () => {
         query: jest.fn(),
       }));
       
+      // Mock vm2 to avoid fs.readFileSync issue
+      jest.mock('vm2', () => ({
+        VM: jest.fn().mockImplementation(() => ({
+          run: jest.fn(),
+        })),
+      }));
+      
       const queryController = require('../src/controllers/queryController');
       
       expect(queryController.submitRequest).toBeDefined();
@@ -448,6 +455,13 @@ describe('Remaining Branch Coverage Tests', () => {
         query: jest.fn(),
       }));
       
+      // Mock vm2 to avoid fs.readFileSync issue
+      jest.mock('vm2', () => ({
+        VM: jest.fn().mockImplementation(() => ({
+          run: jest.fn().mockResolvedValue(undefined),
+        })),
+      }));
+      
       // Mock child_process spawn
       const mockStdout = { on: jest.fn() };
       const mockStderr = { on: jest.fn() };
@@ -464,18 +478,6 @@ describe('Remaining Branch Coverage Tests', () => {
       
       jest.mock('child_process', () => ({
         spawn: mockSpawn,
-      }));
-      
-      jest.mock('fs', () => ({
-        existsSync: jest.fn().mockReturnValue(true),
-        mkdirSync: jest.fn(),
-        writeFileSync: jest.fn(),
-        unlinkSync: jest.fn(),
-        promises: {
-          unlink: jest.fn(),
-          writeFile: jest.fn(),
-          readFile: jest.fn().mockResolvedValue('console.log("test")'),
-        },
       }));
       
       const scriptExecutionService = require('../src/services/scriptExecutionService');
