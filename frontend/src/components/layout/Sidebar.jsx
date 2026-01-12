@@ -3,10 +3,10 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Home, 
   ClipboardCheck, 
-  FileCode, 
   FileText, 
   Key,
-  Zap
+  Zap,
+  Send
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -17,8 +17,8 @@ const Sidebar = () => {
   const navItems = [
     {
       to: '/dashboard',
-      icon: Home,
-      label: 'Query Requests',
+      icon: Send,
+      label: 'Submit Request',
     },
     {
       to: '/approval',
@@ -27,14 +27,9 @@ const Sidebar = () => {
       show: isManager || isAdmin,
     },
     {
-      to: '/file-execution',
-      icon: FileCode,
-      label: 'File Execution',
-    },
-    {
       to: '/queries',
       icon: FileText,
-      label: 'My Queries',
+      label: 'My Requests',
     },
     {
       to: '/secrets',

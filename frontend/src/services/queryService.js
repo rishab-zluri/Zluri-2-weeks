@@ -30,10 +30,11 @@ const queryService = {
 
   /**
    * Get all PODs
+   * @param {Object} params - Optional query params (e.g., { forApproval: true })
    * @returns {Promise<Object>}
    */
-  async getPods() {
-    const response = await api.get('/api/queries/pods');
+  async getPods(params = {}) {
+    const response = await api.get('/api/queries/pods', { params });
     return response.data;
   },
 

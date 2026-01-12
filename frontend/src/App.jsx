@@ -6,7 +6,6 @@ import { MainLayout } from './components/layout';
 import {
   LoginPage,
   QuerySubmissionPage,
-  FileExecutionPage,
   MyQueriesPage,
   ApprovalDashboardPage,
   SecretsManagerPage,
@@ -49,7 +48,6 @@ const App = () => {
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<QuerySubmissionPage />} />
-            <Route path="file-execution" element={<FileExecutionPage />} />
             <Route path="queries" element={<MyQueriesPage />} />
             <Route path="approval" element={<ApprovalDashboardPage />} />
             <Route path="secrets" element={<SecretsManagerPage />} />

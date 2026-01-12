@@ -69,7 +69,8 @@ const ApprovalDashboardPage = () => {
 
   const fetchPods = async () => {
     try {
-      const response = await queryService.getPods();
+      // Pass forApproval=true to get only managed pods for managers
+      const response = await queryService.getPods({ forApproval: true });
       setPods(response.data || []);
     } catch (error) {
       console.error('Error fetching pods:', error);
