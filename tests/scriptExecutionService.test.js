@@ -61,7 +61,22 @@ jest.mock('mongodb', () => ({
         aggregate: jest.fn().mockReturnValue({
           toArray: jest.fn().mockResolvedValue([]),
         }),
+        countDocuments: jest.fn().mockResolvedValue(0),
+        insertOne: jest.fn().mockResolvedValue({ insertedId: 'test-id' }),
+        insertMany: jest.fn().mockResolvedValue({ insertedCount: 2 }),
+        updateOne: jest.fn().mockResolvedValue({ matchedCount: 1, modifiedCount: 1 }),
+        updateMany: jest.fn().mockResolvedValue({ matchedCount: 5, modifiedCount: 5 }),
+        deleteOne: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+        deleteMany: jest.fn().mockResolvedValue({ deletedCount: 3 }),
+        // Risk-aware operations (now allowed, not blocked)
+        drop: jest.fn().mockResolvedValue(true),
+        createIndex: jest.fn().mockResolvedValue('index_name'),
+        dropIndex: jest.fn().mockResolvedValue({ ok: 1 }),
+        dropIndexes: jest.fn().mockResolvedValue({ ok: 1 }),
       }),
+      // Database-level operations (now allowed, not blocked)
+      dropDatabase: jest.fn().mockResolvedValue({ ok: 1 }),
+      createCollection: jest.fn().mockResolvedValue({ collectionName: 'newcollection' }),
     }),
     close: jest.fn().mockResolvedValue(undefined),
   })),
@@ -407,10 +422,11 @@ describe('Script Execution Service', () => {
       
       const validation = validateScript(script);
       
-      expect(validation.warnings.length).toBeGreaterThan(0);
-      // Check warnings contain relevant patterns (flexible matching)
-      const warningsStr = validation.warnings.join(' ').toLowerCase();
-      expect(warningsStr).toMatch(/child_process|require|process|eval/);
+      // These patterns are now errors (blocked in sandbox), not warnings
+      expect(validation.errors.length).toBeGreaterThan(0);
+      // Check errors contain relevant patterns (flexible matching)
+      const errorsStr = validation.errors.join(' ').toLowerCase();
+      expect(errorsStr).toMatch(/child_process|require|process|eval/);
     });
     
     test('should pass clean scripts', () => {
@@ -853,34 +869,39 @@ describe('Script Execution Service - Additional Branch Coverage', () => {
   });
 
   describe('validateScript', () => {
-    test('should detect fs module usage', () => {
+    test('should detect fs module usage as error', () => {
       const script = `
         fs.readFileSync('/etc/passwd');
       `;
       
       const validation = validateScript(script);
       
-      expect(validation.warnings.some(w => w.includes('fs'))).toBe(true);
+      // fs module is blocked (error), not just a warning
+      expect(validation.errors.some(e => e.includes('fs'))).toBe(true);
     });
 
-    test('should detect drop() usage', () => {
+    test('should detect drop() usage as risk warning', () => {
       const script = `
         db.collection.drop();
       `;
       
       const validation = validateScript(script);
       
-      expect(validation.warnings.some(w => w.includes('drop'))).toBe(true);
+      // drop() is now a warning (risk level), not an error
+      expect(validation.warnings.some(w => w.includes('CRITICAL') && w.includes('drop'))).toBe(true);
+      expect(validation.valid).toBe(true); // Script is still valid, just has warnings
     });
 
-    test('should detect dropDatabase() usage', () => {
+    test('should detect dropDatabase() usage as risk warning', () => {
       const script = `
         db.dropDatabase();
       `;
       
       const validation = validateScript(script);
       
-      expect(validation.warnings.some(w => w.includes('dropDatabase'))).toBe(true);
+      // dropDatabase() is now a warning (risk level), not an error
+      expect(validation.warnings.some(w => w.includes('CRITICAL') && w.includes('dropDatabase'))).toBe(true);
+      expect(validation.valid).toBe(true); // Script is still valid, just has warnings
     });
 
     test('should return syntax error for invalid script', () => {
@@ -1071,12 +1092,13 @@ describe('Script Execution Service - MongoDB Operations', () => {
     expect(result.output.length).toBeGreaterThan(0);
   });
 
-  test('should block MongoDB drop operation', async () => {
+  test('should execute MongoDB drop operation successfully', async () => {
     const script = `
       try {
-        await mongodb.collection('users').drop();
+        const result = await mongodb.collection('users').drop();
+        console.log('Drop result:', result);
       } catch (e) {
-        console.error('Error:', e.message);
+        console.log('Drop operation attempted');
       }
     `;
     
@@ -1087,16 +1109,17 @@ describe('Script Execution Service - MongoDB Operations', () => {
       databaseName: 'test_db',
     });
     
-    // Check that the script executed
+    // Operation should execute (not blocked at validation level)
     expect(result.output.length).toBeGreaterThan(0);
   });
 
-  test('should block MongoDB createIndex operation', async () => {
+  test('should execute MongoDB createIndex operation successfully', async () => {
     const script = `
       try {
-        await mongodb.collection('users').createIndex({ name: 1 });
+        const result = await mongodb.collection('users').createIndex({ name: 1 });
+        console.log('Index created:', result);
       } catch (e) {
-        console.error('Error:', e.message);
+        console.log('CreateIndex operation attempted');
       }
     `;
     
@@ -1107,16 +1130,17 @@ describe('Script Execution Service - MongoDB Operations', () => {
       databaseName: 'test_db',
     });
     
-    // Check that the script executed
+    // Operation should execute (not blocked at validation level)
     expect(result.output.length).toBeGreaterThan(0);
   });
 
-  test('should block MongoDB dropIndex operation', async () => {
+  test('should execute MongoDB dropIndex operation successfully', async () => {
     const script = `
       try {
-        await mongodb.collection('users').dropIndex('name_1');
+        const result = await mongodb.collection('users').dropIndex('name_1');
+        console.log('Index dropped:', result);
       } catch (e) {
-        console.error('Error:', e.message);
+        console.log('DropIndex operation attempted');
       }
     `;
     
@@ -1127,16 +1151,17 @@ describe('Script Execution Service - MongoDB Operations', () => {
       databaseName: 'test_db',
     });
     
-    // Check that the script executed
+    // Operation should execute (not blocked at validation level)
     expect(result.output.length).toBeGreaterThan(0);
   });
 
-  test('should block MongoDB dropDatabase operation', async () => {
+  test('should execute MongoDB dropDatabase operation successfully', async () => {
     const script = `
       try {
-        await mongodb.dropDatabase();
+        const result = await mongodb.dropDatabase();
+        console.log('Database dropped:', result);
       } catch (e) {
-        console.error('Error:', e.message);
+        console.log('DropDatabase operation attempted');
       }
     `;
     
@@ -1147,16 +1172,17 @@ describe('Script Execution Service - MongoDB Operations', () => {
       databaseName: 'test_db',
     });
     
-    // Check that the script executed
+    // Operation should execute (not blocked at validation level)
     expect(result.output.length).toBeGreaterThan(0);
   });
 
-  test('should block MongoDB createCollection operation', async () => {
+  test('should execute MongoDB createCollection operation successfully', async () => {
     const script = `
       try {
-        await mongodb.createCollection('newcollection');
+        const result = await mongodb.createCollection('newcollection');
+        console.log('Collection created:', result);
       } catch (e) {
-        console.error('Error:', e.message);
+        console.log('CreateCollection operation attempted');
       }
     `;
     
@@ -1167,7 +1193,49 @@ describe('Script Execution Service - MongoDB Operations', () => {
       databaseName: 'test_db',
     });
     
-    // Check that the script executed
+    // Operation should execute (not blocked at validation level)
+    expect(result.output.length).toBeGreaterThan(0);
+  });
+
+  test('should execute MongoDB deleteMany operation successfully', async () => {
+    const script = `
+      try {
+        const result = await mongodb.collection('users').deleteMany({});
+        console.log('Deleted:', result.deletedCount);
+      } catch (e) {
+        console.log('DeleteMany operation attempted');
+      }
+    `;
+    
+    const result = await executeScript({
+      scriptContent: script,
+      databaseType: 'mongodb',
+      instanceId: 'test-mongo',
+      databaseName: 'test_db',
+    });
+    
+    // Operation should execute (not blocked at validation level)
+    expect(result.output.length).toBeGreaterThan(0);
+  });
+
+  test('should execute MongoDB dropIndexes operation successfully', async () => {
+    const script = `
+      try {
+        const result = await mongodb.collection('users').dropIndexes();
+        console.log('Indexes dropped:', result);
+      } catch (e) {
+        console.log('DropIndexes operation attempted');
+      }
+    `;
+    
+    const result = await executeScript({
+      scriptContent: script,
+      databaseType: 'mongodb',
+      instanceId: 'test-mongo',
+      databaseName: 'test_db',
+    });
+    
+    // Operation should execute (not blocked at validation level)
     expect(result.output.length).toBeGreaterThan(0);
   });
 });

@@ -6,9 +6,11 @@
 const slackService = require('./slackService');
 const queryExecutionService = require('./queryExecutionService');
 const scriptExecutionService = require('./scriptExecutionService');
+const queryAnalysisService = require('./queryAnalysisService');
 
 module.exports = {
   slackService,
   queryExecutionService,
   scriptExecutionService,
+  queryAnalysisService,
 };

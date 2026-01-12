@@ -315,6 +315,17 @@ function createSafeMongoWrapper(db, output) {
 
       deleteMany: async (filter) => {
         const startTime = Date.now();
+        
+        // Risk assessment for empty filter (affects ALL documents)
+        const isEmptyFilter = !filter || Object.keys(filter).length === 0;
+        if (isEmptyFilter) {
+          logOp('deleteMany', {
+            message: '🔴 CRITICAL: deleteMany({}) - Will delete ALL documents in collection',
+            riskLevel: 'critical',
+            warning: 'Empty filter will affect ALL documents',
+          });
+        }
+        
         const result = await collection.deleteMany(filter);
         const duration = Date.now() - startTime;
 
@@ -327,17 +338,113 @@ function createSafeMongoWrapper(db, output) {
         return result;
       },
 
-      // Blocked operations
-      drop: () => { throw new Error('drop() is not allowed in scripts'); },
-      createIndex: () => { throw new Error('createIndex() is not allowed in scripts'); },
-      dropIndex: () => { throw new Error('dropIndex() is not allowed in scripts'); },
+      // Risk-aware operations (execute with logging, NOT blocked)
+      drop: async () => {
+        logOp('drop', {
+          message: '🔴 CRITICAL: drop() - Collection will be permanently deleted',
+          riskLevel: 'critical',
+          reversible: false,
+        });
+        const result = await collection.drop();
+        logOp('drop', {
+          message: 'Collection dropped successfully',
+          result: true,
+        });
+        return result;
+      },
+
+      createIndex: async (keys, options = {}) => {
+        logOp('createIndex', {
+          message: '🟡 MEDIUM: createIndex() - Creating index on collection',
+          riskLevel: 'medium',
+          keys: JSON.stringify(keys),
+        });
+        const result = await collection.createIndex(keys, options);
+        logOp('createIndex', {
+          message: `Index created: ${result}`,
+          indexName: result,
+        });
+        return result;
+      },
+
+      dropIndex: async (indexName) => {
+        logOp('dropIndex', {
+          message: '🟡 MEDIUM: dropIndex() - Dropping index from collection',
+          riskLevel: 'medium',
+          indexName,
+        });
+        const result = await collection.dropIndex(indexName);
+        logOp('dropIndex', {
+          message: 'Index dropped successfully',
+          result,
+        });
+        return result;
+      },
+
+      dropIndexes: async () => {
+        logOp('dropIndexes', {
+          message: '🟠 HIGH: dropIndexes() - Dropping ALL indexes from collection',
+          riskLevel: 'high',
+          reversible: true,
+        });
+        const result = await collection.dropIndexes();
+        logOp('dropIndexes', {
+          message: 'All indexes dropped successfully',
+          result,
+        });
+        return result;
+      },
     };
   };
 
   return {
     collection: wrapCollection,
-    dropDatabase: () => { throw new Error('dropDatabase() is not allowed'); },
-    createCollection: () => { throw new Error('createCollection() is not allowed'); },
+    
+    // Risk-aware database operations (execute with logging, NOT blocked)
+    dropDatabase: async () => {
+      opNum++;
+      output.push({
+        type: 'operation',
+        opNumber: opNum,
+        operation: 'dropDatabase',
+        message: '🔴 CRITICAL: dropDatabase() - Entire database will be permanently deleted',
+        riskLevel: 'critical',
+        reversible: false,
+        timestamp: new Date().toISOString(),
+      });
+      const result = await db.dropDatabase();
+      output.push({
+        type: 'operation',
+        opNumber: opNum,
+        operation: 'dropDatabase',
+        message: 'Database dropped successfully',
+        result: true,
+        timestamp: new Date().toISOString(),
+      });
+      return result;
+    },
+
+    createCollection: async (name, options = {}) => {
+      opNum++;
+      output.push({
+        type: 'operation',
+        opNumber: opNum,
+        operation: 'createCollection',
+        message: '🔵 LOW: createCollection() - Creating new collection',
+        riskLevel: 'low',
+        collectionName: name,
+        timestamp: new Date().toISOString(),
+      });
+      const result = await db.createCollection(name, options);
+      output.push({
+        type: 'operation',
+        opNumber: opNum,
+        operation: 'createCollection',
+        message: `Collection "${name}" created successfully`,
+        timestamp: new Date().toISOString(),
+      });
+      return result;
+    },
   };
 }
 
@@ -812,21 +919,32 @@ function validateScript(scriptContent) {
     errors.push(syntaxCheck.error.details);
   }
 
-  // Check for dangerous patterns
+  // Check for dangerous patterns - these are WARNINGS, not blocks
+  // Scripts are manager-approved, so we execute but log risk levels
   const dangerousPatterns = [
-    { pattern: /require\s*\(/gi, message: 'require() is not allowed - use the pre-injected db variable' },
-    { pattern: /process\./gi, message: 'process object is not accessible' },
-    { pattern: /eval\s*\(/gi, message: 'eval() is not allowed' },
-    { pattern: /Function\s*\(/gi, message: 'Function constructor is not allowed' },
-    { pattern: /\.dropDatabase\s*\(/gi, message: 'dropDatabase() is not allowed' },
-    { pattern: /\.drop\s*\(/gi, message: 'drop() is not allowed' },
-    { pattern: /child_process/gi, message: 'child_process module is blocked' },
-    { pattern: /fs\./gi, message: 'fs module is blocked' },
+    { pattern: /require\s*\(/gi, message: 'require() is not available - use the pre-injected db variable', isError: true },
+    { pattern: /process\./gi, message: 'process object is not accessible in sandbox', isError: true },
+    { pattern: /eval\s*\(/gi, message: 'eval() is blocked for security', isError: true },
+    { pattern: /Function\s*\(/gi, message: 'Function constructor is blocked for security', isError: true },
+    { pattern: /child_process/gi, message: 'child_process module is blocked for security', isError: true },
+    { pattern: /fs\./gi, message: 'fs module is blocked for security', isError: true },
+    // Risk warnings (not errors - these operations ARE allowed but logged)
+    { pattern: /\.dropDatabase\s*\(/gi, message: '🔴 CRITICAL: dropDatabase() detected - will delete entire database', isError: false },
+    { pattern: /\.drop\s*\(\s*\)/gi, message: '🔴 CRITICAL: drop() detected - will delete entire collection', isError: false },
+    { pattern: /\.deleteMany\s*\(\s*\{\s*\}\s*\)/gi, message: '🔴 CRITICAL: deleteMany({}) detected - will delete ALL documents', isError: false },
+    { pattern: /\.updateMany\s*\(\s*\{\s*\}\s*,/gi, message: '🔴 CRITICAL: updateMany({}, ...) detected - will update ALL documents', isError: false },
+    { pattern: /\.dropIndexes\s*\(/gi, message: '🟠 HIGH: dropIndexes() detected - will remove all indexes', isError: false },
+    { pattern: /\.createIndex\s*\(/gi, message: '🟡 MEDIUM: createIndex() detected - may lock collection during creation', isError: false },
+    { pattern: /\.dropIndex\s*\(/gi, message: '🟡 MEDIUM: dropIndex() detected - may affect query performance', isError: false },
   ];
 
-  for (const { pattern, message } of dangerousPatterns) {
+  for (const { pattern, message, isError } of dangerousPatterns) {
     if (pattern.test(scriptContent)) {
-      warnings.push(message);
+      if (isError) {
+        errors.push(message);
+      } else {
+        warnings.push(message);
+      }
     }
   }
 
