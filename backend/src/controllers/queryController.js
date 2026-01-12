@@ -261,11 +261,31 @@ const approveRequest = async (req, res) => {
     // Format result
     const resultStr = JSON.stringify(result, null, 2);
 
-    // Mark as completed
-    approvedRequest = await QueryRequest.markCompleted(internalId, resultStr);
-
     // Get requester for Slack notification
     const requester = await User.findById(queryRequest.userId);
+
+    // Check if execution actually succeeded (result.success could be false)
+    if (result.success === false) {
+      // Mark as failed when result indicates failure
+      const errorMessage = result.error?.message || 'Execution failed';
+      approvedRequest = await QueryRequest.markFailed(internalId, errorMessage);
+
+      // Send failure notification
+      await slackService.notifyApprovalSuccess(
+        { ...approvedRequest, slackUserId: requester?.slackUserId, userEmail: requester?.email || approvedRequest.userEmail },
+        resultStr
+      );
+
+      logger.error('Query execution failed', { requestId: internalId, uuid, error: errorMessage });
+
+      return response.success(res, {
+        ...approvedRequest,
+        executionResult: result,
+      }, 'Request approved but execution failed');
+    }
+
+    // Mark as completed only when truly successful
+    approvedRequest = await QueryRequest.markCompleted(internalId, resultStr);
 
     // Send success notification
     await slackService.notifyApprovalSuccess(
@@ -509,8 +529,22 @@ const getDatabases = async (req, res) => {
 /**
  * Get available PODs
  * GET /api/pods
+ * 
+ * For admins: returns all PODs
+ * For managers: returns only PODs they manage
+ * For developers: returns all PODs (for submission)
  */
 const getPods = async (req, res) => {
+  const user = req.user;
+  
+  // For approval dashboard, managers should only see their managed PODs
+  // Check if this is for filtering (has 'forApproval' query param)
+  if (req.query.forApproval === 'true' && user.role === User.UserRoles.MANAGER) {
+    const managedPods = getPodsByManager(user.email);
+    return response.success(res, managedPods);
+  }
+  
+  // For admins or general use, return all PODs
   const pods = getAllPods();
   return response.success(res, pods);
 };

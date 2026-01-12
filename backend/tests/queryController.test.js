@@ -593,6 +593,71 @@ describe('Query Controller', () => {
       expect(mockRes.status).toHaveBeenCalledWith(200);
     });
 
+    it('should mark as failed when result.success is false', async () => {
+      mockReq.params = { id: '1' };
+      mockReq.user.role = 'admin';
+
+      QueryRequest.findByUuid.mockResolvedValue({
+        id: 1,
+        userId: 'requester-123',
+        podId: 'pod-1',
+        status: 'pending',
+        submissionType: 'script',
+        scriptContent: 'console.log("test")',
+      });
+      QueryRequest.approve.mockResolvedValue({ id: 1, status: 'approved' });
+      QueryRequest.markExecuting.mockResolvedValue({ id: 1, status: 'executing' });
+      QueryRequest.markFailed.mockResolvedValue({ id: 1, status: 'failed' });
+      User.findById.mockResolvedValue({ id: 'requester-123', slackUserId: 'U123' });
+      
+      // Mock script execution returning success: false
+      mockExecuteScript.mockResolvedValue({
+        success: false,
+        error: { type: 'Error', message: 'Column not found' },
+        output: [],
+      });
+
+      await queryController.approveRequest(mockReq, mockRes);
+
+      expect(QueryRequest.markFailed).toHaveBeenCalledWith(1, 'Column not found');
+      expect(mockNotifyApprovalSuccess).toHaveBeenCalled();
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Request approved but execution failed',
+        })
+      );
+    });
+
+    it('should mark as failed with default message when result.success is false without error message', async () => {
+      mockReq.params = { id: '1' };
+      mockReq.user.role = 'admin';
+
+      QueryRequest.findByUuid.mockResolvedValue({
+        id: 1,
+        userId: 'requester-123',
+        podId: 'pod-1',
+        status: 'pending',
+        submissionType: 'script',
+        scriptContent: 'console.log("test")',
+      });
+      QueryRequest.approve.mockResolvedValue({ id: 1, status: 'approved' });
+      QueryRequest.markExecuting.mockResolvedValue({ id: 1, status: 'executing' });
+      QueryRequest.markFailed.mockResolvedValue({ id: 1, status: 'failed' });
+      User.findById.mockResolvedValue({ id: 'requester-123', slackUserId: 'U123' });
+      
+      // Mock script execution returning success: false without error message
+      mockExecuteScript.mockResolvedValue({
+        success: false,
+        output: [],
+      });
+
+      await queryController.approveRequest(mockReq, mockRes);
+
+      expect(QueryRequest.markFailed).toHaveBeenCalledWith(1, 'Execution failed');
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+    });
+
     it('should return 404 for non-existent request', async () => {
       mockReq.params = { id: '999' };
 
@@ -826,6 +891,41 @@ describe('Query Controller', () => {
 
       await queryController.getPods(mockReq, mockRes);
 
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+    });
+
+    it('should return only managed pods for managers when forApproval=true', async () => {
+      mockReq.user.role = 'manager';
+      mockReq.user.email = 'manager@example.com';
+      mockReq.query = { forApproval: 'true' };
+
+      staticData.getPodsByManager.mockReturnValue([
+        { id: 'pod-1', name: 'Pod 1' },
+      ]);
+
+      await queryController.getPods(mockReq, mockRes);
+
+      expect(staticData.getPodsByManager).toHaveBeenCalledWith('manager@example.com');
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: [{ id: 'pod-1', name: 'Pod 1' }],
+        })
+      );
+    });
+
+    it('should return all pods for admin even with forApproval=true', async () => {
+      mockReq.user.role = 'admin';
+      mockReq.query = { forApproval: 'true' };
+
+      staticData.getAllPods.mockReturnValue([
+        { id: 'pod-1', name: 'Pod 1' },
+        { id: 'pod-2', name: 'Pod 2' },
+      ]);
+
+      await queryController.getPods(mockReq, mockRes);
+
+      expect(staticData.getAllPods).toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
     });
   });
