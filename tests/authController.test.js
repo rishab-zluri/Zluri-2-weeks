@@ -14,10 +14,13 @@ jest.mock('../src/middleware/auth', () => ({
   verifyRefreshToken: jest.fn().mockResolvedValue({ userId: 'user-123' }),
   logout: jest.fn().mockResolvedValue({ success: true }),
   logoutAll: jest.fn().mockResolvedValue({ success: true, sessionsRevoked: 1 }),
+  blacklistAccessToken: jest.fn().mockResolvedValue(),
+  getActiveSessions: jest.fn().mockResolvedValue([]),
+  revokeSession: jest.fn().mockResolvedValue(true),
 }));
 
 const User = require('../src/models/User');
-const { generateTokens, verifyRefreshToken, logout, logoutAll } = require('../src/middleware/auth');
+const { generateTokens, verifyRefreshToken, logout, logoutAll, blacklistAccessToken, getActiveSessions, revokeSession } = require('../src/middleware/auth');
 const authController = require('../src/controllers/authController');
 
 describe('Auth Controller', () => {
@@ -680,6 +683,17 @@ describe('Auth Controller - Additional Coverage', () => {
           message: 'Logged out successfully',
         })
       );
+    });
+
+    it('should blacklist access token when no refresh token but access token exists', async () => {
+      mockReq.user = { id: 'user-123' };
+      mockReq.accessToken = 'valid-access-token';
+      mockReq.body = {};
+
+      await authController.logout(mockReq, mockRes);
+
+      expect(blacklistAccessToken).toHaveBeenCalledWith('valid-access-token', 'user-123');
+      expect(mockRes.status).toHaveBeenCalledWith(200);
     });
 
     it('should handle logout with refresh token', async () => {

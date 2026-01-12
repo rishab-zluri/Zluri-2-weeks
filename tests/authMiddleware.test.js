@@ -879,3 +879,331 @@ describe('Auth Middleware - Error Handling Coverage', () => {
     });
   });
 });
+
+
+describe('Auth Middleware - Token Blacklist Coverage', () => {
+  let auth;
+  let mockReq;
+  let mockRes;
+  let mockNext;
+
+  const TEST_SECRET = 'access-secret-key-change-in-production';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.resetModules();
+    auth = require('../src/middleware/auth');
+    
+    mockReq = {
+      headers: {},
+      body: {},
+      params: {},
+      query: {},
+      path: '/test',
+    };
+    mockRes = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+    };
+    mockNext = jest.fn();
+  });
+
+  describe('isTokenBlacklisted', () => {
+    it('should return true when token is blacklisted', async () => {
+      const { query } = require('../src/config/database');
+      query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+
+      const result = await auth.isTokenBlacklisted('some-hash');
+
+      expect(result).toBe(true);
+    });
+
+    it('should return false when token is not blacklisted', async () => {
+      const { query } = require('../src/config/database');
+      query.mockResolvedValueOnce({ rows: [] });
+
+      const result = await auth.isTokenBlacklisted('some-hash');
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when result is null', async () => {
+      const { query } = require('../src/config/database');
+      query.mockResolvedValueOnce(null);
+
+      const result = await auth.isTokenBlacklisted('some-hash');
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when rows is null', async () => {
+      const { query } = require('../src/config/database');
+      query.mockResolvedValueOnce({ rows: null });
+
+      const result = await auth.isTokenBlacklisted('some-hash');
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('blacklistAccessToken', () => {
+    it('should blacklist a valid token', async () => {
+      const { query } = require('../src/config/database');
+      const jwt = require('jsonwebtoken');
+      
+      const token = jwt.sign(
+        { userId: '123', email: 'test@test.com' },
+        TEST_SECRET,
+        { expiresIn: '1h' }
+      );
+      
+      query.mockResolvedValueOnce({ rows: [] });
+
+      await auth.blacklistAccessToken(token, '123');
+
+      expect(query).toHaveBeenCalled();
+    });
+
+    it('should handle token without exp claim', async () => {
+      const { query } = require('../src/config/database');
+      const jwt = require('jsonwebtoken');
+      
+      // Create token without expiration
+      const token = jwt.sign({ userId: '123' }, TEST_SECRET, { noTimestamp: true });
+      
+      await auth.blacklistAccessToken(token, '123');
+
+      // Should not call query since token has no exp
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it('should handle invalid token gracefully', async () => {
+      await auth.blacklistAccessToken('invalid-token', '123');
+      // Should not throw
+    });
+
+    it('should handle database error gracefully', async () => {
+      const { query } = require('../src/config/database');
+      const jwt = require('jsonwebtoken');
+      
+      const token = jwt.sign(
+        { userId: '123' },
+        TEST_SECRET,
+        { expiresIn: '1h' }
+      );
+      
+      query.mockRejectedValueOnce(new Error('Database error'));
+
+      // Should not throw
+      await auth.blacklistAccessToken(token, '123');
+    });
+  });
+
+  describe('blacklistAllUserTokens', () => {
+    it('should invalidate all user tokens', async () => {
+      const { query } = require('../src/config/database');
+      query.mockResolvedValueOnce({ rows: [] });
+
+      await auth.blacklistAllUserTokens('user-123');
+
+      expect(query).toHaveBeenCalled();
+    });
+
+    it('should handle database error gracefully', async () => {
+      const { query } = require('../src/config/database');
+      query.mockRejectedValueOnce(new Error('Table does not exist'));
+
+      // Should not throw
+      await auth.blacklistAllUserTokens('user-123');
+    });
+  });
+
+  describe('areUserTokensInvalidated', () => {
+    it('should return true when tokens are invalidated', async () => {
+      const { query } = require('../src/config/database');
+      query.mockResolvedValueOnce({ rows: [{ invalidated_at: new Date() }] });
+
+      // Token issued 1 hour ago
+      const tokenIssuedAt = Math.floor(Date.now() / 1000) - 3600;
+      const result = await auth.areUserTokensInvalidated('user-123', tokenIssuedAt);
+
+      expect(result).toBe(true);
+    });
+
+    it('should return false when tokens are not invalidated', async () => {
+      const { query } = require('../src/config/database');
+      query.mockResolvedValueOnce({ rows: [] });
+
+      const tokenIssuedAt = Math.floor(Date.now() / 1000);
+      const result = await auth.areUserTokensInvalidated('user-123', tokenIssuedAt);
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false on database error', async () => {
+      const { query } = require('../src/config/database');
+      query.mockRejectedValueOnce(new Error('Table does not exist'));
+
+      const tokenIssuedAt = Math.floor(Date.now() / 1000);
+      const result = await auth.areUserTokensInvalidated('user-123', tokenIssuedAt);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('cleanupBlacklist', () => {
+    it('should cleanup expired blacklist entries', async () => {
+      const { query } = require('../src/config/database');
+      query.mockResolvedValueOnce({ rowCount: 5 });
+
+      const result = await auth.cleanupBlacklist();
+
+      expect(result).toBe(5);
+    });
+
+    it('should handle zero deletions', async () => {
+      const { query } = require('../src/config/database');
+      query.mockResolvedValueOnce({ rowCount: 0 });
+
+      const result = await auth.cleanupBlacklist();
+
+      expect(result).toBe(0);
+    });
+
+    it('should handle database error gracefully', async () => {
+      const { query } = require('../src/config/database');
+      query.mockRejectedValueOnce(new Error('Table does not exist'));
+
+      const result = await auth.cleanupBlacklist();
+
+      expect(result).toBe(0);
+    });
+
+    it('should handle null result', async () => {
+      const { query } = require('../src/config/database');
+      query.mockResolvedValueOnce(null);
+
+      const result = await auth.cleanupBlacklist();
+
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('authenticate with blacklist check', () => {
+    it('should reject blacklisted token', async () => {
+      const { query } = require('../src/config/database');
+      const jwt = require('jsonwebtoken');
+      
+      const token = jwt.sign(
+        { userId: '123', email: 'test@test.com', role: 'developer', podId: 'pod-1' },
+        TEST_SECRET,
+        { issuer: 'db-query-portal', audience: 'db-query-portal-users' }
+      );
+      
+      mockReq.headers.authorization = `Bearer ${token}`;
+      
+      // Mock blacklist check - token IS blacklisted
+      query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+
+      await auth.authenticate(mockReq, mockRes, mockNext);
+
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'Token has been revoked',
+      }));
+    });
+
+    it('should reject token when user tokens are invalidated', async () => {
+      const { query } = require('../src/config/database');
+      const jwt = require('jsonwebtoken');
+      
+      const token = jwt.sign(
+        { userId: '123', email: 'test@test.com', role: 'developer', podId: 'pod-1', iat: Math.floor(Date.now() / 1000) - 3600 },
+        TEST_SECRET,
+        { issuer: 'db-query-portal', audience: 'db-query-portal-users' }
+      );
+      
+      mockReq.headers.authorization = `Bearer ${token}`;
+      
+      // Mock blacklist check - token is NOT blacklisted
+      query.mockResolvedValueOnce({ rows: [] });
+      // Mock user invalidation check - user tokens ARE invalidated
+      query.mockResolvedValueOnce({ rows: [{ invalidated_at: new Date() }] });
+
+      await auth.authenticate(mockReq, mockRes, mockNext);
+
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'Session has been invalidated',
+      }));
+    });
+
+    it('should pass when token is not blacklisted', async () => {
+      const { query } = require('../src/config/database');
+      const jwt = require('jsonwebtoken');
+      
+      const token = jwt.sign(
+        { userId: '123', email: 'test@test.com', role: 'developer', podId: 'pod-1' },
+        TEST_SECRET,
+        { issuer: 'db-query-portal', audience: 'db-query-portal-users' }
+      );
+      
+      mockReq.headers.authorization = `Bearer ${token}`;
+      
+      // Mock blacklist check - token is NOT blacklisted
+      query.mockResolvedValueOnce({ rows: [] });
+      // Mock user invalidation check - user tokens are NOT invalidated
+      query.mockResolvedValueOnce({ rows: [] });
+
+      await auth.authenticate(mockReq, mockRes, mockNext);
+
+      expect(mockNext).toHaveBeenCalled();
+      expect(mockReq.user.id).toBe('123');
+      expect(mockReq.accessToken).toBe(token);
+    });
+  });
+
+  describe('logout with access token blacklisting', () => {
+    it('should blacklist access token on logout', async () => {
+      const { query } = require('../src/config/database');
+      const jwt = require('jsonwebtoken');
+      
+      const accessToken = jwt.sign(
+        { userId: '123' },
+        TEST_SECRET,
+        { expiresIn: '1h' }
+      );
+      
+      // Mock refresh token revocation
+      query.mockResolvedValueOnce({ rowCount: 1, rows: [{ user_id: '123' }] });
+      // Mock access token blacklist insert
+      query.mockResolvedValueOnce({ rows: [] });
+
+      const result = await auth.logout('refresh-token', accessToken, '123');
+
+      expect(result.success).toBe(true);
+      expect(query).toHaveBeenCalledTimes(2);
+    });
+
+    it('should still succeed if only access token is provided', async () => {
+      const { query } = require('../src/config/database');
+      const jwt = require('jsonwebtoken');
+      
+      const accessToken = jwt.sign(
+        { userId: '123' },
+        TEST_SECRET,
+        { expiresIn: '1h' }
+      );
+      
+      // Mock refresh token revocation - not found
+      query.mockResolvedValueOnce({ rowCount: 0, rows: [] });
+      // Mock access token blacklist insert
+      query.mockResolvedValueOnce({ rows: [] });
+
+      const result = await auth.logout('invalid-refresh', accessToken, '123');
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('Access token revoked');
+    });
+  });
+});

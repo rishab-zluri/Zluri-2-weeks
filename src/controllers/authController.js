@@ -272,25 +272,30 @@ const changePassword = async (req, res) => {
 };
 
 /**
- * Logout - revokes refresh token
+ * Logout - revokes refresh token AND blacklists access token
  * POST /api/auth/logout
  * Body: { refreshToken }
  */
 const logout = async (req, res) => {
   try {
     const { refreshToken } = req.body;
+    
+    // Get access token for blacklisting
+    const accessToken = req.accessToken;
+    const userId = req.user?.id;
 
     if (!refreshToken) {
-      // Still return success - user wants to logout
-      // Client should clear tokens regardless
+      // Still blacklist access token if available
+      if (accessToken && userId) {
+        await auth.blacklistAccessToken(accessToken, userId);
+      }
       return response.success(res, null, 'Logged out successfully');
     }
 
-    // Revoke the refresh token in database
-    const result = await auth.logout(refreshToken);
+    // Revoke refresh token AND blacklist access token
+    const result = await auth.logout(refreshToken, accessToken, userId);
 
     if (!result.success) {
-      // Token not found or already revoked - still return success
       logger.warn('Logout: token issue', { error: result.error });
     }
 

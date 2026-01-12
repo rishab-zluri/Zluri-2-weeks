@@ -82,6 +82,43 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expir
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_active ON refresh_tokens(user_id, is_revoked, expires_at);
 
 -- ============================================================================
+-- TABLE: access_token_blacklist
+-- ============================================================================
+-- Stores blacklisted access tokens (logged out tokens)
+-- Enables immediate token invalidation on logout
+--
+-- Features:
+--   - Token stored as SHA-256 hash (not plain text)
+--   - Auto-cleanup of expired entries
+--   - Prevents use of access tokens after logout
+
+CREATE TABLE IF NOT EXISTS access_token_blacklist (
+    id SERIAL PRIMARY KEY,
+    token_hash VARCHAR(64) NOT NULL UNIQUE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    revoked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    reason VARCHAR(50) DEFAULT 'logout'
+);
+
+-- Indexes for access_token_blacklist table
+CREATE INDEX IF NOT EXISTS idx_blacklist_token_hash ON access_token_blacklist(token_hash);
+CREATE INDEX IF NOT EXISTS idx_blacklist_expires ON access_token_blacklist(expires_at);
+CREATE INDEX IF NOT EXISTS idx_blacklist_user_id ON access_token_blacklist(user_id);
+
+-- ============================================================================
+-- TABLE: user_token_invalidation
+-- ============================================================================
+-- Tracks bulk token invalidation (logout-all functionality)
+-- When a user logs out from all devices, all tokens issued before
+-- the invalidation timestamp are considered invalid
+
+CREATE TABLE IF NOT EXISTS user_token_invalidation (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    invalidated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================================
 -- TABLE: pods
 -- ============================================================================
 -- Stores POD (team) configurations for approval routing
@@ -349,6 +386,20 @@ BEGIN
     DELETE FROM refresh_tokens
     WHERE expires_at < CURRENT_TIMESTAMP
        OR is_revoked = true;
+    
+    GET DIAGNOSTICS deleted_count = ROW_COUNT;
+    RETURN deleted_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function: Cleanup expired blacklist entries (run via cron)
+CREATE OR REPLACE FUNCTION cleanup_expired_blacklist()
+RETURNS INTEGER AS $$
+DECLARE
+    deleted_count INTEGER;
+BEGIN
+    DELETE FROM access_token_blacklist
+    WHERE expires_at < CURRENT_TIMESTAMP;
     
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
     RETURN deleted_count;

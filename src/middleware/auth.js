@@ -109,6 +109,83 @@ const hashToken = (token) => {
   return crypto.createHash('sha256').update(token).digest('hex');
 };
 
+// ============================================================================
+// ACCESS TOKEN BLACKLIST
+// ============================================================================
+
+/**
+ * Check if access token is blacklisted (logged out)
+ */
+const isTokenBlacklisted = async (tokenHash) => {
+  const result = await query(
+    `SELECT 1 FROM access_token_blacklist 
+     WHERE token_hash = $1 AND expires_at > NOW()`,
+    [tokenHash]
+  );
+  return !!(result && result.rows && result.rows.length > 0);
+};
+
+/**
+ * Blacklist an access token (called on logout)
+ */
+const blacklistAccessToken = async (token, userId) => {
+  try {
+    const decoded = jwt.decode(token);
+    if (!decoded || !decoded.exp) return;
+    
+    const tokenHash = hashToken(token);
+    const expiresAt = new Date(decoded.exp * 1000);
+    
+    await query(
+      `INSERT INTO access_token_blacklist (token_hash, user_id, expires_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (token_hash) DO NOTHING`,
+      [tokenHash, userId, expiresAt]
+    );
+    
+    logger.info('Access token blacklisted', { userId });
+  } catch (error) {
+    logger.error('Failed to blacklist token', { error: error.message });
+  }
+};
+
+/**
+ * Blacklist all access tokens for a user (for logout-all)
+ * Note: This marks user_id in blacklist, checked separately
+ */
+const blacklistAllUserTokens = async (userId) => {
+  try {
+    // Insert a marker that all tokens before this time are invalid
+    await query(
+      `INSERT INTO user_token_invalidation (user_id, invalidated_at)
+       VALUES ($1, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET invalidated_at = NOW()`,
+      [userId]
+    );
+    logger.info('All user tokens invalidated', { userId });
+  } catch (error) {
+    // Table might not exist yet, log but don't fail
+    logger.warn('Could not invalidate all user tokens', { error: error.message });
+  }
+};
+
+/**
+ * Check if user's tokens were bulk invalidated after token was issued
+ */
+const areUserTokensInvalidated = async (userId, tokenIssuedAt) => {
+  try {
+    const result = await query(
+      `SELECT invalidated_at FROM user_token_invalidation 
+       WHERE user_id = $1 AND invalidated_at > $2`,
+      [userId, new Date(tokenIssuedAt * 1000)]
+    );
+    return result && result.rows && result.rows.length > 0;
+  } catch (error) {
+    // Table might not exist, return false
+    return false;
+  }
+};
+
 const verifyAccessToken = (token) => {
   try {
     return jwt.verify(token, JWT_CONFIG.accessTokenSecret, {
@@ -153,6 +230,17 @@ const authenticate = async (req, res, next) => {
 
     const decoded = verifyAccessToken(token);
 
+    // Check if token is blacklisted (user logged out)
+    const tokenHash = hashToken(token);
+    if (await isTokenBlacklisted(tokenHash)) {
+      throw new AuthenticationError('Token has been revoked');
+    }
+
+    // Check if all user tokens were invalidated (logout-all)
+    if (decoded.iat && await areUserTokensInvalidated(decoded.userId, decoded.iat)) {
+      throw new AuthenticationError('Session has been invalidated');
+    }
+
     // Attach user info to request
     req.user = {
       id: decoded.userId,
@@ -161,6 +249,9 @@ const authenticate = async (req, res, next) => {
       podId: decoded.podId,
       managedPods: decoded.managedPods || [],
     };
+    
+    // Store token for potential blacklisting on logout
+    req.accessToken = token;
 
     logger.debug('User authenticated', { 
       userId: req.user.id, 
@@ -407,7 +498,7 @@ const refreshTokens = async (refreshToken) => {
 // SESSION MANAGEMENT
 // ============================================================================
 
-const logout = async (refreshToken) => {
+const logout = async (refreshToken, accessToken = null, userId = null) => {
   try {
     const tokenHash = hashToken(refreshToken);
     const result = await query(
@@ -418,13 +509,25 @@ const logout = async (refreshToken) => {
       [tokenHash]
     );
 
+    // Get user ID from result or parameter
+    const loggedOutUserId = result?.rows?.[0]?.user_id || userId;
+
+    // Blacklist the access token so it can't be used anymore
+    if (accessToken && loggedOutUserId) {
+      await blacklistAccessToken(accessToken, loggedOutUserId);
+    }
+
     // Defensive check for undefined/null result
     if (!result || result.rowCount === 0) {
       logger.warn('Logout: token not found or already revoked');
+      // Still return success if access token was blacklisted
+      if (accessToken && loggedOutUserId) {
+        return { success: true, message: 'Access token revoked' };
+      }
       return { success: false, error: 'Token not found or already revoked' };
     }
 
-    logger.info('User logged out', { userId: result.rows?.[0]?.user_id });
+    logger.info('User logged out', { userId: loggedOutUserId });
     return { success: true };
   } catch (error) {
     logger.error('Logout error', { error: error.message });
@@ -443,6 +546,9 @@ const logoutAll = async (userId) => {
 
     // Defensive null check
     const revokedCount = result?.rowCount || 0;
+
+    // Invalidate all access tokens for this user
+    await blacklistAllUserTokens(userId);
 
     logger.info('User logged out from all devices', { 
       userId, 
@@ -523,6 +629,25 @@ const cleanupExpiredTokens = async () => {
   return deletedCount;
 };
 
+/**
+ * Cleanup expired blacklist entries
+ */
+const cleanupBlacklist = async () => {
+  try {
+    const result = await query(
+      `DELETE FROM access_token_blacklist WHERE expires_at < NOW()`
+    );
+    const deletedCount = result?.rowCount || 0;
+    if (deletedCount > 0) {
+      logger.info('Cleaned up blacklist', { count: deletedCount });
+    }
+    return deletedCount;
+  } catch (error) {
+    logger.warn('Could not cleanup blacklist', { error: error.message });
+    return 0;
+  }
+};
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
@@ -551,6 +676,13 @@ module.exports = {
   logoutAll,
   getActiveSessions,
   revokeSession,
+  
+  // Token blacklist
+  isTokenBlacklisted,
+  blacklistAccessToken,
+  blacklistAllUserTokens,
+  areUserTokensInvalidated,
+  cleanupBlacklist,
   
   // Utilities
   hashToken,
