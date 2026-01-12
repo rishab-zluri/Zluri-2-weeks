@@ -35,6 +35,212 @@ const truncate = (text, maxLength = 200) => {
 };
 
 /**
+ * Format execution result for concise Slack display
+ * @param {string} resultStr - JSON string of execution result
+ * @returns {Object} Formatted result with summary, preview, and error info
+ */
+/* istanbul ignore next */
+const formatExecutionResult = (resultStr) => {
+  try {
+    const result = JSON.parse(resultStr);
+    
+    // Check if execution failed (success: false in result)
+    if (result.success === false || (result.executionResult && result.executionResult.success === false)) {
+      const errorData = result.error || result.executionResult?.error || {};
+      return {
+        success: false,
+        error: {
+          type: errorData.type || 'Error',
+          message: errorData.message || 'Execution failed',
+          line: errorData.line || null,
+          code: errorData.code || null,
+        },
+        duration: result.duration || result.executionResult?.duration || null,
+      };
+    }
+    
+    // Build concise summary from various sources
+    const parts = [];
+    let totalRowsFetched = 0;
+    let totalRowsAffected = 0;
+    let totalQueries = 0;
+    let totalOperations = 0;
+    let totalDocs = 0;
+    
+    // Check summary object first
+    const summary = result.summary || result.executionResult?.summary || {};
+    if (summary.rowsReturned) totalRowsFetched += summary.rowsReturned;
+    if (summary.rowsAffected) totalRowsAffected += summary.rowsAffected;
+    if (summary.totalQueries) totalQueries += summary.totalQueries;
+    if (summary.totalOperations) totalOperations += summary.totalOperations;
+    if (summary.documentsProcessed) totalDocs += summary.documentsProcessed;
+    
+    // Parse output array for more details
+    const output = result.output || result.executionResult?.output || [];
+    if (Array.isArray(output)) {
+      for (const item of output) {
+        if (item.type === 'query') {
+          totalQueries++;
+          if (item.rowCount) {
+            if (item.queryType === 'SELECT') {
+              totalRowsFetched += item.rowCount;
+            } else {
+              totalRowsAffected += item.rowCount;
+            }
+          }
+        }
+        if (item.type === 'data') {
+          const count = item.totalRows || item.totalDocs || (item.preview?.length || 0);
+          if (count > 0 && totalRowsFetched === 0) {
+            totalRowsFetched = count;
+          }
+        }
+        if (item.type === 'result' && item.rowsAffected) {
+          totalRowsAffected += item.rowsAffected;
+        }
+        if (item.type === 'operation') {
+          totalOperations++;
+          if (item.count) totalDocs += item.count;
+          if (item.insertedCount) totalDocs += item.insertedCount;
+          if (item.modifiedCount) totalRowsAffected += item.modifiedCount;
+          if (item.deletedCount) totalRowsAffected += item.deletedCount;
+        }
+      }
+    }
+    
+    // Also check direct rowCount on result
+    if (result.rowCount && totalRowsFetched === 0) {
+      totalRowsFetched = result.rowCount;
+    }
+    
+    // Build summary text
+    if (totalRowsFetched > 0) {
+      parts.push(`📊 ${totalRowsFetched} row(s) fetched`);
+    }
+    if (totalRowsAffected > 0) {
+      parts.push(`✏️ ${totalRowsAffected} row(s) affected`);
+    }
+    if (totalDocs > 0) {
+      parts.push(`📄 ${totalDocs} document(s) processed`);
+    }
+    if (totalQueries > 0) {
+      parts.push(`🔍 ${totalQueries} query(ies) executed`);
+    }
+    if (totalOperations > 0) {
+      parts.push(`⚙️ ${totalOperations} operation(s) completed`);
+    }
+    
+    const summaryText = parts.length > 0 ? parts.join(' | ') : 'Execution completed';
+    
+    // Get data preview (first few rows)
+    let preview = '';
+    if (Array.isArray(output)) {
+      const dataItems = output.filter(item => item.type === 'data');
+      if (dataItems.length > 0 && dataItems[0].preview) {
+        const rows = dataItems[0].preview.slice(0, 3);
+        if (rows.length > 0) {
+          preview = rows.map(row => {
+            const rowStr = JSON.stringify(row);
+            return rowStr.length > 100 ? rowStr.substring(0, 97) + '...' : rowStr;
+          }).join('\n');
+          
+          const total = dataItems[0].totalRows || dataItems[0].totalDocs || rows.length;
+          if (total > 3) {
+            preview += `\n... and ${total - 3} more row(s)`;
+          }
+        }
+      }
+    }
+    
+    // For simple query results (direct rows)
+    if (!preview && result.rows && Array.isArray(result.rows) && result.rows.length > 0) {
+      const rows = result.rows.slice(0, 3);
+      preview = rows.map(row => {
+        const rowStr = JSON.stringify(row);
+        return rowStr.length > 100 ? rowStr.substring(0, 97) + '...' : rowStr;
+      }).join('\n');
+      
+      if (result.rows.length > 3) {
+        preview += `\n... and ${result.rows.length - 3} more row(s)`;
+      }
+    }
+    
+    // Check result object for rows
+    if (!preview && result.result?.rows && Array.isArray(result.result.rows) && result.result.rows.length > 0) {
+      const rows = result.result.rows.slice(0, 3);
+      preview = rows.map(row => {
+        const rowStr = JSON.stringify(row);
+        return rowStr.length > 100 ? rowStr.substring(0, 97) + '...' : rowStr;
+      }).join('\n');
+      
+      if (result.result.rows.length > 3) {
+        preview += `\n... and ${result.result.rows.length - 3} more row(s)`;
+      }
+    }
+    
+    return {
+      success: true,
+      summary: summaryText,
+      preview: preview || null,
+      duration: result.duration || result.executionResult?.duration || null,
+    };
+  } catch (e) {
+    return {
+      success: true,
+      summary: 'Execution completed',
+      preview: truncate(resultStr, 300),
+      duration: null,
+    };
+  }
+};
+
+/**
+ * Format error for concise Slack display
+ * @param {string} errorMessage - Error message or JSON string
+ * @returns {Object} Formatted error with type, message, and line
+ */
+/* istanbul ignore next */
+const formatErrorMessage = (errorMessage) => {
+  try {
+    // Try to parse as JSON (from script execution)
+    const parsed = JSON.parse(errorMessage);
+    if (parsed.error) {
+      return {
+        type: parsed.error.type || 'Error',
+        message: parsed.error.message || errorMessage,
+        line: parsed.error.line || null,
+      };
+    }
+  } catch (e) {
+    // Not JSON, parse the string
+  }
+  
+  // Extract error type from message
+  let errorType = 'Error';
+  let line = null;
+  let cleanMessage = errorMessage;
+  
+  // Check for common error types
+  const typeMatch = errorMessage.match(/^(SyntaxError|TypeError|ReferenceError|DatabaseError|TimeoutError|ConnectionError|ValidationError):/i);
+  if (typeMatch) {
+    errorType = typeMatch[1];
+    cleanMessage = errorMessage.substring(typeMatch[0].length).trim();
+  }
+  
+  // Extract line number if present
+  const lineMatch = errorMessage.match(/line\s*(\d+)/i) || errorMessage.match(/:(\d+):\d+/);
+  if (lineMatch) {
+    line = parseInt(lineMatch[1]);
+  }
+  
+  return {
+    type: errorType,
+    message: cleanMessage,
+    line,
+  };
+};
+
+/**
  * Format query preview for Slack
  * @param {Object} request - Query request object
  * @returns {string} Formatted query preview
@@ -148,15 +354,26 @@ const notifyApprovalSuccess = async (request, result) => {
   if (!isConfigured()) return;
 
   try {
-    // Send to approval channel
-    const channelMessage = {
-      channel: config.slack.approvalChannel,
-      blocks: [
+    // Format result for concise display
+    const formatted = formatExecutionResult(result);
+    
+    // If execution actually failed, send failure notification instead
+    if (formatted.success === false) {
+      let errorText = `*Error Type:* ${formatted.error.type}`;
+      if (formatted.error.code) {
+        errorText += ` (Code: ${formatted.error.code})`;
+      }
+      if (formatted.error.line) {
+        errorText += ` at Line ${formatted.error.line}`;
+      }
+      errorText += `\n*Reason:* ${truncate(formatted.error.message, 300)}`;
+      
+      const blocks = [
         {
           type: 'header',
           text: {
             type: 'plain_text',
-            text: '✅ Query Executed Successfully',
+            text: '❌ Query Execution Failed',
             emoji: true,
           },
         },
@@ -177,10 +394,87 @@ const notifyApprovalSuccess = async (request, result) => {
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `*Result:*\n\`\`\`${truncate(result, 1000)}\`\`\``,
+            text: errorText,
           },
         },
-      ],
+      ];
+      
+      if (formatted.duration) {
+        blocks.push({
+          type: 'context',
+          elements: [{
+            type: 'mrkdwn',
+            text: `⏱️ Duration: ${formatted.duration}ms`,
+          }],
+        });
+      }
+
+      const channelMessage = {
+        channel: config.slack.approvalChannel,
+        blocks,
+        text: `Query #${request.id} execution failed`,
+      };
+
+      await slackClient.chat.postMessage(channelMessage);
+
+      const slackUserId = await getSlackUserId(request);
+      if (slackUserId) {
+        await sendDirectMessage(slackUserId, channelMessage.blocks, channelMessage.text);
+      }
+      
+      logger.info('Slack execution failure notification sent', { requestId: request.id });
+      return;
+    }
+    
+    // Success case
+    const durationText = formatted.duration ? ` (${formatted.duration}ms)` : '';
+    
+    const blocks = [
+      {
+        type: 'header',
+        text: {
+          type: 'plain_text',
+          text: '✅ Query Executed Successfully',
+          emoji: true,
+        },
+      },
+      {
+        type: 'section',
+        fields: [
+          {
+            type: 'mrkdwn',
+            text: `*Request ID:*\n#${request.id}`,
+          },
+          {
+            type: 'mrkdwn',
+            text: `*Approved by:*\n${request.approverEmail}`,
+          },
+        ],
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Summary:*\n${formatted.summary}${durationText}`,
+        },
+      },
+    ];
+    
+    // Add preview only if there's data to show
+    if (formatted.preview) {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Preview:*\n\`\`\`${formatted.preview}\`\`\``,
+        },
+      });
+    }
+
+    // Send to approval channel
+    const channelMessage = {
+      channel: config.slack.approvalChannel,
+      blocks,
       text: `Query #${request.id} executed successfully`,
     };
 
@@ -211,6 +505,15 @@ const notifyApprovalFailure = async (request, errorMessage) => {
   if (!isConfigured()) return;
 
   try {
+    // Format error for concise display
+    const formatted = formatErrorMessage(errorMessage);
+    
+    let errorText = `*Error Type:* ${formatted.type}`;
+    if (formatted.line) {
+      errorText += ` (Line ${formatted.line})`;
+    }
+    errorText += `\n*Reason:* ${truncate(formatted.message, 300)}`;
+    
     const blocks = [
       {
         type: 'header',
@@ -237,7 +540,7 @@ const notifyApprovalFailure = async (request, errorMessage) => {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*Error:*\n\`\`\`${truncate(errorMessage, 500)}\`\`\``,
+          text: errorText,
         },
       },
     ];
