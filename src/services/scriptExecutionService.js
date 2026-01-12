@@ -33,7 +33,10 @@ const EXECUTION_CONFIG = {
 
 function validateScriptSyntax(scriptContent) {
   try {
-    new Function(scriptContent);
+    // Wrap in async function to allow top-level await
+    // This matches how we execute the script
+    const wrappedScript = `(async () => { ${scriptContent} })()`;
+    new Function(wrappedScript);
     return { valid: true };
   } catch (error) {
     /* istanbul ignore next - syntax error parsing varies by environment */

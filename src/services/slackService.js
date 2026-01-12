@@ -119,6 +119,26 @@ const notifyNewSubmission = async (request) => {
 };
 
 /**
+ * Get Slack user ID - either from request or by looking up email
+ * @param {Object} request - Request object with slackUserId or userEmail
+ * @returns {string|null} Slack user ID or null
+ */
+/* istanbul ignore next */
+const getSlackUserId = async (request) => {
+  // If we already have the Slack user ID, use it
+  if (request.slackUserId) {
+    return request.slackUserId;
+  }
+  
+  // Try to look up by email
+  if (request.userEmail) {
+    return await lookupUserByEmail(request.userEmail);
+  }
+  
+  return null;
+};
+
+/**
  * Send notification for approval with results
  * @param {Object} request - Query request object
  * @param {string} result - Execution result
@@ -166,9 +186,13 @@ const notifyApprovalSuccess = async (request, result) => {
 
     await slackClient.chat.postMessage(channelMessage);
 
-    // Send DM to requester if we have their Slack ID
-    if (request.slackUserId) {
-      await sendDirectMessage(request.slackUserId, channelMessage.blocks, channelMessage.text);
+    // Send DM to requester - look up by email if slackUserId not set
+    const slackUserId = await getSlackUserId(request);
+    if (slackUserId) {
+      await sendDirectMessage(slackUserId, channelMessage.blocks, channelMessage.text);
+      logger.info('Sent DM to requester', { requestId: request.id, slackUserId });
+    } else {
+      logger.warn('Could not send DM - no Slack user ID found', { requestId: request.id, email: request.userEmail });
     }
 
     logger.info('Slack approval success notification sent', { requestId: request.id });
@@ -225,9 +249,13 @@ const notifyApprovalFailure = async (request, errorMessage) => {
       text: `Query #${request.id} execution failed`,
     });
 
-    // Send DM to requester
-    if (request.slackUserId) {
-      await sendDirectMessage(request.slackUserId, blocks, `Query #${request.id} execution failed`);
+    // Send DM to requester - look up by email if slackUserId not set
+    const slackUserId = await getSlackUserId(request);
+    if (slackUserId) {
+      await sendDirectMessage(slackUserId, blocks, `Query #${request.id} execution failed`);
+      logger.info('Sent failure DM to requester', { requestId: request.id, slackUserId });
+    } else {
+      logger.warn('Could not send failure DM - no Slack user ID found', { requestId: request.id, email: request.userEmail });
     }
 
     logger.info('Slack failure notification sent', { requestId: request.id });
@@ -287,9 +315,13 @@ const notifyRejection = async (request) => {
       },
     ];
 
-    // Send DM to requester only
-    if (request.slackUserId) {
-      await sendDirectMessage(request.slackUserId, blocks, `Query #${request.id} rejected`);
+    // Send DM to requester only - look up by email if slackUserId not set
+    const slackUserId = await getSlackUserId(request);
+    if (slackUserId) {
+      await sendDirectMessage(slackUserId, blocks, `Query #${request.id} rejected`);
+      logger.info('Sent rejection DM to requester', { requestId: request.id, slackUserId });
+    } else {
+      logger.warn('Could not send rejection DM - no Slack user ID found', { requestId: request.id, email: request.userEmail });
     }
 
     logger.info('Slack rejection notification sent', { requestId: request.id });

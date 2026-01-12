@@ -269,7 +269,7 @@ const approveRequest = async (req, res) => {
 
     // Send success notification
     await slackService.notifyApprovalSuccess(
-      { ...approvedRequest, slackUserId: requester?.slackUserId },
+      { ...approvedRequest, slackUserId: requester?.slackUserId, userEmail: requester?.email || approvedRequest.userEmail },
       resultStr
     );
 
@@ -290,7 +290,7 @@ const approveRequest = async (req, res) => {
 
     // Send failure notification
     await slackService.notifyApprovalFailure(
-      { ...approvedRequest, slackUserId: requester?.slackUserId },
+      { ...approvedRequest, slackUserId: requester?.slackUserId, userEmail: requester?.email || approvedRequest.userEmail },
       errorMessage
     );
 
@@ -347,6 +347,7 @@ const rejectRequest = async (req, res) => {
   await slackService.notifyRejection({
     ...rejectedRequest,
     slackUserId: requester?.slackUserId,
+    userEmail: requester?.email || rejectedRequest.userEmail,
   });
 
   logger.info('Request rejected', { requestId: internalId, uuid, rejectorId: user.id, reason });

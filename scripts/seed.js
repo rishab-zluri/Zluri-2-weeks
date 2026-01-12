@@ -135,11 +135,11 @@ const seedUsers = async (client) => {
     // Test user from reference
     {
       email: 'rishab.a@zluri.com',
-      password: 'Rishab@123!',
-      name: 'Rishab A',
+      password: '123@Acharjee',
+      name: 'Rishab Acharjee',
       role: 'developer',
       podId: 'pod-1',
-      slackUserId: 'U013RISHAB',
+      slackUserId: null,  // Will be looked up by email automatically
     },
   ];
   
