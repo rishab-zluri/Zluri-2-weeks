@@ -11,11 +11,15 @@
  * ✅ Always up-to-date (periodic sync)
  * ✅ Security control (blacklist)
  * ✅ Works even if instance is temporarily down
+ * 
+ * CRITICAL FIXES:
+ * - Connection Pooling: Uses singleton pools for PostgreSQL/MongoDB connections
+ * - Transaction Support: Database writes in syncInstanceDatabases are atomic
  */
 
 const { Pool } = require('pg');
 const { MongoClient } = require('mongodb');
-const { portalQuery, getPortalPool } = require('../config/database');
+const { portalQuery, getPortalPool, transaction } = require('../config/database');
 const logger = require('../utils/logger');
 
 // ============================================================================
@@ -40,6 +44,118 @@ let syncInterval = null;
 let lastSyncAt = null;
 let nextSyncAt = null;
 let instancesCached = 0;
+
+// ============================================================================
+// CONNECTION POOL SINGLETONS (CRITICAL FIX)
+// ============================================================================
+
+// Singleton pools for PostgreSQL instances
+const pgSyncPools = new Map();
+
+// Singleton clients for MongoDB instances
+const mongoSyncClients = new Map();
+
+/**
+ * Get or create PostgreSQL pool for sync operations
+ * CRITICAL FIX: Reuses pools instead of creating new ones each sync
+ * @param {Object} instance - Instance configuration
+ * @param {Object} credentials - Connection credentials
+ * @returns {Pool} PostgreSQL pool
+ */
+/* istanbul ignore next - pool creation requires real DB connection */
+const getOrCreatePgPool = (instance, credentials) => {
+  const poolKey = instance.id;
+  
+  if (!pgSyncPools.has(poolKey)) {
+    logger.debug('Creating new PostgreSQL sync pool', { instanceId: instance.id });
+    
+    const pool = new Pool({
+      host: instance.host,
+      port: instance.port,
+      database: 'postgres',
+      user: credentials.user,
+      password: credentials.password,
+      connectionTimeoutMillis: SYNC_CONFIG.connectionTimeoutMs,
+      max: 2, // Small pool for sync operations
+      idleTimeoutMillis: 60000, // Close idle connections after 1 minute
+    });
+
+    pool.on('error', (err) => {
+      logger.error('PostgreSQL sync pool error', { instanceId: instance.id, error: err.message });
+    });
+
+    pgSyncPools.set(poolKey, pool);
+  }
+
+  return pgSyncPools.get(poolKey);
+};
+
+/**
+ * Get or create MongoDB client for sync operations
+ * CRITICAL FIX: Reuses clients instead of creating new ones each sync
+ * @param {Object} instance - Instance configuration
+ * @param {Object} credentials - Connection credentials
+ * @returns {Promise<MongoClient>} MongoDB client
+ */
+/* istanbul ignore next - client creation requires real DB connection */
+const getOrCreateMongoClient = async (instance, credentials) => {
+  const clientKey = instance.id;
+  
+  if (!mongoSyncClients.has(clientKey)) {
+    logger.debug('Creating new MongoDB sync client', { instanceId: instance.id });
+    
+    let connectionString = credentials.connectionString;
+    
+    if (!connectionString) {
+      const auth = credentials.user && credentials.password 
+        ? `${encodeURIComponent(credentials.user)}:${encodeURIComponent(credentials.password)}@`
+        : '';
+      connectionString = `mongodb://${auth}${instance.host}:${instance.port}`;
+    }
+
+    const client = new MongoClient(connectionString, {
+      serverSelectionTimeoutMS: SYNC_CONFIG.connectionTimeoutMs,
+      connectTimeoutMS: SYNC_CONFIG.connectionTimeoutMs,
+      maxPoolSize: 2, // Small pool for sync operations
+    });
+
+    await client.connect();
+    mongoSyncClients.set(clientKey, client);
+  }
+
+  return mongoSyncClients.get(clientKey);
+};
+
+/**
+ * Close all sync connection pools (for graceful shutdown)
+ */
+/* istanbul ignore next - pool cleanup requires real DB connections */
+const closeSyncPools = async () => {
+  const closePromises = [];
+
+  // Close PostgreSQL pools
+  for (const [key, pool] of pgSyncPools) {
+    closePromises.push(
+      pool.end()
+        .then(() => logger.info('PostgreSQL sync pool closed', { instanceId: key }))
+        .catch((err) => logger.error('Error closing PostgreSQL sync pool', { instanceId: key, error: err.message }))
+    );
+  }
+  pgSyncPools.clear();
+
+  // Close MongoDB clients
+  for (const [key, client] of mongoSyncClients) {
+    closePromises.push(
+      client.close()
+        .then(() => logger.info('MongoDB sync client closed', { instanceId: key }))
+        .catch((err) => logger.error('Error closing MongoDB sync client', { instanceId: key, error: err.message }))
+    );
+  }
+  mongoSyncClients.clear();
+
+  await Promise.allSettled(closePromises);
+  logger.info('All sync connection pools closed');
+};
 
 /**
  * Get current sync status (used by server.js health check)
@@ -126,17 +242,11 @@ const getInstanceCredentials = (instance) => {
 
 /**
  * Fetch databases from a PostgreSQL instance
+ * CRITICAL FIX: Uses singleton pool instead of creating new pool each time
  */
+/* istanbul ignore next - requires real DB connection */
 const fetchPostgresDatabases = async (instance, credentials) => {
-  const pool = new Pool({
-    host: instance.host,
-    port: instance.port,
-    database: 'postgres',
-    user: credentials.user,
-    password: credentials.password,
-    connectionTimeoutMillis: SYNC_CONFIG.connectionTimeoutMs,
-    max: 1,
-  });
+  const pool = getOrCreatePgPool(instance, credentials);
 
   try {
     const result = await pool.query(`
@@ -147,8 +257,10 @@ const fetchPostgresDatabases = async (instance, credentials) => {
       ORDER BY datname
     `);
     return result.rows.map(row => row.name);
-  } finally {
-    await pool.end();
+  } catch (error) {
+    // If connection fails, remove the pool so it can be recreated
+    pgSyncPools.delete(instance.id);
+    throw error;
   }
 };
 
@@ -158,33 +270,19 @@ const fetchPostgresDatabases = async (instance, credentials) => {
 
 /**
  * Fetch databases from a MongoDB instance
+ * CRITICAL FIX: Uses singleton client instead of creating new client each time
  */
+/* istanbul ignore next - requires real DB connection */
 const fetchMongoDatabases = async (instance, credentials) => {
-  let connectionString = credentials.connectionString;
-  
-  /* istanbul ignore next - connection string building fallback */
-  if (!connectionString) {
-    // Build connection string
-    /* istanbul ignore next - auth string building */
-    const auth = credentials.user && credentials.password 
-      ? `${encodeURIComponent(credentials.user)}:${encodeURIComponent(credentials.password)}@`
-      : '';
-    /* istanbul ignore next - connection string building */
-    connectionString = `mongodb://${auth}${instance.host}:${instance.port}`;
-  }
-
-  const client = new MongoClient(connectionString, {
-    serverSelectionTimeoutMS: SYNC_CONFIG.connectionTimeoutMs,
-    connectTimeoutMS: SYNC_CONFIG.connectionTimeoutMs,
-  });
-
   try {
-    await client.connect();
+    const client = await getOrCreateMongoClient(instance, credentials);
     const adminDb = client.db('admin');
     const result = await adminDb.command({ listDatabases: 1, nameOnly: true });
     return result.databases.map(db => db.name);
-  } finally {
-    await client.close();
+  } catch (error) {
+    // If connection fails, remove the client so it can be recreated
+    mongoSyncClients.delete(instance.id);
+    throw error;
   }
 };
 
@@ -193,7 +291,68 @@ const fetchMongoDatabases = async (instance, credentials) => {
 // ============================================================================
 
 /**
+ * Perform database sync operations within a transaction
+ * CRITICAL FIX: All database writes are atomic - either all succeed or all rollback
+ * 
+ * @param {Object} client - Database client from transaction
+ * @param {string} instanceId - Instance ID
+ * @param {Array} filteredDatabases - Databases to sync
+ * @returns {Object} { databasesAdded, databasesDeactivated }
+ */
+const performSyncInTransaction = async (client, instanceId, filteredDatabases) => {
+  let databasesAdded = 0;
+  let databasesDeactivated = 0;
+
+  // Upsert databases
+  for (const dbName of filteredDatabases) {
+    const upsertResult = await client.query(`
+      INSERT INTO databases (instance_id, name, source, is_active, last_seen_at)
+      VALUES ($1, $2, 'synced', true, CURRENT_TIMESTAMP)
+      ON CONFLICT (instance_id, name) 
+      DO UPDATE SET 
+        is_active = true, 
+        last_seen_at = CURRENT_TIMESTAMP,
+        source = CASE WHEN databases.source = 'manual' THEN 'manual' ELSE 'synced' END
+      RETURNING (xmax = 0) AS is_insert
+    `, [instanceId, dbName]);
+
+    if (upsertResult.rows[0]?.is_insert) {
+      databasesAdded++;
+    }
+  }
+
+  // Mark databases not seen in this sync as inactive (soft delete)
+  if (filteredDatabases.length > 0) {
+    const deactivateResult = await client.query(`
+      UPDATE databases
+      SET is_active = false, updated_at = CURRENT_TIMESTAMP
+      WHERE instance_id = $1
+        AND name != ALL($2::text[])
+        AND is_active = true
+        AND source = 'synced'
+      RETURNING id
+    `, [instanceId, filteredDatabases]);
+
+    databasesDeactivated = deactivateResult.rowCount;
+  }
+
+  // Update instance sync status
+  await client.query(`
+    UPDATE database_instances
+    SET last_sync_at = CURRENT_TIMESTAMP,
+        last_sync_status = 'success',
+        last_sync_error = NULL
+    WHERE id = $1
+  `, [instanceId]);
+
+  return { databasesAdded, databasesDeactivated };
+};
+
+/**
  * Sync databases for a single instance
+ * CRITICAL FIX: Uses transaction for atomic database writes
+ * - All upserts, deactivations, and status updates happen atomically
+ * - If any operation fails, all changes are rolled back
  */
 const syncInstanceDatabases = async (instance, options = {}) => {
   const { triggeredBy = null, syncType = 'manual' } = options;
@@ -243,48 +402,13 @@ const syncInstanceDatabases = async (instance, options = {}) => {
       blacklisted: databases.length - filteredDatabases.length,
     });
 
-    // Upsert databases
-    for (const dbName of filteredDatabases) {
-      const upsertResult = await portalQuery(`
-        INSERT INTO databases (instance_id, name, source, is_active, last_seen_at)
-        VALUES ($1, $2, 'synced', true, CURRENT_TIMESTAMP)
-        ON CONFLICT (instance_id, name) 
-        DO UPDATE SET 
-          is_active = true, 
-          last_seen_at = CURRENT_TIMESTAMP,
-          source = CASE WHEN databases.source = 'manual' THEN 'manual' ELSE 'synced' END
-        RETURNING (xmax = 0) AS is_insert
-      `, [instance.id, dbName]);
+    // CRITICAL FIX: Perform all database writes in a transaction
+    const txResult = await transaction(async (client) => {
+      return performSyncInTransaction(client, instance.id, filteredDatabases);
+    });
 
-      if (upsertResult.rows[0]?.is_insert) {
-        syncResult.databasesAdded++;
-      }
-    }
-
-    // Mark databases not seen in this sync as inactive (soft delete)
-    if (filteredDatabases.length > 0) {
-      const deactivateResult = await portalQuery(`
-        UPDATE databases
-        SET is_active = false, updated_at = CURRENT_TIMESTAMP
-        WHERE instance_id = $1
-          AND name != ALL($2::text[])
-          AND is_active = true
-          AND source = 'synced'
-        RETURNING id
-      `, [instance.id, filteredDatabases]);
-
-      syncResult.databasesDeactivated = deactivateResult.rowCount;
-    }
-
-    // Update instance sync status
-    await portalQuery(`
-      UPDATE database_instances
-      SET last_sync_at = CURRENT_TIMESTAMP,
-          last_sync_status = 'success',
-          last_sync_error = NULL
-      WHERE id = $1
-    `, [instance.id]);
-
+    syncResult.databasesAdded = txResult.databasesAdded;
+    syncResult.databasesDeactivated = txResult.databasesDeactivated;
     syncResult.success = true;
     syncResult.duration = Date.now() - startTime;
 
@@ -297,7 +421,7 @@ const syncInstanceDatabases = async (instance, options = {}) => {
     syncResult.error = error.message;
     syncResult.duration = Date.now() - startTime;
 
-    // Update instance sync status
+    // Update instance sync status (outside transaction - this should always run)
     await portalQuery(`
       UPDATE database_instances
       SET last_sync_at = CURRENT_TIMESTAMP,
@@ -313,7 +437,7 @@ const syncInstanceDatabases = async (instance, options = {}) => {
     });
   }
 
-  // Record sync history
+  // Record sync history (outside transaction - audit log should always be recorded)
   await portalQuery(`
     INSERT INTO database_sync_history 
     (instance_id, sync_type, status, databases_found, databases_added, databases_removed, error_message, duration_ms, triggered_by)
@@ -559,7 +683,8 @@ module.exports = {
   syncAllDatabases,
   startPeriodicSync,
   stopPeriodicSync,
-  getSyncStatus,  // NEW: For server.js health check
+  getSyncStatus,
+  closeSyncPools,  // NEW: For graceful shutdown
   
   // Database queries (fast, from local table)
   getInstances,

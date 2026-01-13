@@ -1,10 +1,14 @@
 /**
  * User Model
  * Database operations for user management
+ * 
+ * REFACTORED with:
+ * - DRY principle: Common filter builder for findAll and count
+ * - Field-based filtering: Dynamic filter application using field mapping
  */
 
 const bcrypt = require('bcryptjs');
-const { query, transaction } = require('../config/database');
+const { query } = require('../config/database');
 const logger = require('../utils/logger');
 const { DatabaseError, NotFoundError, ConflictError, ValidationError } = require('../utils/errors');
 
@@ -18,6 +22,49 @@ const UserRoles = {
   MANAGER: 'manager',
   ADMIN: 'admin',
 };
+
+// ============================================================================
+// DRY FILTER BUILDER
+// ============================================================================
+
+/**
+ * Filter field mapping for dynamic query building
+ * Maps filter keys to their database columns
+ */
+const FILTER_FIELDS = {
+  role: { column: 'role' },
+  podId: { column: 'pod_id' },
+  isActive: { column: 'is_active' },
+};
+
+/**
+ * Apply filters dynamically using FILTER_FIELDS mapping
+ * DRY helper to reduce code duplication in findAll and count
+ * 
+ * @param {Object} filters - Filter object
+ * @returns {Object} { whereClauses, params }
+ */
+const applyFilters = (filters) => {
+  const whereClauses = [];
+  const params = [];
+  
+  for (const [key, value] of Object.entries(filters)) {
+    // Skip null/undefined but allow false for isActive
+    if (value === null || value === undefined) continue;
+    
+    const fieldConfig = FILTER_FIELDS[key];
+    if (!fieldConfig) continue;
+    
+    params.push(value);
+    whereClauses.push(`${fieldConfig.column} = $${params.length}`);
+  }
+  
+  return { whereClauses, params };
+};
+
+// ============================================================================
+// TABLE CREATION
+// ============================================================================
 
 /**
  * Create users table if not exists
@@ -52,6 +99,10 @@ const createTable = async () => {
   }
 };
 
+// ============================================================================
+// CREATE OPERATION
+// ============================================================================
+
 /**
  * Create a new user
  * @param {Object} userData - User data
@@ -78,6 +129,10 @@ const create = async ({ email, password, name, role = UserRoles.DEVELOPER, podId
     throw new DatabaseError('Failed to create user');
   }
 };
+
+// ============================================================================
+// FIND OPERATIONS
+// ============================================================================
 
 /**
  * Find user by email
@@ -125,34 +180,30 @@ const findById = async (id) => {
 
 /**
  * Find all users with optional filters
+ * REFACTORED: Uses field-based filtering instead of multiple if blocks
  * @param {Object} filters - Filter options
  * @returns {Array} Array of users
  */
 const findAll = async ({ role = null, podId = null, isActive = null, limit = 100, offset = 0 } = {}) => {
+  // Apply filters using DRY helper
+  const { whereClauses, params } = applyFilters({ role, podId, isActive });
+  
+  // Build query
   let sql = `
     SELECT id, email, name, role, pod_id, slack_user_id, is_active, last_login, created_at
     FROM users WHERE 1=1
   `;
-  const params = [];
-  let paramIndex = 1;
-
-  if (role) {
-    sql += ` AND role = $${paramIndex++}`;
-    params.push(role);
+  
+  if (whereClauses.length > 0) {
+    sql += ' AND ' + whereClauses.join(' AND ');
   }
-
-  if (podId) {
-    sql += ` AND pod_id = $${paramIndex++}`;
-    params.push(podId);
-  }
-
-  if (isActive !== null) {
-    sql += ` AND is_active = $${paramIndex++}`;
-    params.push(isActive);
-  }
-
-  sql += ` ORDER BY created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex}`;
-  params.push(limit, offset);
+  
+  // Add pagination
+  params.push(limit);
+  sql += ` ORDER BY created_at DESC LIMIT $${params.length}`;
+  
+  params.push(offset);
+  sql += ` OFFSET $${params.length}`;
 
   try {
     const result = await query(sql, params);
@@ -163,29 +214,25 @@ const findAll = async ({ role = null, podId = null, isActive = null, limit = 100
   }
 };
 
+// ============================================================================
+// COUNT OPERATION
+// ============================================================================
+
 /**
  * Count users with filters
+ * REFACTORED: Uses field-based filtering instead of multiple if blocks
  * @param {Object} filters - Filter options
  * @returns {number} Count of users
  */
 const count = async ({ role = null, podId = null, isActive = null } = {}) => {
+  // Apply filters using DRY helper
+  const { whereClauses, params } = applyFilters({ role, podId, isActive });
+  
+  // Build query
   let sql = 'SELECT COUNT(*) as count FROM users WHERE 1=1';
-  const params = [];
-  let paramIndex = 1;
-
-  if (role) {
-    sql += ` AND role = $${paramIndex++}`;
-    params.push(role);
-  }
-
-  if (podId) {
-    sql += ` AND pod_id = $${paramIndex++}`;
-    params.push(podId);
-  }
-
-  if (isActive !== null) {
-    sql += ` AND is_active = $${paramIndex++}`;
-    params.push(isActive);
+  
+  if (whereClauses.length > 0) {
+    sql += ' AND ' + whereClauses.join(' AND ');
   }
 
   try {
@@ -197,6 +244,10 @@ const count = async ({ role = null, podId = null, isActive = null } = {}) => {
   }
 };
 
+// ============================================================================
+// UPDATE OPERATIONS
+// ============================================================================
+
 /**
  * Update user
  * @param {string} id - User ID
@@ -207,13 +258,12 @@ const update = async (id, updates) => {
   const allowedFields = ['name', 'role', 'pod_id', 'slack_user_id', 'is_active'];
   const updateFields = [];
   const params = [];
-  let paramIndex = 1;
 
   Object.entries(updates).forEach(([key, value]) => {
     const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
     if (allowedFields.includes(snakeKey) && value !== undefined) {
-      updateFields.push(`${snakeKey} = $${paramIndex++}`);
       params.push(value);
+      updateFields.push(`${snakeKey} = $${params.length}`);
     }
   });
 
@@ -226,7 +276,7 @@ const update = async (id, updates) => {
 
   const sql = `
     UPDATE users SET ${updateFields.join(', ')}
-    WHERE id = $${paramIndex}
+    WHERE id = $${params.length}
     RETURNING id, email, name, role, pod_id, slack_user_id, is_active, created_at, updated_at
   `;
 
@@ -318,6 +368,10 @@ const softDelete = async (id) => {
   }
 };
 
+// ============================================================================
+// ROW MAPPER
+// ============================================================================
+
 /**
  * Map database row to user object
  * @param {Object} row - Database row
@@ -345,6 +399,10 @@ const mapUserRow = (row, includePassword = false) => {
   return user;
 };
 
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
 module.exports = {
   UserRoles,
   createTable,
@@ -358,4 +416,9 @@ module.exports = {
   updateLastLogin,
   verifyPassword,
   softDelete,
+  // Internal helpers (exported for testing)
+  _internal: {
+    applyFilters,
+    FILTER_FIELDS,
+  },
 };

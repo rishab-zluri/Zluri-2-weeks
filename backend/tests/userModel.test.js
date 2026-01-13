@@ -452,4 +452,116 @@ describe('User Model', () => {
       await expect(User.softDelete('user-123')).rejects.toThrow(DatabaseError);
     });
   });
+
+  // ============================================================================
+  // DRY HELPER FUNCTIONS TESTS
+  // ============================================================================
+
+  describe('DRY Helper Functions - _internal', () => {
+    const { applyFilters, FILTER_FIELDS } = User._internal;
+
+    describe('FILTER_FIELDS mapping', () => {
+      it('should have correct field mappings', () => {
+        expect(FILTER_FIELDS.role).toEqual({ column: 'role' });
+        expect(FILTER_FIELDS.podId).toEqual({ column: 'pod_id' });
+        expect(FILTER_FIELDS.isActive).toEqual({ column: 'is_active' });
+      });
+    });
+
+    describe('applyFilters', () => {
+      it('should return empty arrays when no filters provided', () => {
+        const result = applyFilters({});
+
+        expect(result.whereClauses).toEqual([]);
+        expect(result.params).toEqual([]);
+      });
+
+      it('should skip null values', () => {
+        const result = applyFilters({
+          role: null,
+          podId: null,
+        });
+
+        expect(result.whereClauses).toEqual([]);
+        expect(result.params).toEqual([]);
+      });
+
+      it('should skip undefined values', () => {
+        const result = applyFilters({
+          role: undefined,
+          podId: undefined,
+        });
+
+        expect(result.whereClauses).toEqual([]);
+        expect(result.params).toEqual([]);
+      });
+
+      it('should apply known filters correctly', () => {
+        const result = applyFilters({
+          role: 'developer',
+          podId: 'pod-1',
+        });
+
+        expect(result.whereClauses).toHaveLength(2);
+        expect(result.params).toEqual(['developer', 'pod-1']);
+        expect(result.whereClauses[0]).toBe('role = $1');
+        expect(result.whereClauses[1]).toBe('pod_id = $2');
+      });
+
+      it('should handle boolean isActive filter (false)', () => {
+        const result = applyFilters({
+          isActive: false,
+        });
+
+        expect(result.whereClauses).toHaveLength(1);
+        expect(result.params).toEqual([false]);
+        expect(result.whereClauses[0]).toBe('is_active = $1');
+      });
+
+      it('should handle boolean isActive filter (true)', () => {
+        const result = applyFilters({
+          isActive: true,
+        });
+
+        expect(result.whereClauses).toHaveLength(1);
+        expect(result.params).toEqual([true]);
+        expect(result.whereClauses[0]).toBe('is_active = $1');
+      });
+
+      it('should skip unknown filter keys', () => {
+        const result = applyFilters({
+          unknownFilter: 'value',
+          anotherUnknown: 123,
+        });
+
+        expect(result.whereClauses).toEqual([]);
+        expect(result.params).toEqual([]);
+      });
+
+      it('should handle mixed known and unknown filters', () => {
+        const result = applyFilters({
+          role: 'admin',
+          unknownFilter: 'ignored',
+          isActive: true,
+        });
+
+        expect(result.whereClauses).toHaveLength(2);
+        expect(result.params).toEqual(['admin', true]);
+      });
+
+      it('should handle all filters together', () => {
+        const result = applyFilters({
+          role: 'manager',
+          podId: 'pod-2',
+          isActive: true,
+        });
+
+        expect(result.whereClauses).toHaveLength(3);
+        expect(result.params).toEqual(['manager', 'pod-2', true]);
+        expect(result.whereClauses[0]).toBe('role = $1');
+        expect(result.whereClauses[1]).toBe('pod_id = $2');
+        expect(result.whereClauses[2]).toBe('is_active = $3');
+      });
+    });
+  });
 });

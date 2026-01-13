@@ -10,6 +10,18 @@ const jwt = require('jsonwebtoken');
 jest.mock('../src/config/database', () => ({
   portalQuery: jest.fn(),
   query: jest.fn(),
+  transaction: jest.fn(),
+}));
+
+// Mock Session model
+jest.mock('../src/models/Session', () => ({
+  create: jest.fn(),
+  revokeByHash: jest.fn(),
+  revokeAllForUser: jest.fn(),
+  revokeById: jest.fn(),
+  getActiveForUser: jest.fn(),
+  cleanupExpired: jest.fn(),
+  validateTokenWithTransaction: jest.fn(),
 }));
 
 // Mock logger
@@ -21,6 +33,7 @@ jest.mock('../src/utils/logger', () => ({
 }));
 
 const { portalQuery } = require('../src/config/database');
+const Session = require('../src/models/Session');
 const authService = require('../src/services/authService');
 
 describe('Auth Service', () => {
@@ -111,8 +124,9 @@ describe('Auth Service', () => {
 
       portalQuery
         .mockResolvedValueOnce({ rows: [mockUser] }) // findUserByEmail
-        .mockResolvedValueOnce({ rows: [] }) // insert refresh token
         .mockResolvedValueOnce({ rows: [] }); // update last login
+      
+      Session.create.mockResolvedValueOnce({ id: '1' }); // create session
 
       const result = await authService.login('test@test.com', 'password123', 'Chrome', '127.0.0.1');
 
@@ -120,6 +134,7 @@ describe('Auth Service', () => {
       expect(result.accessToken).toBeDefined();
       expect(result.refreshToken).toBeDefined();
       expect(result.user.email).toBe('test@test.com');
+      expect(Session.create).toHaveBeenCalled();
     });
 
     it('should fail when user not found', async () => {
@@ -175,8 +190,9 @@ describe('Auth Service', () => {
 
       portalQuery
         .mockResolvedValueOnce({ rows: [mockUser] })
-        .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [] });
+      
+      Session.create.mockResolvedValueOnce({ id: '1' });
 
       const result = await authService.login('test@test.com', 'password123');
 
@@ -186,10 +202,7 @@ describe('Auth Service', () => {
 
   describe('logout', () => {
     it('should logout successfully', async () => {
-      portalQuery.mockResolvedValueOnce({ 
-        rowCount: 1, 
-        rows: [{ user_id: '1' }] 
-      });
+      Session.revokeByHash.mockResolvedValueOnce({ user_id: '1' });
 
       const result = await authService.logout('valid-refresh-token');
 
@@ -205,7 +218,7 @@ describe('Auth Service', () => {
     });
 
     it('should fail with invalid token', async () => {
-      portalQuery.mockResolvedValueOnce({ rowCount: 0, rows: [] });
+      Session.revokeByHash.mockResolvedValueOnce(null);
 
       const result = await authService.logout('invalid-token');
 
@@ -216,10 +229,7 @@ describe('Auth Service', () => {
 
   describe('logoutAll', () => {
     it('should logout from all devices', async () => {
-      portalQuery.mockResolvedValueOnce({ 
-        rowCount: 3, 
-        rows: [{ id: '1' }, { id: '2' }, { id: '3' }] 
-      });
+      Session.revokeAllForUser.mockResolvedValueOnce(3);
 
       const result = await authService.logoutAll('user-1');
 
@@ -228,7 +238,7 @@ describe('Auth Service', () => {
     });
 
     it('should handle no active sessions', async () => {
-      portalQuery.mockResolvedValueOnce({ rowCount: 0, rows: [] });
+      Session.revokeAllForUser.mockResolvedValueOnce(0);
 
       const result = await authService.logoutAll('user-1');
 
@@ -239,15 +249,17 @@ describe('Auth Service', () => {
 
   describe('refreshAccessToken', () => {
     it('should refresh access token successfully', async () => {
-      const mockTokenData = {
-        user_id: '1',
-        email: 'test@test.com',
-        name: 'Test User',
-        role: 'developer',
-        pod_id: 'pod-1',
-        is_active: true,
-      };
-      portalQuery.mockResolvedValueOnce({ rows: [mockTokenData] });
+      Session.validateTokenWithTransaction.mockImplementationOnce(async (tokenHash, callback) => {
+        const mockTokenData = {
+          user_id: '1',
+          email: 'test@test.com',
+          name: 'Test User',
+          role: 'developer',
+          pod_id: 'pod-1',
+          is_active: true,
+        };
+        return callback(mockTokenData);
+      });
 
       const result = await authService.refreshAccessToken('valid-refresh-token');
 
@@ -263,7 +275,10 @@ describe('Auth Service', () => {
     });
 
     it('should fail with invalid token', async () => {
-      portalQuery.mockResolvedValueOnce({ rows: [] });
+      Session.validateTokenWithTransaction.mockResolvedValueOnce({ 
+        valid: false, 
+        error: 'Invalid or expired refresh token' 
+      });
 
       const result = await authService.refreshAccessToken('invalid-token');
 
@@ -272,19 +287,24 @@ describe('Auth Service', () => {
     });
 
     it('should fail when user is disabled', async () => {
-      const mockTokenData = {
-        user_id: '1',
-        email: 'test@test.com',
-        is_active: false,
-      };
-      portalQuery
-        .mockResolvedValueOnce({ rows: [mockTokenData] })
-        .mockResolvedValueOnce({ rows: [] }); // revoke token
+      Session.validateTokenWithTransaction.mockResolvedValueOnce({ 
+        valid: false, 
+        error: 'Account is disabled' 
+      });
 
       const result = await authService.refreshAccessToken('valid-token');
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Account is disabled');
+    });
+
+    it('should handle transaction error', async () => {
+      Session.validateTokenWithTransaction.mockRejectedValueOnce(new Error('DB error'));
+
+      const result = await authService.refreshAccessToken('valid-token');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Token refresh failed');
     });
   });
 
@@ -343,7 +363,7 @@ describe('Auth Service', () => {
         { id: '1', device_info: 'Chrome', ip_address: '127.0.0.1' },
         { id: '2', device_info: 'Firefox', ip_address: '127.0.0.2' },
       ];
-      portalQuery.mockResolvedValueOnce({ rows: mockSessions });
+      Session.getActiveForUser.mockResolvedValueOnce(mockSessions);
 
       const result = await authService.getActiveSessions('user-1');
 
@@ -351,7 +371,7 @@ describe('Auth Service', () => {
     });
 
     it('should return empty array when no sessions', async () => {
-      portalQuery.mockResolvedValueOnce({ rows: [] });
+      Session.getActiveForUser.mockResolvedValueOnce([]);
 
       const result = await authService.getActiveSessions('user-1');
 
@@ -361,7 +381,7 @@ describe('Auth Service', () => {
 
   describe('revokeSession', () => {
     it('should revoke session successfully', async () => {
-      portalQuery.mockResolvedValueOnce({ rowCount: 1 });
+      Session.revokeById.mockResolvedValueOnce(true);
 
       const result = await authService.revokeSession('user-1', 'session-1');
 
@@ -369,7 +389,7 @@ describe('Auth Service', () => {
     });
 
     it('should return false when session not found', async () => {
-      portalQuery.mockResolvedValueOnce({ rowCount: 0 });
+      Session.revokeById.mockResolvedValueOnce(false);
 
       const result = await authService.revokeSession('user-1', 'invalid-session');
 
@@ -379,7 +399,7 @@ describe('Auth Service', () => {
 
   describe('cleanupExpiredTokens', () => {
     it('should cleanup expired tokens', async () => {
-      portalQuery.mockResolvedValueOnce({ rowCount: 5 });
+      Session.cleanupExpired.mockResolvedValueOnce(5);
 
       const result = await authService.cleanupExpiredTokens();
 
@@ -387,7 +407,7 @@ describe('Auth Service', () => {
     });
 
     it('should handle no tokens to cleanup', async () => {
-      portalQuery.mockResolvedValueOnce({ rowCount: 0 });
+      Session.cleanupExpired.mockResolvedValueOnce(0);
 
       const result = await authService.cleanupExpiredTokens();
 

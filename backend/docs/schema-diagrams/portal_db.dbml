@@ -1,0 +1,137 @@
+// ============================================================================
+// PORTAL DATABASE SCHEMA - For dbdiagram.io
+// ============================================================================
+// Paste this at: https://dbdiagram.io/d
+// ============================================================================
+
+Table users {
+  id uuid [pk]
+  email varchar(255) [unique, not null]
+  password_hash varchar(255) [not null]
+  name varchar(255) [not null]
+  role varchar(20) [not null, default: 'developer', note: 'developer | manager | admin']
+  pod_id varchar(50)
+  slack_user_id varchar(50)
+  is_active boolean [default: true]
+  last_login timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table query_requests {
+  id serial [pk]
+  uuid uuid [unique]
+  user_id uuid [not null, ref: > users.id]
+  database_type varchar(20) [not null, note: 'postgresql | mongodb']
+  instance_id varchar(100) [not null]
+  instance_name varchar(255) [not null]
+  database_name varchar(255) [not null]
+  submission_type varchar(20) [not null, note: 'query | script']
+  query_content text
+  script_filename varchar(255)
+  script_content text
+  comments text [not null]
+  pod_id varchar(50) [not null]
+  pod_name varchar(100) [not null]
+  status varchar(20) [not null, default: 'pending', note: 'pending|approved|rejected|executing|completed|failed']
+  approver_id uuid [ref: > users.id]
+  approver_email varchar(255)
+  approved_at timestamp
+  rejection_reason text
+  execution_result text
+  execution_error text
+  execution_started_at timestamp
+  execution_completed_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table pods {
+  id varchar(50) [pk]
+  name varchar(100) [not null]
+  manager_email varchar(255) [not null]
+  description text
+  is_active boolean [default: true]
+  created_at timestamp
+}
+
+Table refresh_tokens {
+  id serial [pk]
+  user_id uuid [not null, ref: > users.id]
+  token_hash varchar(255) [unique, not null]
+  device_info text
+  ip_address varchar(45)
+  expires_at timestamp [not null]
+  is_revoked boolean [default: false]
+  revoked_at timestamp
+  created_at timestamp
+}
+
+Table access_token_blacklist {
+  id serial [pk]
+  token_hash varchar(64) [unique, not null]
+  user_id uuid [not null, ref: > users.id]
+  expires_at timestamp [not null]
+  revoked_at timestamp
+  reason varchar(50) [default: 'logout']
+}
+
+Table user_token_invalidation {
+  user_id uuid [pk, ref: - users.id]
+  invalidated_at timestamp [not null]
+}
+
+Table database_instances {
+  id varchar(100) [pk]
+  name varchar(255) [not null]
+  type varchar(20) [not null, note: 'postgresql | mongodb']
+  host varchar(255) [not null]
+  port integer [not null]
+  description text
+  credentials_env_prefix varchar(100)
+  connection_string_env varchar(100)
+  is_active boolean [default: true]
+  last_sync_at timestamp
+  last_sync_status varchar(20)
+  last_sync_error text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table databases {
+  id serial [pk]
+  instance_id varchar(100) [not null, ref: > database_instances.id]
+  name varchar(255) [not null]
+  description text
+  source varchar(20) [default: 'synced']
+  is_active boolean [default: true]
+  last_seen_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table slack_notifications {
+  id serial [pk]
+  request_id integer [ref: > query_requests.id]
+  notification_type varchar(50) [not null]
+  channel_type varchar(20) [not null]
+  recipient varchar(255) [not null]
+  message_ts varchar(50)
+  status varchar(20) [not null, default: 'pending']
+  error_message text
+  created_at timestamp
+  sent_at timestamp
+}
+
+Table audit_logs {
+  id serial [pk]
+  user_id uuid [ref: > users.id]
+  action varchar(50) [not null]
+  entity_type varchar(50) [not null]
+  entity_id varchar(100)
+  old_values jsonb
+  new_values jsonb
+  ip_address varchar(45)
+  user_agent text
+  created_at timestamp
+}

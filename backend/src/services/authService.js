@@ -6,12 +6,19 @@
  * - Long-lived refresh tokens (7 days, stored in DB)
  * - True logout (refresh token deletion)
  * - "Logout everywhere" functionality
+ * 
+ * ARCHITECTURE NOTE:
+ * - User queries use User model (DAL separation)
+ * - Session/token queries use Session model (DAL separation)
+ * - Token refresh uses transactions for atomicity
  */
 
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { portalQuery } = require('../config/database');
+const Session = require('../models/Session');
+const { TokenType } = require('../constants/auth');
 const logger = require('../utils/logger');
 
 // ============================================================================
@@ -43,6 +50,7 @@ const AUTH_CONFIG = {
 
 /**
  * Generate access token (short-lived, stateless)
+ * Uses TokenType.ACCESS enum for type safety
  */
 const generateAccessToken = (user) => {
   const payload = {
@@ -50,7 +58,7 @@ const generateAccessToken = (user) => {
     email: user.email,
     role: user.role,
     podId: user.pod_id,
-    type: 'access',
+    type: TokenType.ACCESS,
   };
 
   return jwt.sign(payload, AUTH_CONFIG.accessToken.secret, {
@@ -149,11 +157,14 @@ const login = async (email, password, deviceInfo = null, ipAddress = null) => {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + AUTH_CONFIG.refreshToken.expiresInDays);
 
-  // Store refresh token in DB
-  await portalQuery(`
-    INSERT INTO refresh_tokens (user_id, token_hash, device_info, ip_address, expires_at)
-    VALUES ($1, $2, $3, $4, $5)
-  `, [user.id, refreshTokenHash, deviceInfo, ipAddress, expiresAt]);
+  // Store refresh token in DB using Session model (DAL separation)
+  await Session.create({
+    userId: user.id,
+    tokenHash: refreshTokenHash,
+    deviceInfo,
+    ipAddress,
+    expiresAt,
+  });
 
   // Update last login
   await portalQuery(
@@ -180,6 +191,7 @@ const login = async (email, password, deviceInfo = null, ipAddress = null) => {
 
 /**
  * Logout user - revokes the specific refresh token
+ * Uses Session model for DAL separation
  */
 const logout = async (refreshToken) => {
   if (!refreshToken) {
@@ -188,44 +200,35 @@ const logout = async (refreshToken) => {
 
   const tokenHash = hashToken(refreshToken);
 
-  // Revoke the token
-  const result = await portalQuery(`
-    UPDATE refresh_tokens 
-    SET is_revoked = true, revoked_at = CURRENT_TIMESTAMP
-    WHERE token_hash = $1 AND is_revoked = false
-    RETURNING user_id
-  `, [tokenHash]);
+  // Revoke the token using Session model
+  const result = await Session.revokeByHash(tokenHash);
 
-  if (result.rowCount === 0) {
+  if (!result) {
     logger.warn('Logout: token not found or already revoked');
     return { success: false, error: 'Invalid or expired token' };
   }
 
-  logger.info('User logged out', { userId: result.rows[0].user_id });
+  logger.info('User logged out', { userId: result.user_id });
 
   return { success: true, message: 'Logged out successfully' };
 };
 
 /**
  * Logout from all devices - revokes ALL refresh tokens for user
+ * Uses Session model for DAL separation
  */
 const logoutAll = async (userId) => {
-  const result = await portalQuery(`
-    UPDATE refresh_tokens 
-    SET is_revoked = true, revoked_at = CURRENT_TIMESTAMP
-    WHERE user_id = $1 AND is_revoked = false
-    RETURNING id
-  `, [userId]);
+  const sessionsRevoked = await Session.revokeAllForUser(userId);
 
   logger.info('User logged out from all devices', { 
     userId, 
-    sessionsRevoked: result.rowCount 
+    sessionsRevoked 
   });
 
   return { 
     success: true, 
     message: 'Logged out from all devices',
-    sessionsRevoked: result.rowCount,
+    sessionsRevoked,
   };
 };
 
@@ -235,6 +238,9 @@ const logoutAll = async (userId) => {
 
 /**
  * Refresh access token using refresh token
+ * CRITICAL FIX: Uses transaction for atomicity
+ * - Token validation and user check happen in single transaction
+ * - Prevents race conditions between validation and revocation
  */
 const refreshAccessToken = async (refreshToken) => {
   if (!refreshToken) {
@@ -243,51 +249,41 @@ const refreshAccessToken = async (refreshToken) => {
 
   const tokenHash = hashToken(refreshToken);
 
-  // Find valid refresh token
-  const result = await portalQuery(`
-    SELECT rt.*, u.id as user_id, u.email, u.name, u.role, u.pod_id, u.is_active
-    FROM refresh_tokens rt
-    JOIN users u ON rt.user_id = u.id
-    WHERE rt.token_hash = $1 
-      AND rt.is_revoked = false 
-      AND rt.expires_at > CURRENT_TIMESTAMP
-  `, [tokenHash]);
+  try {
+    // Use Session model's transaction-based validation
+    const result = await Session.validateTokenWithTransaction(tokenHash, (tokenData) => {
+      // Generate new access token
+      const user = {
+        id: tokenData.user_id,
+        email: tokenData.email,
+        name: tokenData.name,
+        role: tokenData.role,
+        pod_id: tokenData.pod_id,
+      };
 
-  if (result.rows.length === 0) {
-    logger.warn('Token refresh failed: invalid or expired token');
-    return { success: false, error: 'Invalid or expired refresh token' };
+      const newAccessToken = generateAccessToken(user);
+
+      logger.info('Access token refreshed', { userId: user.id });
+
+      return {
+        valid: true,
+        success: true,
+        accessToken: newAccessToken,
+        expiresIn: AUTH_CONFIG.accessToken.expiresIn,
+      };
+    });
+
+    // Handle validation failures
+    if (!result.valid) {
+      logger.warn('Token refresh failed: ' + result.error);
+      return { success: false, error: result.error };
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('Token refresh error', { error: error.message });
+    return { success: false, error: 'Token refresh failed' };
   }
-
-  const tokenData = result.rows[0];
-
-  // Check if user is still active
-  if (!tokenData.is_active) {
-    // Revoke the token since user is disabled
-    await portalQuery(
-      'UPDATE refresh_tokens SET is_revoked = true WHERE token_hash = $1',
-      [tokenHash]
-    );
-    return { success: false, error: 'Account is disabled' };
-  }
-
-  // Generate new access token
-  const user = {
-    id: tokenData.user_id,
-    email: tokenData.email,
-    name: tokenData.name,
-    role: tokenData.role,
-    pod_id: tokenData.pod_id,
-  };
-
-  const newAccessToken = generateAccessToken(user);
-
-  logger.info('Access token refreshed', { userId: user.id });
-
-  return {
-    success: true,
-    accessToken: newAccessToken,
-    expiresIn: AUTH_CONFIG.accessToken.expiresIn,
-  };
 };
 
 // ============================================================================
@@ -296,12 +292,13 @@ const refreshAccessToken = async (refreshToken) => {
 
 /**
  * Verify access token
+ * Uses TokenType.ACCESS enum for type safety
  */
 const verifyAccessToken = (token) => {
   try {
     const decoded = jwt.verify(token, AUTH_CONFIG.accessToken.secret);
     
-    if (decoded.type !== 'access') {
+    if (decoded.type !== TokenType.ACCESS) {
       return { valid: false, error: 'Invalid token type' };
     }
 
@@ -320,46 +317,26 @@ const verifyAccessToken = (token) => {
 
 /**
  * Get active sessions for a user
+ * Uses Session model for DAL separation
  */
 const getActiveSessions = async (userId) => {
-  const result = await portalQuery(`
-    SELECT id, device_info, ip_address, created_at, expires_at
-    FROM refresh_tokens
-    WHERE user_id = $1 
-      AND is_revoked = false 
-      AND expires_at > CURRENT_TIMESTAMP
-    ORDER BY created_at DESC
-  `, [userId]);
-
-  return result.rows;
+  return Session.getActiveForUser(userId);
 };
 
 /**
  * Revoke a specific session
+ * Uses Session model for DAL separation
  */
 const revokeSession = async (userId, sessionId) => {
-  const result = await portalQuery(`
-    UPDATE refresh_tokens 
-    SET is_revoked = true, revoked_at = CURRENT_TIMESTAMP
-    WHERE id = $1 AND user_id = $2 AND is_revoked = false
-    RETURNING id
-  `, [sessionId, userId]);
-
-  return result.rowCount > 0;
+  return Session.revokeById(userId, sessionId);
 };
 
 /**
  * Clean up expired tokens (call periodically)
+ * Uses Session model for DAL separation
  */
 const cleanupExpiredTokens = async () => {
-  const result = await portalQuery(`
-    DELETE FROM refresh_tokens
-    WHERE expires_at < CURRENT_TIMESTAMP OR is_revoked = true
-    RETURNING id
-  `);
-
-  logger.info('Cleaned up expired tokens', { count: result.rowCount });
-  return result.rowCount;
+  return Session.cleanupExpired();
 };
 
 // ============================================================================

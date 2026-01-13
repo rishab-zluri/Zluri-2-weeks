@@ -1,0 +1,134 @@
+// ============================================================================
+// TARGET DATABASES SCHEMA - For dbdiagram.io
+// ============================================================================
+// Paste this at: https://dbdiagram.io/d
+// These are sample TARGET databases that users query through the portal
+// ============================================================================
+
+Project TargetDBs {
+  database_type: 'PostgreSQL'
+  Note: 'Sample Target Databases - Customer/Application Data'
+}
+
+// ============================================================================
+// DATABASE 1: customer_db - E-Commerce Application
+// ============================================================================
+
+TableGroup customer_db {
+  users
+  orders
+  products
+  order_items
+}
+
+Table users {
+  id serial [pk]
+  name varchar(100) [not null]
+  email varchar(255) [unique, not null]
+  status varchar(20) [default: 'active', note: 'active | inactive | suspended']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    email [unique]
+    status
+  }
+}
+
+Table orders {
+  id serial [pk]
+  user_id integer [not null, note: 'Customer who placed order']
+  order_number varchar(50) [unique, not null]
+  total decimal(10,2) [not null, default: 0.00]
+  status varchar(20) [default: 'pending', note: 'pending|processing|shipped|delivered|cancelled']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    user_id
+    status
+    (created_at) [name: 'idx_orders_created_desc']
+  }
+}
+
+Table products {
+  id serial [pk]
+  sku varchar(50) [unique, not null, note: 'Stock Keeping Unit']
+  name varchar(255) [not null]
+  description text
+  price decimal(10,2) [not null, default: 0.00]
+  stock_quantity integer [default: 0]
+  category varchar(100)
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    sku [unique]
+    category
+    is_active
+  }
+}
+
+Table order_items {
+  id serial [pk]
+  order_id integer [not null, note: 'Parent order']
+  product_id integer [note: 'Product purchased']
+  quantity integer [not null, default: 1]
+  unit_price decimal(10,2) [not null]
+  total_price decimal(10,2) [not null]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    order_id
+    product_id
+  }
+}
+
+// Customer DB Relationships
+Ref: orders.user_id > users.id [delete: cascade]
+Ref: order_items.order_id > orders.id [delete: cascade]
+Ref: order_items.product_id > products.id [delete: set null]
+
+// ============================================================================
+// DATABASE 2: analytics_db - Analytics/Reporting
+// ============================================================================
+
+TableGroup analytics_db {
+  events
+  daily_metrics
+}
+
+Table events {
+  id bigserial [pk, note: 'High-volume event tracking']
+  event_type varchar(100) [not null, note: 'page_view | click | purchase | etc']
+  event_name varchar(255) [not null]
+  user_id varchar(100) [note: 'External user identifier']
+  session_id varchar(100)
+  properties jsonb [default: '{}', note: 'Flexible event properties']
+  timestamp timestamp [default: `now()`]
+
+  indexes {
+    event_type
+    user_id
+    (timestamp) [name: 'idx_events_timestamp_desc']
+  }
+  
+  Note: 'High-volume event tracking table with JSONB for flexible properties'
+}
+
+Table daily_metrics {
+  id serial [pk]
+  metric_date date [not null]
+  metric_name varchar(100) [not null, note: 'active_users | revenue | etc']
+  metric_value decimal(15,4) [not null]
+  dimensions jsonb [default: '{}', note: 'Breakdown dimensions']
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    (metric_date) [name: 'idx_metrics_date_desc']
+    metric_name
+  }
+  
+  Note: 'Pre-aggregated daily metrics for dashboards'
+}

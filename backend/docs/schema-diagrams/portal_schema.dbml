@@ -1,0 +1,95 @@
+// Portal Database Schema (PostgreSQL)
+// Paste this at https://dbdiagram.io
+
+Project PortalDatabase {
+  database_type: 'PostgreSQL'
+  Note: 'DB Query Portal - Internal Database'
+}
+
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  email varchar(255) [unique, not null]
+  password_hash varchar(255) [not null]
+  name varchar(100) [not null]
+  role varchar(50) [not null, default: 'developer', note: 'developer | manager | admin']
+  pod_id varchar(50)
+  slack_user_id varchar(50)
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  indexes {
+    email [unique]
+    role
+    pod_id
+  }
+}
+
+Table query_requests {
+  id serial [pk]
+  uuid uuid [unique, default: `gen_random_uuid()`, note: 'Public ID for API']
+  user_id uuid [ref: > users.id, not null]
+  database_type varchar(50) [not null, note: 'postgresql | mongodb']
+  instance_id varchar(100) [not null]
+  instance_name varchar(255) [not null]
+  database_name varchar(255) [not null]
+  submission_type varchar(50) [not null, note: 'query | script']
+  query_content text
+  script_filename varchar(255)
+  script_content text
+  comments text [not null]
+  pod_id varchar(50) [not null]
+  pod_name varchar(100) [not null]
+  status varchar(50) [not null, default: 'pending', note: 'pending | approved | rejected | executing | completed | failed']
+  approver_id uuid [ref: > users.id]
+  approver_email varchar(255)
+  approved_at timestamp
+  rejection_reason text
+  execution_result text
+  execution_error text
+  execution_started_at timestamp
+  execution_completed_at timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  indexes {
+    user_id
+    status
+    pod_id
+    created_at
+    uuid [unique]
+  }
+}
+
+Table refresh_tokens {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  token_hash varchar(255) [not null]
+  expires_at timestamp [not null]
+  revoked_at timestamp
+  created_at timestamp [default: `now()`]
+  
+  indexes {
+    user_id
+    token_hash
+    expires_at
+  }
+}
+
+Table access_token_blacklist {
+  id serial [pk]
+  token_hash varchar(255) [unique, not null]
+  user_id uuid [ref: > users.id]
+  expires_at timestamp [not null]
+  created_at timestamp [default: `now()`]
+  
+  indexes {
+    token_hash [unique]
+    expires_at
+  }
+}
+
+Table user_token_invalidation {
+  user_id uuid [pk, ref: - users.id]
+  invalidated_at timestamp [not null]
+}

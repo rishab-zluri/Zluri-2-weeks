@@ -1,0 +1,75 @@
+// Target Databases Schema (User's databases they query)
+// Paste this at https://dbdiagram.io
+
+Project TargetDatabases {
+  Note: 'Example schemas of databases users can query'
+}
+
+// ============================================
+// PostgreSQL Target Database Example
+// ============================================
+
+Table pg_users {
+  id serial [pk]
+  email varchar(255) [unique]
+  name varchar(100)
+  department varchar(50)
+  is_active boolean [default: true]
+  created_at timestamp
+  
+  Note: 'Example PostgreSQL table users query'
+}
+
+Table pg_orders {
+  id serial [pk]
+  user_id int [ref: > pg_users.id]
+  product_name varchar(255)
+  quantity int
+  total_amount decimal(10,2)
+  status varchar(50)
+  created_at timestamp
+}
+
+Table pg_products {
+  id serial [pk]
+  name varchar(255)
+  category varchar(100)
+  price decimal(10,2)
+  stock int
+  created_at timestamp
+}
+
+// ============================================
+// MongoDB Target Database Example
+// ============================================
+
+Table mongo_users {
+  _id objectid [pk]
+  email string
+  profile object [note: '{ name, avatar, preferences }']
+  roles array [note: '["user", "admin"]']
+  metadata object
+  createdAt date
+  updatedAt date
+  
+  Note: 'MongoDB users collection'
+}
+
+Table mongo_events {
+  _id objectid [pk]
+  userId objectid [ref: > mongo_users._id]
+  eventType string
+  payload object [note: 'Flexible JSON data']
+  timestamp date
+  
+  Note: 'MongoDB events collection'
+}
+
+Table mongo_analytics {
+  _id objectid [pk]
+  date date
+  metrics object [note: '{ pageViews, uniqueUsers, ... }']
+  breakdown array [note: 'Nested aggregations']
+  
+  Note: 'MongoDB analytics collection'
+}

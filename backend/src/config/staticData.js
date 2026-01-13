@@ -113,7 +113,8 @@ const getPodsByManager = (email) => {
 };
 
 /**
- * Get all database instances (public info only)
+ * Get all database instances (public info only - NO databases list)
+ * Databases should be fetched separately via /instances/:id/databases
  * @returns {Array} Array of database instance objects
  */
 const getAllInstances = () => {
@@ -121,12 +122,12 @@ const getAllInstances = () => {
     id: instance.id,
     name: instance.name,
     type: instance.type,
-    databases: instance.databases,
   }));
 };
 
 /**
- * Get database instances by type
+ * Get database instances by type (NO databases list)
+ * Databases should be fetched separately via /instances/:id/databases
  * @param {string} type - Database type (postgresql/mongodb)
  * @returns {Array} Filtered array of instances
  */
@@ -137,7 +138,6 @@ const getInstancesByType = (type) => {
       id: instance.id,
       name: instance.name,
       type: instance.type,
-      databases: instance.databases,
     }));
 };
 

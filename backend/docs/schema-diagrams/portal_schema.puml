@@ -1,0 +1,82 @@
+@startuml Portal Database Schema
+
+!define TABLE(name) entity name << (T,#FFAAAA) >>
+!define PK(x) <b><color:#b8860b>x</color></b>
+!define FK(x) <color:#aaaaaa>x</color>
+!define UK(x) <u>x</u>
+
+skinparam backgroundColor #FEFEFE
+skinparam roundcorner 10
+
+title Portal Database Schema (PostgreSQL)
+
+TABLE(users) {
+  PK(id) : uuid
+  UK(email) : varchar(255)
+  password_hash : varchar(255)
+  name : varchar(100)
+  role : varchar(50) <<developer|manager|admin>>
+  pod_id : varchar(50)
+  slack_user_id : varchar(50)
+  is_active : boolean
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+TABLE(query_requests) {
+  PK(id) : serial
+  UK(uuid) : uuid
+  FK(user_id) : uuid
+  database_type : varchar(50) <<postgresql|mongodb>>
+  instance_id : varchar(100)
+  instance_name : varchar(255)
+  database_name : varchar(255)
+  submission_type : varchar(50) <<query|script>>
+  query_content : text
+  script_filename : varchar(255)
+  script_content : text
+  comments : text
+  pod_id : varchar(50)
+  pod_name : varchar(100)
+  status : varchar(50) <<pending|approved|...>>
+  FK(approver_id) : uuid
+  approver_email : varchar(255)
+  approved_at : timestamp
+  rejection_reason : text
+  execution_result : text
+  execution_error : text
+  execution_started_at : timestamp
+  execution_completed_at : timestamp
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+TABLE(refresh_tokens) {
+  PK(id) : uuid
+  FK(user_id) : uuid
+  token_hash : varchar(255)
+  expires_at : timestamp
+  revoked_at : timestamp
+  created_at : timestamp
+}
+
+TABLE(access_token_blacklist) {
+  PK(id) : serial
+  UK(token_hash) : varchar(255)
+  FK(user_id) : uuid
+  expires_at : timestamp
+  created_at : timestamp
+}
+
+TABLE(user_token_invalidation) {
+  PK(user_id) : uuid
+  invalidated_at : timestamp
+}
+
+users ||--o{ query_requests : "submits"
+users ||--o{ query_requests : "approves"
+users ||--o{ refresh_tokens : "has sessions"
+users ||--o{ access_token_blacklist : "has blacklisted"
+users ||--|| user_token_invalidation : "invalidation"
+
+@enduml

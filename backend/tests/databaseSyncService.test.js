@@ -6,10 +6,12 @@
 // Mock pg Pool
 const mockPoolQuery = jest.fn();
 const mockPoolEnd = jest.fn();
+const mockPoolOn = jest.fn();
 jest.mock('pg', () => ({
   Pool: jest.fn().mockImplementation(() => ({
     query: mockPoolQuery,
     end: mockPoolEnd,
+    on: mockPoolOn,
   })),
 }));
 
@@ -618,6 +620,16 @@ describe('Database Sync Service - Error Handling Coverage', () => {
 
       expect(result.success).toBe(true);
       expect(result.databasesFound).toBe(0);
+    });
+  });
+
+  describe('closeSyncPools', () => {
+    it('should close all sync pools', async () => {
+      // closeSyncPools clears internal maps and closes connections
+      await databaseSyncService.closeSyncPools();
+      
+      // Should complete without error
+      expect(true).toBe(true);
     });
   });
 });

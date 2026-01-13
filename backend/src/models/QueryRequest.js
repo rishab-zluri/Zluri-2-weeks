@@ -1,9 +1,13 @@
 /**
  * QueryRequest Model
  * Database operations for query/script submission management
+ * 
+ * REFACTORED with:
+ * - DRY principle: Common query builder for all find operations
+ * - Field-based filtering: Dynamic filter application using field mapping
  */
 
-const { query, transaction } = require('../config/database');
+const { query } = require('../config/database');
 const logger = require('../utils/logger');
 const { DatabaseError, NotFoundError } = require('../utils/errors');
 
@@ -34,6 +38,97 @@ const DatabaseType = {
   POSTGRESQL: 'postgresql',
   MONGODB: 'mongodb',
 };
+
+// ============================================================================
+// DRY QUERY BUILDER (Phase 1 Refactoring)
+// ============================================================================
+
+/**
+ * Base SELECT query with user join
+ * Used by all find operations to avoid duplication
+ */
+const BASE_SELECT = `
+  SELECT qr.*, u.email as user_email, u.name as user_name
+  FROM query_requests qr
+  JOIN users u ON qr.user_id = u.id
+`;
+
+/**
+ * Filter field mapping for dynamic query building
+ * Maps filter keys to their database columns and operators
+ */
+const FILTER_FIELDS = {
+  status: { column: 'qr.status', operator: '=' },
+  podId: { column: 'qr.pod_id', operator: '=' },
+  userId: { column: 'qr.user_id', operator: '=' },
+  databaseType: { column: 'qr.database_type', operator: '=' },
+  submissionType: { column: 'qr.submission_type', operator: '=' },
+  startDate: { column: 'qr.created_at', operator: '>=' },
+  endDate: { column: 'qr.created_at', operator: '<=' },
+};
+
+/**
+ * Build a query with dynamic WHERE clauses
+ * DRY helper to reduce code duplication across find functions
+ * 
+ * @param {Object} options - Query building options
+ * @param {Array} options.where - Array of WHERE clause strings
+ * @param {Array} options.params - Array of parameter values
+ * @param {string} options.orderBy - ORDER BY clause
+ * @param {number} options.limit - LIMIT value
+ * @param {number} options.offset - OFFSET value
+ * @returns {Object} { sql, params }
+ */
+const buildQuery = ({ where = [], params = [], orderBy = 'qr.created_at DESC', limit, offset }) => {
+  let sql = BASE_SELECT;
+  const finalParams = [...params];
+  
+  if (where.length > 0) {
+    sql += ` WHERE ${where.join(' AND ')}`;
+  }
+  
+  sql += ` ORDER BY ${orderBy}`;
+  
+  if (limit !== undefined) {
+    finalParams.push(limit);
+    sql += ` LIMIT $${finalParams.length}`;
+  }
+  
+  if (offset !== undefined) {
+    finalParams.push(offset);
+    sql += ` OFFSET $${finalParams.length}`;
+  }
+  
+  return { sql, params: finalParams };
+};
+
+/**
+ * Apply filters dynamically using FILTER_FIELDS mapping
+ * Reduces repetitive if blocks in findAll
+ * 
+ * @param {Object} filters - Filter object
+ * @returns {Object} { where, params }
+ */
+const applyFilters = (filters) => {
+  const where = [];
+  const params = [];
+  
+  for (const [key, value] of Object.entries(filters)) {
+    if (value === null || value === undefined) continue;
+    
+    const fieldConfig = FILTER_FIELDS[key];
+    if (!fieldConfig) continue;
+    
+    params.push(value);
+    where.push(`${fieldConfig.column} ${fieldConfig.operator} $${params.length}`);
+  }
+  
+  return { where, params };
+};
+
+// ============================================================================
+// TABLE CREATION
+// ============================================================================
 
 /**
  * Create query_requests table if not exists
@@ -83,6 +178,10 @@ const createTable = async () => {
     throw new DatabaseError('Failed to create query_requests table');
   }
 };
+
+// ============================================================================
+// CREATE OPERATION
+// ============================================================================
 
 /**
  * Create a new query request
@@ -137,21 +236,24 @@ const create = async ({
   }
 };
 
+// ============================================================================
+// FIND OPERATIONS (DRY Refactored)
+// ============================================================================
+
 /**
  * Find request by ID
+ * Uses DRY query builder
  * @param {number} id - Request ID
  * @returns {Object|null} Request or null
  */
 const findById = async (id) => {
-  const sql = `
-    SELECT qr.*, u.email as user_email, u.name as user_name
-    FROM query_requests qr
-    JOIN users u ON qr.user_id = u.id
-    WHERE qr.id = $1
-  `;
+  const { sql, params } = buildQuery({
+    where: ['qr.id = $1'],
+    params: [id],
+  });
 
   try {
-    const result = await query(sql, [id]);
+    const result = await query(sql, params);
     if (result.rows.length === 0) return null;
     return mapRequestRow(result.rows[0]);
   } catch (error) {
@@ -162,19 +264,18 @@ const findById = async (id) => {
 
 /**
  * Find request by UUID
+ * Uses DRY query builder
  * @param {string} uuid - Request UUID
  * @returns {Object|null} Request or null
  */
 const findByUuid = async (uuid) => {
-  const sql = `
-    SELECT qr.*, u.email as user_email, u.name as user_name
-    FROM query_requests qr
-    JOIN users u ON qr.user_id = u.id
-    WHERE qr.uuid = $1
-  `;
+  const { sql, params } = buildQuery({
+    where: ['qr.uuid = $1'],
+    params: [uuid],
+  });
 
   try {
-    const result = await query(sql, [uuid]);
+    const result = await query(sql, params);
     if (result.rows.length === 0) return null;
     return mapRequestRow(result.rows[0]);
   } catch (error) {
@@ -185,30 +286,29 @@ const findByUuid = async (uuid) => {
 
 /**
  * Find requests by user ID
+ * Uses DRY query builder with dynamic filters
  * @param {string} userId - User ID
  * @param {Object} options - Query options
  * @returns {Array} Array of requests
  */
 const findByUserId = async (userId, { status = null, limit = 50, offset = 0 } = {}) => {
-  let sql = `
-    SELECT qr.*, u.email as user_email, u.name as user_name
-    FROM query_requests qr
-    JOIN users u ON qr.user_id = u.id
-    WHERE qr.user_id = $1
-  `;
+  const where = ['qr.user_id = $1'];
   const params = [userId];
-  let paramIndex = 2;
-
+  
   if (status) {
-    sql += ` AND qr.status = $${paramIndex++}`;
     params.push(status);
+    where.push(`qr.status = $${params.length}`);
   }
-
-  sql += ` ORDER BY qr.created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex}`;
-  params.push(limit, offset);
+  
+  const { sql, params: finalParams } = buildQuery({
+    where,
+    params,
+    limit,
+    offset,
+  });
 
   try {
-    const result = await query(sql, params);
+    const result = await query(sql, finalParams);
     return result.rows.map(mapRequestRow);
   } catch (error) {
     logger.error('Failed to find requests by user ID', { error: error.message });
@@ -218,30 +318,29 @@ const findByUserId = async (userId, { status = null, limit = 50, offset = 0 } = 
 
 /**
  * Find requests by POD IDs (for managers)
+ * Uses DRY query builder with dynamic filters
  * @param {Array} podIds - Array of POD IDs
  * @param {Object} options - Query options
  * @returns {Array} Array of requests
  */
 const findByPodIds = async (podIds, { status = null, limit = 50, offset = 0 } = {}) => {
-  let sql = `
-    SELECT qr.*, u.email as user_email, u.name as user_name
-    FROM query_requests qr
-    JOIN users u ON qr.user_id = u.id
-    WHERE qr.pod_id = ANY($1)
-  `;
+  const where = ['qr.pod_id = ANY($1)'];
   const params = [podIds];
-  let paramIndex = 2;
-
+  
   if (status) {
-    sql += ` AND qr.status = $${paramIndex++}`;
     params.push(status);
+    where.push(`qr.status = $${params.length}`);
   }
-
-  sql += ` ORDER BY qr.created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex}`;
-  params.push(limit, offset);
+  
+  const { sql, params: finalParams } = buildQuery({
+    where,
+    params,
+    limit,
+    offset,
+  });
 
   try {
-    const result = await query(sql, params);
+    const result = await query(sql, finalParams);
     return result.rows.map(mapRequestRow);
   } catch (error) {
     logger.error('Failed to find requests by POD IDs', { error: error.message });
@@ -251,6 +350,7 @@ const findByPodIds = async (podIds, { status = null, limit = 50, offset = 0 } = 
 
 /**
  * Find all requests with filters
+ * REFACTORED: Uses field-based filtering instead of multiple if blocks
  * @param {Object} filters - Filter options
  * @returns {Array} Array of requests
  */
@@ -266,58 +366,37 @@ const findAll = async ({
   limit = 50,
   offset = 0,
 } = {}) => {
-  let sql = `
-    SELECT qr.*, u.email as user_email, u.name as user_name
-    FROM query_requests qr
-    JOIN users u ON qr.user_id = u.id
-    WHERE 1=1
-  `;
-  const params = [];
-  let paramIndex = 1;
-
-  if (status) {
-    sql += ` AND qr.status = $${paramIndex++}`;
-    params.push(status);
-  }
-
-  if (podId) {
-    sql += ` AND qr.pod_id = $${paramIndex++}`;
-    params.push(podId);
-  }
-
-  if (userId) {
-    sql += ` AND qr.user_id = $${paramIndex++}`;
-    params.push(userId);
-  }
-
-  if (databaseType) {
-    sql += ` AND qr.database_type = $${paramIndex++}`;
-    params.push(databaseType);
-  }
-
-  if (submissionType) {
-    sql += ` AND qr.submission_type = $${paramIndex++}`;
-    params.push(submissionType);
-  }
-
+  // Apply standard filters using field mapping (DRY)
+  const { where, params } = applyFilters({
+    status,
+    podId,
+    userId,
+    databaseType,
+    submissionType,
+    startDate,
+    endDate,
+  });
+  
+  // Handle special search filter (requires ILIKE across multiple columns)
   if (search) {
-    sql += ` AND (qr.comments ILIKE $${paramIndex} OR qr.query_content ILIKE $${paramIndex} OR u.email ILIKE $${paramIndex})`;
     params.push(`%${search}%`);
-    paramIndex++;
+    where.push(`(qr.comments ILIKE $${params.length} OR qr.query_content ILIKE $${params.length} OR u.email ILIKE $${params.length})`);
   }
-
-  if (startDate) {
-    sql += ` AND qr.created_at >= $${paramIndex++}`;
-    params.push(startDate);
+  
+  // Build final query with WHERE 1=1 pattern for empty filters
+  let sql = BASE_SELECT + ' WHERE 1=1';
+  
+  if (where.length > 0) {
+    sql += ' AND ' + where.join(' AND ');
   }
-
-  if (endDate) {
-    sql += ` AND qr.created_at <= $${paramIndex++}`;
-    params.push(endDate);
-  }
-
-  sql += ` ORDER BY qr.created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex}`;
-  params.push(limit, offset);
+  
+  sql += ' ORDER BY qr.created_at DESC';
+  
+  params.push(limit);
+  sql += ` LIMIT $${params.length}`;
+  
+  params.push(offset);
+  sql += ` OFFSET $${params.length}`;
 
   try {
     const result = await query(sql, params);
@@ -327,6 +406,10 @@ const findAll = async ({
     throw new DatabaseError('Failed to find requests');
   }
 };
+
+// ============================================================================
+// COUNT OPERATION
+// ============================================================================
 
 /**
  * Count requests with filters
@@ -341,26 +424,25 @@ const count = async ({
 } = {}) => {
   let sql = 'SELECT COUNT(*) as count FROM query_requests WHERE 1=1';
   const params = [];
-  let paramIndex = 1;
 
   if (status) {
-    sql += ` AND status = $${paramIndex++}`;
     params.push(status);
+    sql += ` AND status = $${params.length}`;
   }
 
   if (podId) {
-    sql += ` AND pod_id = $${paramIndex++}`;
     params.push(podId);
+    sql += ` AND pod_id = $${params.length}`;
   }
 
   if (userId) {
-    sql += ` AND user_id = $${paramIndex++}`;
     params.push(userId);
+    sql += ` AND user_id = $${params.length}`;
   }
 
   if (podIds && podIds.length > 0) {
-    sql += ` AND pod_id = ANY($${paramIndex++})`;
     params.push(podIds);
+    sql += ` AND pod_id = ANY($${params.length})`;
   }
 
   try {
@@ -372,6 +454,10 @@ const count = async ({
   }
 };
 
+// ============================================================================
+// UPDATE OPERATIONS
+// ============================================================================
+
 /**
  * Update request status
  * @param {number} id - Request ID
@@ -382,16 +468,15 @@ const count = async ({
 const updateStatus = async (id, status, additionalData = {}) => {
   const updateFields = ['status = $2', 'updated_at = CURRENT_TIMESTAMP'];
   const params = [id, status];
-  let paramIndex = 3;
 
   if (additionalData.approverId) {
-    updateFields.push(`approver_id = $${paramIndex++}`);
     params.push(additionalData.approverId);
+    updateFields.push(`approver_id = $${params.length}`);
   }
 
   if (additionalData.approverEmail) {
-    updateFields.push(`approver_email = $${paramIndex++}`);
     params.push(additionalData.approverEmail);
+    updateFields.push(`approver_email = $${params.length}`);
   }
 
   if (status === RequestStatus.APPROVED) {
@@ -399,18 +484,18 @@ const updateStatus = async (id, status, additionalData = {}) => {
   }
 
   if (additionalData.rejectionReason !== undefined) {
-    updateFields.push(`rejection_reason = $${paramIndex++}`);
     params.push(additionalData.rejectionReason);
+    updateFields.push(`rejection_reason = $${params.length}`);
   }
 
   if (additionalData.executionResult !== undefined) {
-    updateFields.push(`execution_result = $${paramIndex++}`);
     params.push(additionalData.executionResult);
+    updateFields.push(`execution_result = $${params.length}`);
   }
 
   if (additionalData.executionError !== undefined) {
-    updateFields.push(`execution_error = $${paramIndex++}`);
     params.push(additionalData.executionError);
+    updateFields.push(`execution_error = $${params.length}`);
   }
 
   if (status === RequestStatus.EXECUTING) {
@@ -443,10 +528,6 @@ const updateStatus = async (id, status, additionalData = {}) => {
 
 /**
  * Approve request
- * @param {number} id - Request ID
- * @param {string} approverId - Approver user ID
- * @param {string} approverEmail - Approver email
- * @returns {Object} Updated request
  */
 const approve = async (id, approverId, approverEmail) => {
   return updateStatus(id, RequestStatus.APPROVED, { approverId, approverEmail });
@@ -454,11 +535,6 @@ const approve = async (id, approverId, approverEmail) => {
 
 /**
  * Reject request
- * @param {number} id - Request ID
- * @param {string} approverId - Approver user ID
- * @param {string} approverEmail - Approver email
- * @param {string} reason - Rejection reason
- * @returns {Object} Updated request
  */
 const reject = async (id, approverId, approverEmail, reason = null) => {
   return updateStatus(id, RequestStatus.REJECTED, {
@@ -470,8 +546,6 @@ const reject = async (id, approverId, approverEmail, reason = null) => {
 
 /**
  * Mark request as executing
- * @param {number} id - Request ID
- * @returns {Object} Updated request
  */
 const markExecuting = async (id) => {
   return updateStatus(id, RequestStatus.EXECUTING);
@@ -479,9 +553,6 @@ const markExecuting = async (id) => {
 
 /**
  * Mark request as completed
- * @param {number} id - Request ID
- * @param {string} result - Execution result
- * @returns {Object} Updated request
  */
 const markCompleted = async (id, result) => {
   return updateStatus(id, RequestStatus.COMPLETED, { executionResult: result });
@@ -489,9 +560,6 @@ const markCompleted = async (id, result) => {
 
 /**
  * Mark request as failed
- * @param {number} id - Request ID
- * @param {string} error - Error message
- * @returns {Object} Updated request
  */
 const markFailed = async (id, error) => {
   return updateStatus(id, RequestStatus.FAILED, { executionError: error });
@@ -503,7 +571,6 @@ const markFailed = async (id, error) => {
 
 /**
  * Get overall status counts
- * @returns {Object} Status counts
  */
 const getStatusCounts = async () => {
   const sql = `
@@ -538,8 +605,6 @@ const getStatusCounts = async () => {
 
 /**
  * Get status counts for a user
- * @param {string} userId - User ID
- * @returns {Object} Status counts
  */
 const getStatusCountsByUser = async (userId) => {
   const sql = `
@@ -575,7 +640,6 @@ const getStatusCountsByUser = async (userId) => {
 
 /**
  * Get stats grouped by POD
- * @returns {Object} Stats by POD
  */
 const getStatsByPod = async () => {
   const sql = `
@@ -615,7 +679,6 @@ const getStatsByPod = async () => {
 
 /**
  * Get stats grouped by database type
- * @returns {Object} Stats by database type
  */
 const getStatsByDatabaseType = async () => {
   const sql = `
@@ -648,8 +711,6 @@ const getStatsByDatabaseType = async () => {
 
 /**
  * Get recent activity (requests per day)
- * @param {number} days - Number of days to look back
- * @returns {Array} Daily request counts
  */
 const getRecentActivity = async (days = 7) => {
   const sql = `
@@ -672,10 +733,12 @@ const getRecentActivity = async (days = 7) => {
   }
 };
 
+// ============================================================================
+// ROW MAPPER
+// ============================================================================
+
 /**
  * Map database row to request object
- * @param {Object} row - Database row
- * @returns {Object} Mapped request
  */
 const mapRequestRow = (row) => ({
   id: row.id,
@@ -707,11 +770,18 @@ const mapRequestRow = (row) => ({
   updatedAt: row.updated_at,
 });
 
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
 module.exports = {
+  // Enums
   RequestStatus,
   SubmissionType,
   DatabaseType,
+  // Table
   createTable,
+  // CRUD
   create,
   findById,
   findByUuid,
@@ -719,15 +789,24 @@ module.exports = {
   findByPodIds,
   findAll,
   count,
+  // Status updates
   updateStatus,
   approve,
   reject,
   markExecuting,
   markCompleted,
   markFailed,
+  // Stats
   getStatusCounts,
   getStatusCountsByUser,
   getStatsByPod,
   getStatsByDatabaseType,
   getRecentActivity,
+  // Internal helpers (exported for testing)
+  _internal: {
+    buildQuery,
+    applyFilters,
+    FILTER_FIELDS,
+    BASE_SELECT,
+  },
 };

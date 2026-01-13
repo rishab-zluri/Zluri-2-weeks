@@ -342,10 +342,241 @@ describe('QueryRequest Model', () => {
       expect(callArgs[0]).toContain('ILIKE');
     });
 
+    it('should ignore unknown filter keys in applyFilters (line 120 branch)', async () => {
+      // This test covers the `if (!fieldConfig) continue` branch in applyFilters
+      // When an unknown filter key is passed, it should be ignored
+      query.mockResolvedValueOnce({ rows: [] });
+
+      // Pass unknown filter keys that are not in FILTER_FIELDS mapping
+      await QueryRequest.findAll({
+        status: 'pending',
+        unknownFilter: 'should-be-ignored',
+        anotherUnknown: 123,
+        search: null, // Also test null values are skipped
+      });
+
+      const callArgs = query.mock.calls[0];
+      // Only status should be in the query, unknown filters should be ignored
+      expect(callArgs[0]).toContain('status = $1');
+      expect(callArgs[0]).not.toContain('unknownFilter');
+      expect(callArgs[0]).not.toContain('anotherUnknown');
+    });
+
+    it('should handle empty filters (no WHERE clause from applyFilters)', async () => {
+      // This test covers the case when applyFilters returns empty where array
+      // but findAll still adds WHERE 1=1
+      query.mockResolvedValueOnce({ rows: [] });
+
+      await QueryRequest.findAll({
+        // All null values - should result in empty where from applyFilters
+        status: null,
+        podId: null,
+        userId: null,
+      });
+
+      const callArgs = query.mock.calls[0];
+      // Should have WHERE 1=1 but no filter conditions
+      expect(callArgs[0]).toContain('WHERE 1=1');
+      expect(callArgs[0]).not.toContain('status =');
+    });
+
     it('should throw DatabaseError on failure', async () => {
       query.mockRejectedValueOnce(new Error('DB error'));
 
       await expect(QueryRequest.findAll()).rejects.toThrow(DatabaseError);
+    });
+  });
+
+  describe('DRY Helper Functions - Branch Coverage', () => {
+    // These tests specifically target the buildQuery helper function branches
+    // Using exported _internal helpers for direct testing
+
+    const { buildQuery, applyFilters, FILTER_FIELDS, BASE_SELECT } = QueryRequest._internal;
+
+    describe('buildQuery', () => {
+      it('should build query WITHOUT WHERE clause when where array is empty (lines 86-88)', () => {
+        // This directly tests the `if (where.length > 0)` branch when false
+        const result = buildQuery({
+          where: [],
+          params: [],
+          limit: 10,
+          offset: 0,
+        });
+
+        expect(result.sql).toContain(BASE_SELECT);
+        expect(result.sql).not.toContain('WHERE');
+        expect(result.sql).toContain('ORDER BY');
+        expect(result.sql).toContain('LIMIT');
+        expect(result.sql).toContain('OFFSET');
+      });
+
+      it('should use default orderBy when not provided (line 82 default param)', () => {
+        // This tests the default parameter `orderBy = 'qr.created_at DESC'`
+        const result = buildQuery({
+          where: [],
+          params: [],
+        });
+
+        expect(result.sql).toContain('ORDER BY qr.created_at DESC');
+      });
+
+      it('should use default empty arrays when where and params not provided (line 82 defaults)', () => {
+        // This tests the default parameters `where = []` and `params = []`
+        const result = buildQuery({});
+
+        expect(result.sql).toContain(BASE_SELECT);
+        expect(result.sql).not.toContain('WHERE');
+        expect(result.sql).toContain('ORDER BY qr.created_at DESC');
+        expect(result.params).toEqual([]);
+      });
+
+      it('should build query WITH WHERE clause when where array has items', () => {
+        const result = buildQuery({
+          where: ['qr.id = $1'],
+          params: [1],
+          limit: 10,
+          offset: 0,
+        });
+
+        expect(result.sql).toContain('WHERE qr.id = $1');
+        expect(result.params).toEqual([1, 10, 0]);
+      });
+
+      it('should handle multiple WHERE conditions', () => {
+        const result = buildQuery({
+          where: ['qr.id = $1', 'qr.status = $2'],
+          params: [1, 'pending'],
+        });
+
+        expect(result.sql).toContain('WHERE qr.id = $1 AND qr.status = $2');
+      });
+
+      it('should use custom orderBy', () => {
+        const result = buildQuery({
+          where: [],
+          params: [],
+          orderBy: 'qr.id ASC',
+        });
+
+        expect(result.sql).toContain('ORDER BY qr.id ASC');
+      });
+
+      it('should handle undefined limit and offset', () => {
+        const result = buildQuery({
+          where: [],
+          params: [],
+        });
+
+        expect(result.sql).not.toContain('LIMIT');
+        expect(result.sql).not.toContain('OFFSET');
+        expect(result.params).toEqual([]);
+      });
+
+      it('should handle only limit without offset', () => {
+        const result = buildQuery({
+          where: [],
+          params: [],
+          limit: 50,
+        });
+
+        expect(result.sql).toContain('LIMIT');
+        expect(result.sql).not.toContain('OFFSET');
+        expect(result.params).toEqual([50]);
+      });
+
+      it('should handle only offset without limit', () => {
+        const result = buildQuery({
+          where: [],
+          params: [],
+          offset: 10,
+        });
+
+        expect(result.sql).not.toContain('LIMIT');
+        expect(result.sql).toContain('OFFSET');
+        expect(result.params).toEqual([10]);
+      });
+    });
+
+    describe('applyFilters', () => {
+      it('should skip unknown filter keys (line 120)', () => {
+        // This directly tests the `if (!fieldConfig) continue` branch
+        const result = applyFilters({
+          unknownKey: 'value',
+          anotherUnknown: 123,
+        });
+
+        expect(result.where).toEqual([]);
+        expect(result.params).toEqual([]);
+      });
+
+      it('should skip null values', () => {
+        const result = applyFilters({
+          status: null,
+          podId: null,
+        });
+
+        expect(result.where).toEqual([]);
+        expect(result.params).toEqual([]);
+      });
+
+      it('should skip undefined values', () => {
+        const result = applyFilters({
+          status: undefined,
+          podId: undefined,
+        });
+
+        expect(result.where).toEqual([]);
+        expect(result.params).toEqual([]);
+      });
+
+      it('should apply known filters correctly', () => {
+        const result = applyFilters({
+          status: 'pending',
+          podId: 'pod-1',
+          databaseType: 'postgresql',
+        });
+
+        expect(result.where).toHaveLength(3);
+        expect(result.params).toEqual(['pending', 'pod-1', 'postgresql']);
+        expect(result.where[0]).toContain('qr.status');
+        expect(result.where[1]).toContain('qr.pod_id');
+        expect(result.where[2]).toContain('qr.database_type');
+      });
+
+      it('should handle mixed known and unknown filters', () => {
+        const result = applyFilters({
+          status: 'pending',
+          unknownFilter: 'ignored',
+          podId: 'pod-1',
+          anotherUnknown: 999,
+        });
+
+        expect(result.where).toHaveLength(2);
+        expect(result.params).toEqual(['pending', 'pod-1']);
+      });
+
+      it('should handle date filters with correct operators', () => {
+        const result = applyFilters({
+          startDate: '2024-01-01',
+          endDate: '2024-12-31',
+        });
+
+        expect(result.where).toHaveLength(2);
+        expect(result.where[0]).toContain('>='); // startDate uses >=
+        expect(result.where[1]).toContain('<='); // endDate uses <=
+      });
+    });
+
+    describe('FILTER_FIELDS mapping', () => {
+      it('should have correct field mappings', () => {
+        expect(FILTER_FIELDS.status).toEqual({ column: 'qr.status', operator: '=' });
+        expect(FILTER_FIELDS.podId).toEqual({ column: 'qr.pod_id', operator: '=' });
+        expect(FILTER_FIELDS.userId).toEqual({ column: 'qr.user_id', operator: '=' });
+        expect(FILTER_FIELDS.databaseType).toEqual({ column: 'qr.database_type', operator: '=' });
+        expect(FILTER_FIELDS.submissionType).toEqual({ column: 'qr.submission_type', operator: '=' });
+        expect(FILTER_FIELDS.startDate).toEqual({ column: 'qr.created_at', operator: '>=' });
+        expect(FILTER_FIELDS.endDate).toEqual({ column: 'qr.created_at', operator: '<=' });
+      });
     });
   });
 

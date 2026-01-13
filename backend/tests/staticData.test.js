@@ -111,7 +111,7 @@ describe('Static Data Configuration', () => {
   });
 
   describe('getAllInstances', () => {
-    it('should return all instances without connection details', () => {
+    it('should return all instances without connection details or databases', () => {
       const result = getAllInstances();
       
       expect(Array.isArray(result)).toBe(true);
@@ -121,7 +121,8 @@ describe('Static Data Configuration', () => {
         expect(instance).toHaveProperty('id');
         expect(instance).toHaveProperty('name');
         expect(instance).toHaveProperty('type');
-        expect(instance).toHaveProperty('databases');
+        // Should NOT include databases - fetch separately via /instances/:id/databases
+        expect(instance).not.toHaveProperty('databases');
         expect(instance).not.toHaveProperty('host');
         expect(instance).not.toHaveProperty('connectionString');
       });
@@ -129,21 +130,25 @@ describe('Static Data Configuration', () => {
   });
 
   describe('getInstancesByType', () => {
-    it('should return PostgreSQL instances', () => {
+    it('should return PostgreSQL instances without databases', () => {
       const result = getInstancesByType('postgresql');
       
       expect(Array.isArray(result)).toBe(true);
       result.forEach(instance => {
         expect(instance.type).toBe('postgresql');
+        // Should NOT include databases
+        expect(instance).not.toHaveProperty('databases');
       });
     });
 
-    it('should return MongoDB instances', () => {
+    it('should return MongoDB instances without databases', () => {
       const result = getInstancesByType('mongodb');
       
       expect(Array.isArray(result)).toBe(true);
       result.forEach(instance => {
         expect(instance.type).toBe('mongodb');
+        // Should NOT include databases
+        expect(instance).not.toHaveProperty('databases');
       });
     });
 
