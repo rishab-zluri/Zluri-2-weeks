@@ -21,6 +21,8 @@ export interface SyntaxValidationResult {
 
 export interface ScriptQueryRequest {
     scriptContent: string;
+    scriptFilename?: string;
+    scriptLanguage?: 'javascript' | 'python';  // Auto-detected from filename if not provided
     databaseType: 'postgresql' | 'mongodb';
     instanceId: string;
     databaseName: string;

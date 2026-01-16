@@ -8,8 +8,9 @@
  * - Parsing results
  */
 
-import { fork, ChildProcess } from 'child_process';
+import { fork, ChildProcess, spawn } from 'child_process';
 import path from 'path';
+import fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import logger from '../../utils/logger';
 import {
@@ -95,6 +96,166 @@ export class ScriptExecutor {
         }
     }
 
+    /**
+     * Detect script language from filename or content
+     */
+    public detectLanguage(request: ScriptQueryRequest): 'javascript' | 'python' {
+        // Explicit language takes precedence
+        if (request.scriptLanguage) {
+            return request.scriptLanguage;
+        }
+
+        // Detect from filename
+        if (request.scriptFilename) {
+            if (request.scriptFilename.endsWith('.py')) return 'python';
+            if (request.scriptFilename.endsWith('.js')) return 'javascript';
+        }
+
+        // Detect from content (heuristic)
+        const content = request.scriptContent;
+        if (/^\s*(def |import |from |class \w+:)/m.test(content)) {
+            return 'python';
+        }
+
+        // Default to JavaScript
+        return 'javascript';
+    }
+
+    /**
+     * Validate Python script for dangerous patterns
+     */
+    public validatePython(scriptContent: string): ScriptValidationResult {
+        const warnings: string[] = [];
+        const errors: string[] = [];
+
+        // Dangerous patterns for Python
+        const dangerousPatterns = [
+            { pattern: /\bopen\s*\(/gi, message: 'open() is not available', isError: true },
+            { pattern: /\bexec\s*\(/gi, message: 'exec() is blocked', isError: true },
+            { pattern: /\beval\s*\(/gi, message: 'eval() is blocked', isError: true },
+            { pattern: /\bsubprocess/gi, message: 'subprocess is blocked', isError: true },
+            { pattern: /\bos\./gi, message: 'os module is blocked', isError: true },
+            { pattern: /\bsocket/gi, message: 'socket is blocked', isError: true },
+            { pattern: /\burllib/gi, message: 'urllib is blocked', isError: true },
+            { pattern: /\brequests\./gi, message: 'requests module is blocked', isError: true },
+            { pattern: /__import__/gi, message: '__import__ is blocked', isError: true },
+            { pattern: /\.drop_database\s*\(/gi, message: '🔴 CRITICAL: drop_database() detected', isError: false },
+            { pattern: /\.drop\s*\(/gi, message: '🔴 CRITICAL: drop() detected', isError: false },
+            { pattern: /\.delete_many\s*\(\s*\{\s*\}\s*\)/gi, message: '🔴 CRITICAL: delete_many({}) detected', isError: false },
+        ];
+
+        for (const { pattern, message, isError } of dangerousPatterns) {
+            if (pattern.test(scriptContent)) {
+                if (isError) errors.push(message);
+                else warnings.push(message);
+            }
+        }
+
+        return {
+            valid: errors.length === 0,
+            warnings,
+            errors,
+        };
+    }
+
+    /**
+     * Run Python script in child process
+     * 
+     * ARCHITECTURE:
+     * - Spawns python3 with pythonWorker.py
+     * - Sends config via stdin (JSON)
+     * - Receives result via stdout (JSON)
+     * - Enforces timeout
+     */
+    private async runPythonWorker(config: WorkerConfig): Promise<ChildProcessResult> {
+        return new Promise((resolve) => {
+            // Find Python worker path
+            const pythonWorkerPath = path.resolve(__dirname, 'worker/pythonWorker.py');
+
+            if (!fs.existsSync(pythonWorkerPath)) {
+                resolve({
+                    success: false,
+                    error: { type: 'ConfigError', message: `Python worker not found at ${pythonWorkerPath}` }
+                });
+                return;
+            }
+
+            const child = spawn('python3', [pythonWorkerPath], {
+                stdio: ['pipe', 'pipe', 'pipe'],
+                env: { ...process.env },
+            });
+
+            let stdout = '';
+            let stderr = '';
+            let resolved = false;
+            let timeoutId: NodeJS.Timeout | null = null;
+
+            const cleanup = () => {
+                if (timeoutId) clearTimeout(timeoutId);
+                if (!child.killed) child.kill('SIGTERM');
+            };
+
+            const handleResult = (data: ChildProcessResult) => {
+                if (resolved) return;
+                resolved = true;
+                cleanup();
+                resolve(data);
+            };
+
+            // Timeout handler
+            timeoutId = setTimeout(() => {
+                if (!resolved) {
+                    handleResult({
+                        success: false,
+                        error: { type: 'TimeoutError', message: `Script timed out after ${config.timeout}ms` }
+                    });
+                }
+            }, config.timeout + 5000);
+
+            // Capture stdout
+            child.stdout.on('data', (data) => {
+                stdout += data.toString();
+            });
+
+            // Capture stderr
+            child.stderr.on('data', (data) => {
+                stderr += data.toString();
+            });
+
+            // Handle process exit
+            child.on('close', (code) => {
+                if (resolved) return;
+
+                try {
+                    // Parse JSON result from stdout
+                    const result = JSON.parse(stdout);
+                    handleResult(result);
+                } catch {
+                    // Failed to parse - return error with stderr
+                    handleResult({
+                        success: false,
+                        error: {
+                            type: 'ProcessError',
+                            message: stderr || `Python exited with code ${code}`
+                        },
+                        output: [{ type: 'error', message: stderr || 'Unknown error', timestamp: new Date().toISOString() }]
+                    });
+                }
+            });
+
+            child.on('error', (err) => {
+                handleResult({
+                    success: false,
+                    error: { type: 'ProcessError', message: err.message }
+                });
+            });
+
+            // Send config to stdin
+            child.stdin.write(JSON.stringify(config));
+            child.stdin.end();
+        });
+    }
+
     public async execute(request: ScriptQueryRequest): Promise<ScriptExecutionResult> {
         const startTime = Date.now();
         const output: OutputItem[] = [];
@@ -133,8 +294,25 @@ export class ScriptExecutor {
                 timeout: ScriptExecutor.EXECUTION_CONFIG.timeout,
             };
 
-            // 4. Run in Child Process
-            const result = await this.runWorker(workerConfig);
+            // 4. Detect language and run appropriate worker
+            const language = this.detectLanguage(request);
+            logger.info('Script language detected', { language, instanceId, databaseName });
+
+            // Validate based on language
+            if (language === 'python') {
+                const pyValidation = this.validatePython(scriptContent);
+                if (!pyValidation.valid) {
+                    return this.createErrorResult('ValidationError', pyValidation.errors.join('; '), output, startTime, request);
+                }
+                if (pyValidation.warnings.length > 0) {
+                    output.push({ type: 'warn', message: pyValidation.warnings.join('; '), timestamp: new Date().toISOString() });
+                }
+            }
+
+            // 5. Run in appropriate Child Process
+            const result = language === 'python'
+                ? await this.runPythonWorker(workerConfig)
+                : await this.runWorker(workerConfig);
 
             // 5. Merge Output
             if (result.output) output.push(...result.output);
@@ -169,12 +347,15 @@ export class ScriptExecutor {
 
     private async runWorker(config: WorkerConfig): Promise<ChildProcessResult> {
         return new Promise((resolve) => {
-            const workerPath = path.join(__dirname, 'worker/scriptWorker.js'); // Assuming compiled output structure
-            // Also handle .ts for dev mode if needed, but usually we run compiled.
-            // For dev (ts-node), we might need to point to .ts if using ts-node/register, but standard is .js
+            // Handle both development (ts-node) and production (compiled) modes
+            // In dev, __dirname is in src/. In prod, __dirname is in dist/.
+            const jsWorkerPath = path.join(__dirname, 'worker/scriptWorker.js');
+            const distWorkerPath = path.resolve(__dirname, '../../../dist/services/script/worker/scriptWorker.js');
 
-            // Auto-detect extension?
-            // In production, everything is .js
+            // Check if running from src/ (dev mode) or dist/ (prod mode)
+            const workerPath = require('fs').existsSync(jsWorkerPath)
+                ? jsWorkerPath
+                : distWorkerPath;
 
             const child: ChildProcess = fork(workerPath, [], {
                 stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
