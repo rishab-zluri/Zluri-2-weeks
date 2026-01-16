@@ -24,6 +24,13 @@ import {
     ExecutionSummary,
     WorkerConfig
 } from './interfaces';
+import {
+    EXECUTION_LIMITS,
+    validateJavaScript,
+    validatePythonScript,
+    getSecureForkOptions,
+    getSecureSpawnOptions
+} from './security';
 
 export class ScriptExecutor {
     private static readonly EXECUTION_CONFIG: ExecutionConfig = {
@@ -33,35 +40,32 @@ export class ScriptExecutor {
 
     /**
      * Validate script syntax and dangerous patterns
+     * 
+     * Uses centralized security patterns from security.ts
+     * for consistent validation across the application.
      */
     public validate(scriptContent: string): ScriptValidationResult {
         const warnings: string[] = [];
         const errors: string[] = [];
 
-        // Check syntax
+        // Check syntax first
         const syntaxCheck = this.validateSyntax(scriptContent);
         if (!syntaxCheck.valid && syntaxCheck.error) {
             errors.push(syntaxCheck.error.details);
         }
 
-        // Check for dangerous patterns
-        const dangerousPatterns = [
-            { pattern: /require\s*\(/gi, message: 'require() is not available', isError: true },
-            { pattern: /process\./gi, message: 'process object is not accessible', isError: true },
-            { pattern: /eval\s*\(/gi, message: 'eval() is blocked', isError: true },
-            { pattern: /Function\s*\(/gi, message: 'Function constructor is blocked', isError: true },
-            { pattern: /child_process/gi, message: 'child_process is blocked', isError: true },
-            { pattern: /fs\./gi, message: 'fs module is blocked', isError: true },
-            { pattern: /\.dropDatabase\s*\(/gi, message: '🔴 CRITICAL: dropDatabase() detected', isError: false },
-            { pattern: /\.drop\s*\(\s*\)/gi, message: '🔴 CRITICAL: drop() detected', isError: false },
-            { pattern: /\.deleteMany\s*\(\s*\{\s*\}\s*\)/gi, message: '🔴 CRITICAL: deleteMany({}) detected', isError: false },
-        ];
+        // Check for dangerous patterns using centralized security module
+        // This provides 40+ patterns covering RCE, filesystem, network, prototype attacks
+        const patternValidation = validateJavaScript(scriptContent);
+        errors.push(...patternValidation.errors);
+        warnings.push(...patternValidation.warnings);
 
-        for (const { pattern, message, isError } of dangerousPatterns) {
-            if (pattern.test(scriptContent)) {
-                if (isError) errors.push(message);
-                else warnings.push(message);
-            }
+        // Log blocked patterns for security audit
+        if (patternValidation.blockedPatterns.length > 0) {
+            logger.warn('Script validation blocked dangerous patterns', {
+                blockedCount: patternValidation.blockedPatterns.length,
+                categories: [...new Set(patternValidation.blockedPatterns.map(p => p.category))]
+            });
         }
 
         return {
@@ -357,9 +361,13 @@ export class ScriptExecutor {
                 ? jsWorkerPath
                 : distWorkerPath;
 
+            // Get secure fork options with memory limits and sanitized env
+            const secureOptions = getSecureForkOptions();
+
             const child: ChildProcess = fork(workerPath, [], {
                 stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-                env: { ...process.env, NODE_ENV: process.env.NODE_ENV || 'production' },
+                execArgv: secureOptions.execArgv,
+                env: secureOptions.env,
             });
 
             let resolved = false;

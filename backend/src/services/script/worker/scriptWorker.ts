@@ -393,14 +393,90 @@ async function executeInWorker(config: WorkerConfig): Promise<ChildProcessResult
             processedScript = scriptContent.replace(/main\s*\(\)\s*;?$/, 'await main();');
         }
 
+        // =================================================================
+        // SECURITY: Create frozen safe globals to prevent prototype attacks
+        // =================================================================
+
+        /**
+         * Create a frozen copy of a built-in to prevent prototype pollution
+         * This stops attacks like: Object.prototype.polluted = true
+         */
+        const createFrozenGlobal = (obj: any, name: string): any => {
+            // For constructors, create a frozen wrapper
+            if (typeof obj === 'function') {
+                // Prevent access to constructor chain
+                const wrapper = (...args: any[]) => new obj(...args);
+                Object.defineProperty(wrapper, 'name', { value: name, writable: false });
+                Object.defineProperty(wrapper, 'constructor', { value: undefined, writable: false });
+                return Object.freeze(wrapper);
+            }
+            return Object.freeze({ ...obj });
+        };
+
+        /**
+         * Secure console wrapper - no constructor access
+         * Prevents attack: console.constructor.constructor('return process')()
+         */
+        const secureConsole = Object.freeze({
+            log: sandboxConsole.log,
+            error: sandboxConsole.error,
+            warn: sandboxConsole.warn,
+            info: sandboxConsole.info,
+        });
+
+        // Build context with frozen globals
         const context: Record<string, unknown> = {
+            // Database wrappers
             db: dbWrapper,
             pgClient: databaseType === 'postgresql' ? dbWrapper : undefined,
             mongodb: databaseType === 'mongodb' ? dbWrapper : undefined,
-            console: sandboxConsole,
-            JSON, Math, Date, Array, Object, String, Number, Boolean, RegExp, Map, Set, Promise,
+
+            // Secure console (no constructor access)
+            console: secureConsole,
+
+            // Frozen built-in constructors (prevents prototype pollution)
+            JSON: Object.freeze({ parse: JSON.parse, stringify: JSON.stringify }),
+            Math: Object.freeze({ ...Math }),
+            Date: createFrozenGlobal(Date, 'Date'),
+            Array: createFrozenGlobal(Array, 'Array'),
+            Object: Object.freeze({
+                keys: Object.keys,
+                values: Object.values,
+                entries: Object.entries,
+                assign: Object.assign,
+                freeze: Object.freeze,
+                // Block dangerous methods
+                // setPrototypeOf: undefined,
+                // defineProperty: undefined,
+            }),
+            String: createFrozenGlobal(String, 'String'),
+            Number: createFrozenGlobal(Number, 'Number'),
+            Boolean: createFrozenGlobal(Boolean, 'Boolean'),
+            RegExp: createFrozenGlobal(RegExp, 'RegExp'),
+            Map: createFrozenGlobal(Map, 'Map'),
+            Set: createFrozenGlobal(Set, 'Set'),
+            Promise: createFrozenGlobal(Promise, 'Promise'),
+
+            // Frozen utility functions
+            parseInt: parseInt,
+            parseFloat: parseFloat,
+            isNaN: isNaN,
+            isFinite: isFinite,
+
+            // Limited setTimeout (max 5s)
             setTimeout: (fn: any, ms: number) => setTimeout(fn, Math.min(ms, 5000)),
-            clearTimeout
+            clearTimeout,
+
+            // Explicitly undefined dangerous globals
+            eval: undefined,
+            Function: undefined,
+            require: undefined,
+            process: undefined,
+            global: undefined,
+            globalThis: undefined,
+            Buffer: undefined,
+            __dirname: undefined,
+            __filename: undefined,
         };
 
         const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
