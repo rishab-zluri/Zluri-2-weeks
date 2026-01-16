@@ -53,8 +53,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               throw new Error('Profile fetch failed');
             }
           } catch (error) {
-            // Token invalid or expired - clear auth
-            await authService.logout();
+            // Profile fetch failed - could be expired token or network error
+            // Just clear local state, don't call logout API (which would revoke refresh token)
+            // The Axios interceptor already tried to refresh the token
+            authService.clearAuth();
             setUser(null);
             setIsAuthenticated(false);
           }

@@ -104,6 +104,14 @@ const authService = {
       localStorage.setItem('user', JSON.stringify(data.user));
     }
   },
+
+  /**
+   * Clear local auth state without calling logout API
+   * Use this when session is invalid but we don't want to revoke refresh token
+   */
+  clearAuth(): void {
+    localStorage.removeItem('user');
+  },
 };
 
 export default authService;

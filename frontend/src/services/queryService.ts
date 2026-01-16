@@ -95,7 +95,7 @@ const queryService = {
   // ==================== Submission ====================
 
   async submitQuery(data: SubmitQueryInput): Promise<QueryRequest> {
-    const response = await client.post<ApiResponse<QueryRequest>>('/api/queries/submit', data);
+    const response = await client.post<ApiResponse<QueryRequest>>('/api/queries/submit', { ...data, submissionType: 'query' });
     return response.data.data;
   },
 
@@ -123,21 +123,25 @@ const queryService = {
    * Unified Request Search
    * Replaces getMyRequests, getPendingRequests, getAllRequests
    */
-  async getRequests(params: RequestFilters = {}): Promise<PaginatedResponse<QueryRequest>> {
-    // Map legacy params if needed, or just pass through
-    // The backend now accepts generic filters
-    const response = await client.get<ApiResponse<PaginatedResponse<QueryRequest>>>('/api/queries/requests', { params });
-    return response.data.data;
+  async getRequests(params: RequestFilters = {}, signal?: AbortSignal): Promise<PaginatedResponse<QueryRequest>> {
+    // Backend returns flat structure: { success, data: [], pagination: {} }
+    // We need to return { data: [], pagination: {} } to match PaginatedResponse interface
+    const response = await client.get<{ success: boolean; data: QueryRequest[]; pagination: PaginatedResponse<QueryRequest>['pagination'] }>('/api/queries/requests', { params, signal });
+    return {
+      data: response.data.data,
+      pagination: response.data.pagination,
+      success: response.data.success
+    } as any;
   },
 
   /**
    * Get current user's requests (for developers/all users)
    * Uses /my-requests endpoint which doesn't require admin/manager role
    */
-  async getMyRequests(params: RequestFilters = {}): Promise<PaginatedResponse<QueryRequest>> {
+  async getMyRequests(params: RequestFilters = {}, signal?: AbortSignal): Promise<PaginatedResponse<QueryRequest>> {
     // Backend returns: { success, message, data: [...], pagination: {...} }
     // We need to extract and return { data, pagination }
-    const response = await client.get<{ success: boolean; message: string; data: QueryRequest[]; pagination: PaginatedResponse<QueryRequest>['pagination'] }>('/api/queries/my-requests', { params });
+    const response = await client.get<{ success: boolean; message: string; data: QueryRequest[]; pagination: PaginatedResponse<QueryRequest>['pagination'] }>('/api/queries/my-requests', { params, signal });
     return {
       success: response.data.success,
       data: response.data.data,

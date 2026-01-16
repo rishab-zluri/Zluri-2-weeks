@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   RefreshCw,
   Eye,
-  Copy,
   FileText,
   Database,
   Clock,
@@ -12,18 +11,20 @@ import {
   Search,
   Filter,
   X,
-  Calendar,
-  Check
+  Check,
+  CheckCircle2,
+  User
 } from 'lucide-react';
 import {
   useMyRequests,
-  useRequest
+  useRequests, // For Approvals
+  useRequest,
+  usePods,
 } from '@/hooks';
-import queryService from '@/services/queryService';
 import { Loading, StatusBadge, EmptyState, Modal } from '@/components/common';
-import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { QueryRequest, RequestStatus } from '@/types';
+import { QueryRequest } from '@/types';
+import { useAuth } from '@/context/AuthContext';
 
 // Status options for filter
 const STATUS_OPTIONS = [
@@ -35,9 +36,15 @@ const STATUS_OPTIONS = [
   { value: 'rejected', label: 'Rejected', color: 'gray' },
 ];
 
+type ViewMode = 'my-requests' | 'approvals' | 'history';
+
 const MyQueriesPage: React.FC = () => {
   const navigate = useNavigate();
+  const { isManager } = useAuth(); // Check role
   const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  // View Mode - Default to 'my-requests'
+  const [viewMode, setViewMode] = useState<ViewMode>('my-requests');
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -52,6 +59,7 @@ const MyQueriesPage: React.FC = () => {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [filterPod, setFilterPod] = useState(''); // Only for Approvals/History
 
   // Modal state
   const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
@@ -76,81 +84,87 @@ const MyQueriesPage: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Build filter params for API
-  const filterParams: Record<string, unknown> = { page, limit };
+  // Reset page and filters when switching modes
+  useEffect(() => {
+    setPage(1);
+    setSelectedStatuses([]); // Reset status filter on mode change
+  }, [viewMode]);
 
-  // Apply search
-  if (debouncedSearch) {
-    filterParams.search = debouncedSearch;
+  // Build filter params
+  const commonFilters: any = { page: page, limit: limit };
+  if (debouncedSearch) commonFilters.search = debouncedSearch;
+  if (dateFrom) commonFilters.fromDate = dateFrom;
+  if (dateTo) commonFilters.toDate = dateTo;
+
+  // Status Filter Logic based on Mode
+  if (viewMode === 'my-requests') {
+    if (selectedStatuses.length > 0) commonFilters.status = selectedStatuses.join(',');
+  } else if (viewMode === 'approvals') {
+    // Force Pending for Approvals tab
+    commonFilters.status = 'pending';
+  } else if (viewMode === 'history') {
+    // Default to all non-pending if no generic status selected
+    // If user selected generic statuses, use those but exclude pending (or just trust user? lets exclude pending to be safe)
+    if (selectedStatuses.length > 0) {
+      commonFilters.status = selectedStatuses.filter(s => s !== 'pending').join(',');
+    } else {
+      commonFilters.status = 'approved,rejected,failed,executing,completed';
+    }
   }
 
-  // Apply status filter
-  if (selectedStatuses.length > 0) {
-    filterParams.status = selectedStatuses.join(',');
-  }
-
-  // Apply date range
-  if (dateFrom) {
-    filterParams.fromDate = dateFrom;
-  }
-  if (dateTo) {
-    filterParams.toDate = dateTo;
-  }
-
-  // Data fetching
+  // 1. My Requests Data
   const {
-    data: requestsData,
-    isLoading: loading,
-    isRefetching: refreshing,
-    refetch
-  } = useMyRequests(filterParams);
+    data: myRequestsData,
+    isLoading: loadingMyRequests,
+    isRefetching: refreshingMyRequests,
+    refetch: refetchMyRequests
+  } = useMyRequests(commonFilters);
 
+  // 2. Approvals/History Data (Only computed if Manager)
+  const managerFilters = { ...commonFilters };
+  if (filterPod) managerFilters.podId = filterPod;
+
+  const {
+    data: managerData,
+    isLoading: loadingManager,
+    isRefetching: _refreshingManager,
+    refetch: refetchManager
+  } = useRequests(managerFilters, {
+    enabled: isManager && (viewMode === 'approvals' || viewMode === 'history')
+  });
+
+  // Pods for filter (Only if Manager)
+  const { data: pods = [] } = usePods({ enabled: isManager });
+
+  // Select Data based on Mode
+  const effectiveViewMode = isManager ? viewMode : 'my-requests';
+  const currentData = effectiveViewMode === 'my-requests' ? myRequestsData : managerData;
+  const loading = effectiveViewMode === 'my-requests' ? loadingMyRequests : loadingManager;
+  const refreshing = effectiveViewMode === 'my-requests' ? refreshingMyRequests : (managerData && false);
+  const refetch = effectiveViewMode === 'my-requests' ? refetchMyRequests : refetchManager;
+
+  const queries = currentData?.data || [];
+  const totalPages = currentData?.pagination?.totalPages || 1;
+
+  // Handle Detail Fetch
   const { data: selectedQuery } = useRequest(selectedUuid || undefined);
 
-  // Derived state
-  const queries = requestsData?.data || [];
-  const totalPages = requestsData?.pagination?.totalPages || 1;
-
-  // Status counts from backend (for potential future use)
-
-  // Generate dynamic heading based on selected filters
+  // Derived Heading
   const getFilterHeading = () => {
-    if (selectedStatuses.length === 0) {
-      return 'All Requests';
-    }
-    const labels = selectedStatuses.map(s =>
-      STATUS_OPTIONS.find(opt => opt.value === s)?.label || s
-    );
-    if (labels.length === 1) {
-      return `${labels[0]} Requests`;
-    }
+    if (selectedStatuses.length === 0) return 'All Requests';
+    const labels = selectedStatuses.map(s => STATUS_OPTIONS.find(opt => opt.value === s)?.label || s);
+    if (labels.length === 1) return `${labels[0]} Requests`;
     return `${labels.slice(0, -1).join(', ')} & ${labels[labels.length - 1]} Requests`;
   };
 
   // Handlers
   const handleRefresh = () => refetch();
 
-  const handleClone = async (uuid: string) => {
-    try {
-      await queryService.cloneRequest(uuid);
-      toast.success('Query cloned and submitted');
-      refetch();
-    } catch (error) {
-      console.error('Clone error:', error);
-      toast.error('Failed to clone query');
-    }
-  };
-
   const handleViewDetails = (uuid: string) => setSelectedUuid(uuid);
   const handleCloseModal = () => setSelectedUuid(null);
 
-
   const handleStatusToggle = (status: string) => {
-    setSelectedStatuses(prev =>
-      prev.includes(status)
-        ? prev.filter(s => s !== status)
-        : [...prev, status]
-    );
+    setSelectedStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
   };
 
   const handleClearFilters = () => {
@@ -158,6 +172,7 @@ const MyQueriesPage: React.FC = () => {
     setDateFrom('');
     setDateTo('');
     setSearchInput('');
+    setFilterPod('');
   };
 
   const handleApplyFilters = () => {
@@ -165,13 +180,12 @@ const MyQueriesPage: React.FC = () => {
     setPage(1);
   };
 
-  // Count active filters
-  const activeFilterCount = selectedStatuses.length + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
+  const activeFilterCount = selectedStatuses.length + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (filterPod ? 1 : 0);
 
-  if (loading) {
+  if (loading && !queries.length) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loading text="Loading your queries..." />
+        <Loading text="Loading..." />
       </div>
     );
   }
@@ -179,9 +193,41 @@ const MyQueriesPage: React.FC = () => {
   return (
     <div>
       {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Queries</h1>
-        <p className="text-gray-500 mt-1">Track the status of your submitted queries and scripts</p>
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {effectiveViewMode === 'history' ? 'Processed Requests' : 'My Queries'}
+          </h1>
+          <p className="text-gray-500 mt-1">
+            {effectiveViewMode === 'history'
+              ? 'View history of requests you have approved or rejected'
+              : 'Track the status of your submitted queries'}
+          </p>
+        </div>
+
+        {/* View Mode Toggle (Manager Only) */}
+        {isManager && (
+          <div className="flex bg-gray-100 p-1 rounded-lg self-start">
+            <button
+              onClick={() => setViewMode('my-requests')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === 'my-requests'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              My Requests
+            </button>
+            <button
+              onClick={() => setViewMode('history')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === 'history'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              Processed Requests
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Search & Filters Bar */}
@@ -208,118 +254,137 @@ const MyQueriesPage: React.FC = () => {
             )}
           </div>
 
-          {/* Filter Button & Dropdown */}
-          <div className="relative" ref={filterDropdownRef}>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg text-sm font-medium transition-all ${activeFilterCount > 0
-                ? 'bg-purple-50 border-purple-300 text-purple-700'
-                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}
-            >
-              <Filter className="w-4 h-4" />
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 text-xs bg-purple-600 text-white rounded-full">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+          <div className="flex items-center gap-2">
+            {/* Filter Button */}
+            <div className="relative" ref={filterDropdownRef}>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-4 py-2.5 border rounded-lg text-sm font-medium transition-all ${activeFilterCount > 0
+                  ? 'bg-purple-50 border-purple-300 text-purple-700'
+                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+                {activeFilterCount > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-purple-600 text-white rounded-full">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
 
-            {/* Filter Dropdown Panel */}
-            {showFilters && (
-              <div className="absolute right-0 top-12 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50">
-                <div className="p-4 border-b">
-                  <h3 className="font-semibold text-gray-900">Filters</h3>
-                </div>
-
-                {/* Status Filters */}
-                <div className="p-4 border-b">
-                  <label className="text-sm font-medium text-gray-700 mb-3 block">Status</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {STATUS_OPTIONS.map((status) => (
-                      <label
-                        key={status.value}
-                        onClick={() => handleStatusToggle(status.value)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${selectedStatuses.includes(status.value)
-                          ? 'bg-purple-50 border border-purple-300'
-                          : 'bg-gray-50 border border-transparent hover:bg-gray-100'
-                          }`}
-                      >
-                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedStatuses.includes(status.value)
-                          ? 'bg-purple-600 border-purple-600'
-                          : 'border-gray-300'
-                          }`}>
-                          {selectedStatuses.includes(status.value) && (
-                            <Check className="w-3 h-3 text-white" />
-                          )}
-                        </div>
-                        <span className="text-sm text-gray-700">{status.label}</span>
-                      </label>
-                    ))}
+              {/* Dropdown Panel */}
+              {showFilters && (
+                <div className="absolute right-0 top-12 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50">
+                  <div className="p-4 border-b flex justify-between items-center">
+                    <h3 className="font-semibold text-gray-900">Filters</h3>
+                    <button onClick={handleClearFilters} className="text-xs text-purple-600 font-medium hover:text-purple-700">
+                      Clear All
+                    </button>
                   </div>
-                </div>
 
-                {/* Date Range Filters */}
-                <div className="p-4 border-b">
-                  <label className="text-sm font-medium text-gray-700 mb-3 block">Date Range</label>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">From</label>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  {/* Pod Filter (Approvals & History Only) */}
+                  {(effectiveViewMode === 'approvals' || effectiveViewMode === 'history') && (
+                    <div className="p-4 border-b">
+                      <label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Pod</label>
+                      <select
+                        value={filterPod}
+                        onChange={(e) => setFilterPod(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="">All Managed Pods</option>
+                        {pods.map((pod: any) => (
+                          <option key={pod.id} value={pod.id}>{pod.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Status Filters (Hidden for "Approvals" which forces Pending) */}
+                  {effectiveViewMode !== 'approvals' && (
+                    <div className="p-4 border-b">
+                      <label className="text-sm font-medium text-gray-700 mb-3 block">Status</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {STATUS_OPTIONS
+                          .filter(status => effectiveViewMode === 'history' ? status.value !== 'pending' : true) // Hide Pending in History
+                          .map((status) => (
+                            <label
+                              key={status.value}
+                              onClick={() => handleStatusToggle(status.value)}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${selectedStatuses.includes(status.value)
+                                ? 'bg-purple-50 border border-purple-300'
+                                : 'bg-gray-50 border border-transparent hover:bg-gray-100'
+                                }`}
+                            >
+                              <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedStatuses.includes(status.value)
+                                ? 'bg-purple-600 border-purple-600'
+                                : 'border-gray-300'
+                                }`}>
+                                {selectedStatuses.includes(status.value) && (
+                                  <Check className="w-3 h-3 text-white" />
+                                )}
+                              </div>
+                              <span className="text-sm text-gray-700">{status.label}</span>
+                            </label>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Date Range Filters */}
+                  <div className="p-4 border-b">
+                    <label className="text-sm font-medium text-gray-700 mb-3 block">Date Range</label>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">From</label>
                         <input
                           type="date"
                           value={dateFrom}
                           onChange={(e) => setDateFrom(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                         />
                       </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 mb-1 block">To</label>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">To</label>
                         <input
                           type="date"
                           value={dateTo}
                           onChange={(e) => setDateTo(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
                         />
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Actions */}
-                <div className="p-4 flex gap-3">
-                  <button
-                    onClick={handleClearFilters}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Clear All
-                  </button>
-                  <button
-                    onClick={handleApplyFilters}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all"
-                  >
-                    Apply
-                  </button>
+                  {/* Actions */}
+                  <div className="p-4 flex gap-3">
+                    <button
+                      onClick={handleClearFilters}
+                      className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      Clear All
+                    </button>
+                    <button
+                      onClick={handleApplyFilters}
+                      className="flex-1 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all"
+                    >
+                      Apply
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Refresh Button */}
+            <button
+              onClick={handleRefresh}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-purple-600 
+                       text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all text-sm font-medium"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
           </div>
-
-          {/* Refresh Button */}
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-purple-600 
-                     text-white rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all text-sm font-medium"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
         </div>
 
       </div>
@@ -334,37 +399,41 @@ const MyQueriesPage: React.FC = () => {
             </span>
           )}
         </h2>
-        {(selectedStatuses.length > 0 || dateFrom || dateTo || debouncedSearch) && (
-          <button
-            onClick={handleClearFilters}
-            className="text-sm text-purple-600 hover:text-purple-700 font-medium"
-          >
-            Clear all filters
-          </button>
-        )}
       </div>
 
       {/* Queries List */}
       <div className="card">
         {queries.length === 0 ? (
           <EmptyState
-            icon={FileText}
-            title={debouncedSearch || activeFilterCount > 0 ? "No matching queries" : "No queries found"}
+            icon={effectiveViewMode === 'approvals' ? CheckCircle2 : FileText}
+            title={
+              debouncedSearch || activeFilterCount > 0
+                ? "No matching requests"
+                : effectiveViewMode === 'approvals'
+                  ? "No pending approvals"
+                  : effectiveViewMode === 'history'
+                    ? "No history found"
+                    : "No queries found"
+            }
             description={
               debouncedSearch || activeFilterCount > 0
                 ? "Try adjusting your search or filters"
-                : "Submit a query from the Query Requests page"
+                : effectiveViewMode === 'approvals'
+                  ? "You're all caught up on approvals!"
+                  : effectiveViewMode === 'history'
+                    ? "You haven't approved or rejected any requests yet."
+                    : "Submit a query from the Query Requests page"
             }
             action={
               debouncedSearch || activeFilterCount > 0 ? (
                 <button onClick={handleClearFilters} className="btn-secondary">
                   Clear Filters
                 </button>
-              ) : (
+              ) : effectiveViewMode === 'my-requests' ? (
                 <button onClick={() => navigate('/dashboard')} className="btn-primary">
                   Submit a Query
                 </button>
-              )
+              ) : undefined
             }
           />
         ) : (
@@ -375,7 +444,8 @@ const MyQueriesPage: React.FC = () => {
                   <tr className="text-left text-sm text-gray-500 border-b">
                     <th className="pb-3 font-medium">ID</th>
                     <th className="pb-3 font-medium">Database</th>
-                    <th className="pb-3 font-medium">Query Preview</th>
+                    <th className="pb-3 font-medium">Type</th>
+                    <th className="pb-3 font-medium">User</th>
                     <th className="pb-3 font-medium">Status</th>
                     <th className="pb-3 font-medium">Date</th>
                     <th className="pb-3 font-medium">Actions</th>
@@ -397,17 +467,25 @@ const MyQueriesPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-4">
-                        <p className="text-sm text-gray-600 font-mono truncate max-w-xs">
-                          {query.queryContent || query.scriptFilename || 'N/A'}
-                        </p>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${query.submissionType === 'script' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-700'
+                          }`}>
+                          {query.submissionType === 'script' ? 'Script' : 'Query'}
+                        </span>
                       </td>
+                      <td className="py-4">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">{(query as any).userEmail || 'Me'}</span>
+                        </div>
+                      </td>
+
                       <td className="py-4">
                         <StatusBadge status={query.status} />
                       </td>
                       <td className="py-4 text-sm text-gray-500">
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {format(new Date(query.createdAt), 'MMM d, yyyy')}
+                          {format(new Date(query.createdAt), 'MMM d')}
                         </div>
                       </td>
                       <td className="py-4">
@@ -419,15 +497,6 @@ const MyQueriesPage: React.FC = () => {
                           >
                             <Eye className="w-4 h-4 text-gray-500" />
                           </button>
-                          {(query.status === RequestStatus.REJECTED || query.status === RequestStatus.FAILED) && (
-                            <button
-                              onClick={() => handleClone(query.uuid)}
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Clone & Resubmit"
-                            >
-                              <Copy className="w-4 h-4 text-gray-500" />
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
@@ -508,8 +577,9 @@ const MyQueriesPage: React.FC = () => {
 
             <div>
               <label className="text-sm text-gray-500">Query/Script</label>
-              <pre className="mt-1 p-3 bg-gray-900 text-green-400 rounded-lg text-sm overflow-x-auto">
-                {selectedQuery.queryContent || (selectedQuery as any).scriptFilename || 'N/A'}
+              <pre className="mt-1 p-3 bg-gray-900 text-green-400 rounded-lg text-sm overflow-x-auto max-h-64 whitespace-pre-wrap break-all">
+                {(selectedQuery.queryContent || (selectedQuery as any).scriptContent || 'N/A').substring(0, 500)}
+                {((selectedQuery.queryContent?.length || 0) > 500 || ((selectedQuery as any).scriptContent?.length || 0) > 500) && '...'}
               </pre>
             </div>
 
@@ -539,6 +609,7 @@ const MyQueriesPage: React.FC = () => {
                 </p>
               </div>
             )}
+
           </div>
         ) : (
           <div className="flex justify-center p-8">

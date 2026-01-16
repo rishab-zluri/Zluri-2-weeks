@@ -29,20 +29,22 @@ export const useDatabases = (instanceId: string | null) => {
     });
 };
 
-export const usePods = () => {
+export const usePods = (options?: { enabled?: boolean }) => {
     return useQuery({
         queryKey: QUERY_KEYS.pods,
         queryFn: () => queryService.getPods(),
         staleTime: 60 * 60 * 1000, // 1 hour (rarely changes)
+        enabled: options?.enabled
     });
 };
 
-export const useRequests = (filters: RequestFilters) => {
+export const useRequests = (filters: RequestFilters, options?: { enabled?: boolean }) => {
     return useQuery({
         queryKey: QUERY_KEYS.requests(filters),
-        queryFn: () => queryService.getRequests(filters),
+        queryFn: ({ signal }) => queryService.getRequests(filters, signal),
         placeholderData: keepPreviousData, // Keep old data while fetching new page
         staleTime: 30 * 1000, // 30 seconds
+        enabled: options?.enabled
     });
 };
 
@@ -52,7 +54,7 @@ export const useRequests = (filters: RequestFilters) => {
 export const useMyRequests = (filters: RequestFilters) => {
     return useQuery({
         queryKey: ['myRequests', filters],
-        queryFn: () => queryService.getMyRequests(filters),
+        queryFn: ({ signal }) => queryService.getMyRequests(filters, signal),
         placeholderData: keepPreviousData,
         staleTime: 30 * 1000,
     });
