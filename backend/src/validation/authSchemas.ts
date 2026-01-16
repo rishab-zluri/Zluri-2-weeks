@@ -119,7 +119,8 @@ export const RefreshTokenSchema = z.object({
     refreshToken: z
         .string()
         .min(1, 'Refresh token is required')
-        .max(1000, 'Token too long'), // Prevent DoS via huge tokens
+        .max(1000, 'Token too long')
+        .optional(), // Allow cookie-only refresh
 });
 
 export type RefreshTokenInput = z.infer<typeof RefreshTokenSchema>;

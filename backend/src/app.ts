@@ -21,6 +21,7 @@ import swaggerUi from 'swagger-ui-express';
 import config from './config';
 import logger from './utils/logger';
 import { errorHandler as globalErrorHandler, notFound as notFoundHandler } from './middleware/errorHandler';
+import { sensitiveEndpointsOriginCheck } from './middleware/originValidation';
 // Import routes from index to ensure all are included
 import { authRoutes, queryRoutes, userRoutes, secretsRoutes, databaseRoutes } from './routes';
 import { testConnection } from './config/database'; // Legacy connection check, will be replaced/augmented by MikroORM check in server.ts or here?
@@ -46,12 +47,27 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
             scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"], // Required for some CSS libraries
             imgSrc: ["'self'", 'data:', 'https:'],
+            fontSrc: ["'self'", 'https:', 'data:'],
+            connectSrc: ["'self'"],
+            frameSrc: ["'none'"],           // Prevent embedding in iframes
+            frameAncestors: ["'none'"],     // Clickjacking protection
+            baseUri: ["'self'"],            // Prevent base tag hijacking
+            formAction: ["'self'"],         // Restrict form submissions
+            objectSrc: ["'none'"],          // Block plugins (Flash, etc.)
+            upgradeInsecureRequests: [],    // Upgrade HTTP to HTTPS
         },
     },
     crossOriginEmbedderPolicy: false,
+    // Additional security headers
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    hsts: {
+        maxAge: 31536000, // 1 year
+        includeSubDomains: true,
+        preload: true,
+    },
 }));
 
 // Enable CORS with dynamic origin check
@@ -237,9 +253,9 @@ app.get('/health/detailed', async (req: Request, res: Response) => {
 
 // API versioning - v1
 app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/queries', queryRoutes);
-app.use('/api/v1/users', userRoutes);
-app.use('/api/v1/secrets', secretsRoutes);
+app.use('/api/v1/queries', sensitiveEndpointsOriginCheck, queryRoutes); // Origin validation for sensitive actions
+app.use('/api/v1/users', sensitiveEndpointsOriginCheck, userRoutes);    // Origin validation for user management
+app.use('/api/v1/secrets', sensitiveEndpointsOriginCheck, secretsRoutes);
 app.use('/api/v1/databases', databaseRoutes); // Use the new databaseRoutes module
 
 // Backwards compatibility

@@ -24,6 +24,7 @@ import * as staticData from '../config/staticData';
 import { slackService, queryExecutionService, scriptExecutionService } from '../services';
 import * as response from '../utils/response';
 import logger from '../utils/logger';
+import { auditLogger } from '../utils/auditLogger';
 import { parsePagination } from '../utils/validators';
 import { ValidationError } from '../utils/errors';
 import { ref } from '@mikro-orm/core';
@@ -323,6 +324,10 @@ export const approveRequest = async (req: Request<{ uuid: string }>, res: Respon
 
         logger.info('Request approved', { requestId: queryRequest.id, uuid, approverId: user.id });
 
+        // Audit log with IP address for compliance
+        const requesterEmail = queryRequest.user.getEntity()?.email || 'unknown';
+        auditLogger.logApproval(req, String(queryRequest.id), uuid, requesterEmail);
+
         // Execute the query/script
         try {
             // Mark as executing
@@ -467,6 +472,9 @@ export const rejectRequest = async (req: Request<{ uuid: string }, unknown, Reje
         } as any);
 
         logger.info('Request rejected', { requestId: queryRequest.id, uuid, rejectorId: user.id, reason });
+
+        // Audit log with IP address for compliance
+        auditLogger.logRejection(req, String(queryRequest.id), uuid, requester?.email || 'unknown', reason);
 
         response.success(res, queryRequest, 'Request rejected');
     } catch (error) {

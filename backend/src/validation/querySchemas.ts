@@ -75,9 +75,9 @@ export const SubmitRequestSchema = z
 
         comments: z
             .string()
-            .max(1000, 'Comments must be at most 1000 characters')
-            .optional()
-            .default(''),
+            .transform((c) => c.trim())
+            .refine((c) => c.length > 0, 'Comments are required')
+            .refine((c) => c.length <= 1000, 'Comments must be at most 1000 characters'),
 
         podId: z
             .string()
@@ -144,9 +144,9 @@ export type SubmitRequestInput = z.infer<typeof SubmitRequestSchema>;
 export const RejectRequestSchema = z.object({
     reason: z
         .string()
-        .min(1, 'Rejection reason is required')
-        .max(500, 'Reason must be at most 500 characters')
-        .transform((reason) => reason.trim()),
+        .transform((reason) => reason.trim())
+        .refine((reason) => reason.length > 0, 'Rejection reason is required')
+        .refine((reason) => reason.length <= 500, 'Reason must be at most 500 characters'),
 });
 
 export type RejectRequestInput = z.infer<typeof RejectRequestSchema>;
