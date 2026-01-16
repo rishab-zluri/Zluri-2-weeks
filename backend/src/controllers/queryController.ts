@@ -227,17 +227,31 @@ export const getMyRequests = async (req: Request, res: Response): Promise<void> 
 export const getMyStatusCounts = async (req: Request, res: Response): Promise<void> => {
     try {
         const em = getEntityManager();
-        const qb = em.createQueryBuilder(QueryRequest);
-        const results = await qb
-            .select(['status', 'count(*) as count'])
-            .where({ user: req.user!.id })
-            .groupBy('status')
-            .execute();
 
-        // Convert to map { status: count }
-        const counts: Record<string, number> = {};
+        // Use raw SQL query to avoid MikroORM query builder issues with aggregates
+        const results = await em.getConnection().execute(
+            `SELECT status, COUNT(*) as count 
+             FROM query_requests 
+             WHERE user_id = ? 
+             GROUP BY status`,
+            [req.user!.id]
+        );
+
+        // Convert to map { status: count } and calculate totals
+        const counts: Record<string, number> = {
+            pending: 0,
+            approved: 0,
+            rejected: 0,
+            executing: 0,
+            completed: 0,
+            failed: 0,
+            total: 0
+        };
+
         results.forEach((r: any) => {
-            counts[r.status] = parseInt(r.count, 10);
+            const count = parseInt(r.count, 10);
+            counts[r.status] = count;
+            counts.total += count;
         });
 
         response.success(res, counts);

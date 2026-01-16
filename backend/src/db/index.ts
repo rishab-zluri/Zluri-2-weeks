@@ -72,11 +72,24 @@ export async function runMigrations(): Promise<void> {
 /**
  * Sync schema (development only)
  * Creates/updates tables based on entity definitions
+ * Uses safe mode - only adds columns/tables, never drops
  */
 export async function syncSchema(): Promise<void> {
     const generator = getORM().getSchemaGenerator();
-    await generator.updateSchema();
-    console.log('Schema synchronized');
+
+    // First, get the SQL that would be executed (for logging)
+    const updateSql = await generator.getUpdateSchemaSQL({ safe: true });
+
+    if (updateSql.trim()) {
+        console.log('Schema changes detected. Executing safe migrations:');
+        console.log(updateSql);
+
+        // Execute with safe mode - only add columns, never drop
+        await generator.updateSchema({ safe: true });
+        console.log('Schema synchronized successfully');
+    } else {
+        console.log('Schema is up to date - no changes needed');
+    }
 }
 
 // Export for convenience
