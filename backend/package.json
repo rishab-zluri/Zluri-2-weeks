@@ -18,7 +18,8 @@
     "orm:migration:pending": "mikro-orm migration:pending",
     "orm:schema:update": "mikro-orm schema:update --run",
     "orm:schema:drop": "mikro-orm schema:drop --run",
-    "orm:schema:fresh": "mikro-orm schema:fresh --run --seed"
+    "orm:schema:fresh": "mikro-orm schema:fresh --run --seed",
+    "swagger": "ts-node scripts/generate-swagger.ts"
   },
   "dependencies": {
     "@mikro-orm/cli": "^6.6.4",

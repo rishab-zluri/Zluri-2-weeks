@@ -1,0 +1,2668 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "DB Query Portal API",
+    "version": "1.0.0",
+    "description": "Database Query Portal Backend API serving secure query execution across PostgreSQL and MongoDB instances.",
+    "contact": {
+      "name": "Zluri SRE Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "API V1 Base Path"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT token obtained from /auth/login or /auth/refresh"
+      },
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "access_token",
+        "description": "HttpOnly cookie containing JWT access token"
+      }
+    },
+    "parameters": {
+      "UuidPathParam": {
+        "in": "path",
+        "name": "uuid",
+        "required": true,
+        "description": "UUID identifier for the resource",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "example": "123e4567-e89b-12d3-a456-426614174000"
+      },
+      "PageParam": {
+        "in": "query",
+        "name": "page",
+        "description": "Page number for pagination",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "example": 1
+      },
+      "LimitParam": {
+        "in": "query",
+        "name": "limit",
+        "description": "Number of items per page",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 10
+        },
+        "example": 10
+      },
+      "InstanceIdParam": {
+        "in": "path",
+        "name": "instanceId",
+        "required": true,
+        "description": "Database instance identifier",
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9-_]+$",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "example": "postgres-prod-1"
+      },
+      "IdempotencyKeyHeader": {
+        "in": "header",
+        "name": "Idempotency-Key",
+        "required": false,
+        "description": "Unique key to prevent duplicate request processing",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "example": "550e8400-e29b-41d4-a716-446655440000"
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Authentication required - missing or invalid token",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "status": "error",
+              "message": "Authentication required"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Insufficient permissions for this operation",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "status": "error",
+              "message": "Access denied. Admin role required."
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "status": "error",
+              "message": "Resource not found"
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Request validation failed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "example": {
+              "status": "error",
+              "message": "Validation failed",
+              "errors": [
+                {
+                  "field": "email",
+                  "message": "Invalid email format"
+                },
+                {
+                  "field": "password",
+                  "message": "Password must be at least 8 characters"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "RateLimitExceeded": {
+        "description": "Too many requests - rate limit exceeded",
+        "headers": {
+          "X-RateLimit-Limit": {
+            "description": "Maximum requests allowed per window",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 100
+          },
+          "X-RateLimit-Remaining": {
+            "description": "Requests remaining in current window",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 0
+          },
+          "X-RateLimit-Reset": {
+            "description": "Unix timestamp when rate limit resets",
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1640995200
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "status": "error",
+              "message": "Rate limit exceeded. Try again later."
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "status": "error",
+              "message": "An unexpected error occurred"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "error"
+            ],
+            "example": "error"
+          },
+          "message": {
+            "type": "string",
+            "example": "Something went wrong"
+          }
+        }
+      },
+      "ValidationError": {
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "error"
+            ],
+            "example": "error"
+          },
+          "message": {
+            "type": "string",
+            "example": "Validation failed"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "field",
+                "message"
+              ],
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "example": "email"
+                },
+                "message": {
+                  "type": "string",
+                  "example": "Invalid email format"
+                }
+              }
+            }
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "name",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john.doe@company.com"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "example": "John Doe"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "manager",
+              "developer",
+              "readonly"
+            ],
+            "example": "developer"
+          },
+          "podId": {
+            "type": "string",
+            "nullable": true,
+            "example": "pod-engineering"
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-15T10:30:00Z"
+          }
+        }
+      },
+      "DatabaseInstance": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "postgres-prod-1"
+          },
+          "name": {
+            "type": "string",
+            "example": "Production PostgreSQL"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "postgresql",
+              "mongodb"
+            ],
+            "example": "postgresql"
+          },
+          "host": {
+            "type": "string",
+            "example": "db.internal.company.com"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535,
+            "example": 5432
+          },
+          "isHealthy": {
+            "type": "boolean",
+            "example": true
+          },
+          "lastSyncAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2024-01-15T10:30:00Z"
+          }
+        }
+      },
+      "QueryRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "uuid",
+          "requestType",
+          "databaseType",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 12345
+          },
+          "uuid": {
+            "type": "string",
+            "format": "uuid",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "requestType": {
+            "type": "string",
+            "enum": [
+              "query",
+              "script"
+            ],
+            "example": "query"
+          },
+          "databaseType": {
+            "type": "string",
+            "enum": [
+              "postgresql",
+              "mongodb"
+            ],
+            "example": "postgresql"
+          },
+          "databaseName": {
+            "type": "string",
+            "example": "analytics_db"
+          },
+          "queryContent": {
+            "type": "string",
+            "example": "SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL 1 DAY"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "executed",
+              "failed"
+            ],
+            "example": "pending"
+          },
+          "riskLevel": {
+            "type": "string",
+            "enum": [
+              "safe",
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ],
+            "example": "low"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-15T10:30:00Z"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "instance": {
+            "$ref": "#/components/schemas/DatabaseInstance"
+          },
+          "comments": {
+            "type": "string",
+            "nullable": true,
+            "example": "Monthly active users report"
+          }
+        }
+      },
+      "PaginationLinks": {
+        "type": "object",
+        "required": [
+          "self",
+          "first",
+          "last"
+        ],
+        "properties": {
+          "self": {
+            "type": "string",
+            "format": "uri",
+            "example": "/api/v1/queries/my-requests?page=2&limit=10"
+          },
+          "next": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "example": "/api/v1/queries/my-requests?page=3&limit=10"
+          },
+          "prev": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "example": "/api/v1/queries/my-requests?page=1&limit=10"
+          },
+          "first": {
+            "type": "string",
+            "format": "uri",
+            "example": "/api/v1/queries/my-requests?page=1&limit=10"
+          },
+          "last": {
+            "type": "string",
+            "format": "uri",
+            "example": "/api/v1/queries/my-requests?page=10&limit=10"
+          }
+        }
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total number of items",
+            "example": 95
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Current page number",
+            "example": 2
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Items per page",
+            "example": 10
+          },
+          "totalPages": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Total number of pages",
+            "example": 10
+          }
+        }
+      },
+      "PaginatedQueryRequests": {
+        "type": "object",
+        "required": [
+          "success",
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueryRequest"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMeta"
+          },
+          "links": {
+            "$ref": "#/components/schemas/PaginationLinks"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {
+      "cookieAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "Login user",
+        "tags": [
+          "Auth"
+        ],
+        "description": "Authenticate user and return access/refresh tokens. Sets HttpOnly cookies.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "user@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "password123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/User"
+                        },
+                        "accessToken": {
+                          "type": "string"
+                        },
+                        "refreshToken": {
+                          "type": "string"
+                        },
+                        "expiresIn": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Refresh access token",
+        "tags": [
+          "Auth"
+        ],
+        "description": "Get a new access token using a valid refresh token (from cookie or body).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token refreshed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "accessToken": {
+                          "type": "string"
+                        },
+                        "expiresIn": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/databases/instances": {
+      "get": {
+        "summary": "List database instances",
+        "description": "Retrieve all configured database instances (PostgreSQL and MongoDB).\nResults can be filtered by database type.\n\n**Security**: Returns only instances the authenticated user has access to.\n",
+        "tags": [
+          "Database Management"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "description": "Filter instances by database type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "postgresql",
+                "mongodb"
+              ]
+            },
+            "example": "postgresql"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of database instances",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DatabaseInstance"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "id": "postgres-prod-1",
+                      "name": "Production PostgreSQL",
+                      "type": "postgresql",
+                      "host": "db.internal.company.com",
+                      "port": 5432,
+                      "isHealthy": true
+                    },
+                    {
+                      "id": "mongo-analytics",
+                      "name": "Analytics MongoDB",
+                      "type": "mongodb",
+                      "isHealthy": true
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/databases/instances/{instanceId}": {
+      "get": {
+        "summary": "Get instance by ID",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instanceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Instance details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/DatabaseInstance"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/schemas/Error"
+          }
+        }
+      }
+    },
+    "/databases/instances/{instanceId}/databases": {
+      "get": {
+        "summary": "Get databases in an instance",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instanceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of databases",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "databases": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "sizeOnDisk": {
+                                "type": "number"
+                              },
+                              "empty": {
+                                "type": "boolean"
+                              }
+                            }
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/databases/instances/{instanceId}/sync": {
+      "post": {
+        "summary": "Synchronize database instance metadata",
+        "description": "Trigger metadata synchronization for a specific database instance.\nUpdates the list of available databases and their schemas.\n\n**RBAC**: Admin role required\n**Idempotency**: Safe to retry - sync operations are idempotent\n**Duration**: May take 30-60 seconds for large databases\n",
+        "tags": [
+          "Database Management"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/InstanceIdParam"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sync initiated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Sync completed successfully"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "databasesFound": {
+                          "type": "integer",
+                          "example": 15
+                        },
+                        "syncedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "example": "2024-01-15T11:45:00Z"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/databases/instances/{instanceId}/sync-history": {
+      "get": {
+        "summary": "Get sync history",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instanceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sync history"
+          }
+        }
+      }
+    },
+    "/databases/sync-all": {
+      "post": {
+        "summary": "Trigger sync for all instances",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sync started for all instances"
+          }
+        }
+      }
+    },
+    "/databases/blacklist": {
+      "get": {
+        "summary": "Get blacklist entries",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of blacklisted patterns",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "pattern": {
+                            "type": "string"
+                          },
+                          "patternType": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add database to blacklist",
+        "description": "Blacklist a database to prevent query submissions.\nUsed for maintenance windows or deprecated databases.\n\n**RBAC**: Admin role required\n**Impact**: Users cannot submit queries to blacklisted databases\n",
+        "tags": [
+          "Database Management"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "instanceId",
+                  "databaseName",
+                  "reason"
+                ],
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9-_]+$",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "Database instance identifier",
+                    "example": "postgres-prod-1"
+                  },
+                  "databaseName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "Database name to blacklist",
+                    "example": "legacy_system_db"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "description": "Reason for blacklisting (audit trail)",
+                    "example": "Database scheduled for decommission on 2024-02-01"
+                  }
+                }
+              },
+              "example": {
+                "instanceId": "postgres-prod-1",
+                "databaseName": "old_reporting_db",
+                "reason": "Migrated to new analytics platform"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Database blacklisted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Database blacklisted successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/databases/blacklist/{id}": {
+      "delete": {
+        "summary": "Remove from blacklist",
+        "tags": [
+          "Databases"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed from blacklist"
+          }
+        }
+      }
+    },
+    "/queries/instances": {
+      "get": {
+        "summary": "Get database instances",
+        "tags": [
+          "Metadata"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "postgresql",
+                "mongodb"
+              ]
+            },
+            "description": "Filter by database type"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of database instances",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DatabaseInstance"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queries/instances/{instanceId}/databases": {
+      "get": {
+        "summary": "Get databases for an instance",
+        "tags": [
+          "Metadata"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "instanceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Instance ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of database names",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "sizeOnDisk": {
+                            "type": "number"
+                          },
+                          "empty": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queries/pods": {
+      "get": {
+        "summary": "Get all PODs",
+        "tags": [
+          "Metadata"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of PODs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queries/submit": {
+      "post": {
+        "summary": "Submit a new database query request",
+        "description": "Submit a query for approval and execution. All queries are analyzed for risk level.\nHIGH and CRITICAL risk queries require manager approval before execution.\n\n**Security**: Queries are sanitized for XSS and analyzed for dangerous patterns (DROP, TRUNCATE, etc.)\n\n**Idempotency**: Include `Idempotency-Key` header to prevent duplicate submissions.\n",
+        "tags": [
+          "Queries"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "instanceId",
+                  "databaseName",
+                  "queryContent",
+                  "podId"
+                ],
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9-_]+$",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "Database instance identifier",
+                    "example": "postgres-prod-1"
+                  },
+                  "databaseName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "Target database name",
+                    "example": "analytics_db"
+                  },
+                  "submissionType": {
+                    "type": "string",
+                    "enum": [
+                      "query",
+                      "script"
+                    ],
+                    "default": "query",
+                    "description": "Type of submission"
+                  },
+                  "queryContent": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50000,
+                    "description": "SQL query content (max 50KB)",
+                    "example": "SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL 1 DAY"
+                  },
+                  "comments": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "description": "Optional context or justification",
+                    "example": "Daily active users report for product team"
+                  },
+                  "podId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "POD identifier for approval routing",
+                    "example": "pod-data-engineering"
+                  }
+                }
+              },
+              "examples": {
+                "safeQuery": {
+                  "summary": "Safe SELECT query (low risk)",
+                  "value": {
+                    "instanceId": "postgres-prod-1",
+                    "databaseName": "analytics_db",
+                    "submissionType": "query",
+                    "queryContent": "SELECT id, name, email FROM users WHERE active = true LIMIT 100",
+                    "comments": "Weekly active users export",
+                    "podId": "pod-analytics"
+                  }
+                },
+                "dangerousQuery": {
+                  "summary": "Dangerous DELETE query (high risk)",
+                  "value": {
+                    "instanceId": "postgres-prod-1",
+                    "databaseName": "users_db",
+                    "submissionType": "query",
+                    "queryContent": "DELETE FROM inactive_accounts WHERE last_login < NOW() - INTERVAL 90 DAY",
+                    "comments": "Quarterly cleanup - approved by PM",
+                    "podId": "pod-operations"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Query submitted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/QueryRequest"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "id": 12345,
+                    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+                    "requestType": "query",
+                    "databaseType": "postgresql",
+                    "status": "pending",
+                    "riskLevel": "high"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/queries/submit-script": {
+      "post": {
+        "summary": "Submit a script execution request",
+        "tags": [
+          "Query"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "instanceId",
+                  "databaseName",
+                  "podId",
+                  "scriptFile"
+                ],
+                "properties": {
+                  "instanceId": {
+                    "type": "string"
+                  },
+                  "databaseName": {
+                    "type": "string"
+                  },
+                  "podId": {
+                    "type": "string"
+                  },
+                  "comments": {
+                    "type": "string"
+                  },
+                  "scriptFile": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Script submitted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/QueryRequest"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimitExceeded"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/queries/my-requests": {
+      "get": {
+        "summary": "Get current user's query requests",
+        "description": "Retrieve paginated list of query requests submitted by the authenticated user.\nSupports filtering by status and includes HATEOAS pagination links.\n",
+        "tags": [
+          "Queries"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PageParam"
+          },
+          {
+            "$ref": "#/components/parameters/LimitParam"
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "description": "Filter by request status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected",
+                "executed",
+                "failed"
+              ]
+            },
+            "example": "pending"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of requests with HATEOAS links",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedQueryRequests"
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "id": 12345,
+                      "uuid": "550e8400-e29b-41d4-a716-446655440000",
+                      "requestType": "query",
+                      "status": "pending",
+                      "riskLevel": "medium"
+                    }
+                  ],
+                  "pagination": {
+                    "total": 95,
+                    "page": 2,
+                    "limit": 10,
+                    "totalPages": 10
+                  },
+                  "links": {
+                    "self": "/api/v1/queries/my-requests?page=2&limit=10",
+                    "next": "/api/v1/queries/my-requests?page=3&limit=10",
+                    "prev": "/api/v1/queries/my-requests?page=1&limit=10",
+                    "first": "/api/v1/queries/my-requests?page=1&limit=10",
+                    "last": "/api/v1/queries/my-requests?page=10&limit=10"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/queries/my-status-counts": {
+      "get": {
+        "summary": "Get status counts for user requests",
+        "tags": [
+          "Query"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queries/requests/{uuid}": {
+      "get": {
+        "summary": "Get details of a specific request",
+        "tags": [
+          "Query"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uuid",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/QueryRequest"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/queries/requests/{uuid}/clone": {
+      "post": {
+        "summary": "Clone a request",
+        "tags": [
+          "Query"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uuid",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Request cloned successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/QueryRequest"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queries/pending": {
+      "get": {
+        "summary": "Get pending requests (Manager/Admin)",
+        "tags": [
+          "Approval"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of pending requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "requests": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/QueryRequest"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/queries/requests/{uuid}/approve": {
+      "post": {
+        "summary": "Approve a query request",
+        "description": "Approve a pending query request. Requires MANAGER or ADMIN role.\nApproved queries are queued for execution.\n\n**RBAC**: Manager or Admin role required\n**Idempotency**: Safe to retry - approval is idempotent\n",
+        "tags": [
+          "Queries - Approval"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UuidPathParam"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request approved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/QueryRequest"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+                    "status": "approved",
+                    "approvedBy": "manager@company.com",
+                    "approvedAt": "2024-01-15T11:30:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/queries/requests/{uuid}/reject": {
+      "post": {
+        "summary": "Reject a request",
+        "tags": [
+          "Approval"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uuid",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/QueryRequest"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/queries/stats": {
+      "get": {
+        "summary": "Get system stats",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "System statistics"
+          }
+        }
+      }
+    },
+    "/queries/all": {
+      "get": {
+        "summary": "Get all requests (Admin)",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of all requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "requests": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/QueryRequest"
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "summary": "List all users",
+        "description": "Retrieve paginated list of all users in the system.\n\n**RBAC**: Admin role required\n**Filtering**: Supports role and status filters\n",
+        "tags": [
+          "User Management"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PageParam"
+          },
+          {
+            "$ref": "#/components/parameters/LimitParam"
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "description": "Filter by user role",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "manager",
+                "developer",
+                "readonly"
+              ]
+            },
+            "example": "developer"
+          },
+          {
+            "in": "query",
+            "name": "isActive",
+            "description": "Filter by active status",
+            "schema": {
+              "type": "boolean"
+            },
+            "example": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data",
+                    "pagination"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/User"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": [
+                    {
+                      "id": "123e4567-e89b-12d3-a456-426614174000",
+                      "email": "john.doe@company.com",
+                      "name": "John Doe",
+                      "role": "developer",
+                      "isActive": true
+                    }
+                  ],
+                  "pagination": {
+                    "total": 45,
+                    "page": 1,
+                    "limit": 10,
+                    "totalPages": 5
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "summary": "Get user by ID",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a user",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "developer",
+                      "manager",
+                      "admin"
+                    ]
+                  },
+                  "podId": {
+                    "type": "string"
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a user",
+        "description": "Permanently delete a user account and all associated data.\n\n**RBAC**: Admin role required\n**Warning**: This action is irreversible\n**Impact**: User loses access immediately, all pending requests are canceled\n",
+        "tags": [
+          "User Management"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "User UUID",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User deleted successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/users/{id}/activate": {
+      "post": {
+        "summary": "Activate a user account",
+        "description": "Activate a previously deactivated user account.\nUser regains access to the system upon activation.\n\n**RBAC**: Admin role required\n**Effect**: User can log in and submit queries\n",
+        "tags": [
+          "User Management"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "description": "User UUID",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User activated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "id": "123e4567-e89b-12d3-a456-426614174000",
+                    "email": "john.doe@company.com",
+                    "isActive": true,
+                    "updatedAt": "2024-01-15T12:00:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/users/{id}/reset-password": {
+      "post": {
+        "summary": "Reset user password",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "newPassword"
+                ],
+                "properties": {
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 8
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset successfully"
+          }
+        }
+      }
+    }
+  },
+  "tags": []
+}
