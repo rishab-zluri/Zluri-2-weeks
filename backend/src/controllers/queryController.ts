@@ -573,7 +573,10 @@ export const getAllRequests = async (req: Request, res: Response): Promise<void>
         const where: any = {};
 
         // RBAC: Managers can only see requests for their managed PODs
-        if (user.role === UserRole.MANAGER) {
+        // EXCEPT when viewing their own requests (My Requests tab)
+        const isViewingOwnRequests = userId && userId === user.id;
+
+        if (user.role === UserRole.MANAGER && !isViewingOwnRequests) {
             const managedPods = staticData.getPodsByManager(user.email).map(p => p.id);
             if (managedPods.length === 0) {
                 // Manager manages no pods, return empty list immediately
@@ -594,14 +597,39 @@ export const getAllRequests = async (req: Request, res: Response): Promise<void>
                 where.podId = { $in: managedPods };
             }
         } else if (podId) {
-            // Admins can filter by any pod
+            // Admins (or anyone viewing own requests if logic permits) can filter by any pod
             where.podId = podId;
         }
 
         if (userId) where.user = userId;
-        if (status) where.status = status;
-        if (databaseType) where.databaseType = databaseType;
-        if (submissionType) where.submissionType = submissionType;
+
+        // Support comma-separated filters for status, databaseType, submissionType
+        if (status) {
+            const statusStr = status as string;
+            if (statusStr.includes(',')) {
+                where.status = { $in: statusStr.split(',').map(s => s.trim()) };
+            } else {
+                where.status = status;
+            }
+        }
+
+        if (databaseType) {
+            const typeStr = databaseType as string;
+            if (typeStr.includes(',')) {
+                where.databaseType = { $in: typeStr.split(',').map(s => s.trim()) };
+            } else {
+                where.databaseType = databaseType;
+            }
+        }
+
+        if (submissionType) {
+            const subTypeStr = submissionType as string;
+            if (subTypeStr.includes(',')) {
+                where.submissionType = { $in: subTypeStr.split(',').map(s => s.trim()) };
+            } else {
+                where.submissionType = submissionType;
+            }
+        }
         if (startDate) where.createdAt = { $gte: new Date(startDate as string) };
         if (endDate) {
             where.createdAt = { ...where.createdAt, $lte: new Date(endDate as string) };

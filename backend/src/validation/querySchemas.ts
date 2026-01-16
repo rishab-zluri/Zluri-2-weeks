@@ -165,19 +165,15 @@ export type RejectRequestInput = z.infer<typeof RejectRequestSchema>;
  * - z.coerce converts "10" to 10 automatically
  */
 export const RequestQuerySchema = z.object({
-    status: z
-        .enum(['pending', 'approved', 'rejected', 'executing', 'completed', 'failed'])
-        .optional(),
+    status: z.string().optional(), // Allows comma-separated values
 
     podId: z.string().optional(),
 
     instanceId: z.string().optional(),
 
-    submissionType: SubmissionTypeEnum.optional(),
+    submissionType: z.string().optional(), // Allows comma-separated values
 
-    databaseType: z
-        .enum(['postgresql', 'mongodb'])
-        .optional(),
+    databaseType: z.string().optional(), // Allows comma-separated values
 
     userId: z.string().uuid().optional(),
 

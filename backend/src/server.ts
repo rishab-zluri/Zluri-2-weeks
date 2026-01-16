@@ -153,6 +153,10 @@ const startServer = async () => {
         // 3. Start HTTP Server
         const PORT = config.server.port;
         server = app.listen(PORT, () => {
+            logger.info(`Server running on port ${PORT}`);
+            logger.info(`Environment: ${process.env.NODE_ENV}`);
+            logger.info(`Manager Filter Fix Applied: ${new Date().toISOString()}`);
+            console.log(`Server started at ${new Date().toISOString()} [RESTARTED]`); // Force restart
             logger.info(`Server running in ${config.env} mode on port ${PORT}`);
             logger.info(`Health check available at http://localhost:${PORT}/health`);
             logger.info(`API available at http://localhost:${PORT}/api/v1`);

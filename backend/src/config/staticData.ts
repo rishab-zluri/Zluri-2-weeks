@@ -144,7 +144,8 @@ export function getPodById(podId: string): Pod | null {
  * Get PODs by manager email
  */
 export function getPodsByManager(email: string): Pod[] {
-    return pods.filter((pod) => pod.manager_email === email);
+    const normalizedEmail = email.toLowerCase().trim();
+    return pods.filter((pod) => pod.manager_email.toLowerCase().trim() === normalizedEmail);
 }
 
 // ============================================================================
