@@ -13,8 +13,7 @@ import {
 import {
   useRequests,
   useStatusCounts,
-  useRequest,
-  useSubmitQuery // For handling clones eventually, or we keep manual clone for now if not hooked
+  useRequest
 } from '@/hooks';
 import queryService from '@/services/queryService'; // Direct service import for clone still
 import { Loading, StatusBadge, EmptyState, Modal } from '@/components/common';
@@ -144,8 +143,8 @@ const MyQueriesPage: React.FC = () => {
                   setPage(1);
                 }}
                 className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${activeFilter === tab.key
-                    ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
               >
                 {tab.label} ({tab.count || 0})

@@ -37,6 +37,7 @@ export enum SubmissionType {
 }
 
 export interface QueryRequest {
+    id: string; // Added for display purposes (numeric ID from backend)
     uuid: string;
     user: User;
     status: RequestStatus;
@@ -59,6 +60,14 @@ export interface QueryRequest {
     executionCompletedAt?: string;
 }
 
+
+export interface PaginationSchema {
+    page?: number;
+    limit?: number;
+    totalPages?: number;
+    totalItems?: number;
+}
+
 export interface PaginatedResponse<T> {
     success: boolean;
     data: T[];
@@ -69,3 +78,4 @@ export interface PaginatedResponse<T> {
         totalPages: number;
     };
 }
+

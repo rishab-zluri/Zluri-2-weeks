@@ -22,7 +22,7 @@ import { ScriptForm } from '@/components/query/ScriptForm';
 import { ScriptDocs } from '@/components/query/ScriptDocs'; // Correct import path
 import toast from 'react-hot-toast';
 import { DatabaseInstance, Pod, SubmitQueryInput, SubmitScriptInput } from '@/services/queryService';
-import { DatabaseType } from '@/types';
+import type { DatabaseType } from '@/types';
 
 const QuerySubmissionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -88,7 +88,7 @@ const QuerySubmissionPage: React.FC = () => {
       // The backend expects IDs mostly, names are optional or redundant but we send what service interface says.
 
       const instance = instances.find(i => i.id === instanceId);
-      const databaseType = instance?.type || 'postgresql'; // Default
+      const databaseType = (instance?.type || 'postgresql') as DatabaseType;
 
       if (submissionType === 'query') {
         const payload: SubmitQueryInput = {

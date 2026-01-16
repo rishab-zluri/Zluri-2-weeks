@@ -1,7 +1,6 @@
 import client, { ApiResponse } from '@/api/client';
 import {
   QueryRequest,
-  PaginationSchema,
   PaginatedResponse,
   DatabaseType
 } from '@/types';

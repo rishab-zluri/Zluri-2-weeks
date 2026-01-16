@@ -13,9 +13,7 @@ export const useSubmitQuery = () => {
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.statusCounts });
             queryClient.invalidateQueries({ queryKey: ['requests'] }); // Invalidate all request lists
         },
-        onError: (error: any) => {
-            // Error handling is mostly done globally, but we can add specific logic here
-        }
+
     });
 };
 

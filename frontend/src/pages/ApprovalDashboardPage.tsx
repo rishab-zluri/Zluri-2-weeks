@@ -17,7 +17,6 @@ import {
   useRejectRequest
 } from '@/hooks';
 import { Loading, StatusBadge, EmptyState, Modal } from '@/components/common';
-import { format } from 'date-fns';
 import { QueryRequest, RequestStatus } from '@/types';
 
 const ApprovalDashboardPage: React.FC = () => {
@@ -42,8 +41,7 @@ const ApprovalDashboardPage: React.FC = () => {
 
   const {
     data: requestsData,
-    isLoading: loading,
-    isRefetching: refreshing
+    isLoading: loading
   } = useRequests(filterParams);
 
   // Fetch only managed pods? The service call `getPods({ forApproval: true })` was used.

@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import queryService, { RequestFilters } from '@/services/queryService';
-import { DatabaseType, RequestStatus } from '@/types';
+import type { DatabaseType } from '@/types';
 
 // Keys for caching
 export const QUERY_KEYS = {
