@@ -52,9 +52,10 @@ export class MongoDriver implements IDatabaseDriver {
         let client: MongoClient | null = null;
 
         try {
-            // 3. Get client
+            // 3. Get client - pass uri for MongoDB instances
             client = await this.poolManager.getMongoClient(instanceId, {
                 ...instance,
+                uri: (instance as any).uri,
                 host: (instance as any).host,
                 port: (instance as any).port
             });

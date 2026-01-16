@@ -148,10 +148,18 @@ router.get(
  *             schema:
  *               type: object
  *               properties:
- *                 success: { type: 'boolean' }
+ *                 success: { type: 'boolean', example: true }
  *                 data: { $ref: '#/components/schemas/User' }
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
  *       404:
- *         $ref: '#/components/schemas/Error'
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router.get(
     '/:id',
@@ -193,8 +201,18 @@ router.get(
  *             schema:
  *               type: object
  *               properties:
- *                 success: { type: 'boolean' }
+ *                 success: { type: 'boolean', example: true }
  *                 data: { $ref: '#/components/schemas/User' }
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router.put(
     '/:id',

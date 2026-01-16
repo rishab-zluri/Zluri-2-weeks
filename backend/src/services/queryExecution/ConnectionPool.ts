@@ -65,21 +65,34 @@ export class ConnectionPool {
 
     /**
      * Get or create MongoDB client
+     * 
+     * MongoDB instances can provide either:
+     * - uri: Full connection string (preferred)
+     * - host/port: Will be constructed into URI
      */
-    public async getMongoClient(instanceId: string, connectionConfig: DatabaseInstanceConfig & { host: string; port: number; user?: string; password?: string }): Promise<MongoClient> {
+    public async getMongoClient(instanceId: string, connectionConfig: DatabaseInstanceConfig & { uri?: string; host?: string; port?: number; user?: string; password?: string }): Promise<MongoClient> {
         if (!this.mongoClients.has(instanceId)) {
-            const envPrefix = `MONGO_${instanceId.toUpperCase().replace(/-/g, '_')}`;
+            let uri: string;
 
-            // Construct URI
-            const user = connectionConfig.user || process.env[`${envPrefix}_USER`] || process.env.MONGO_DEFAULT_USER || '';
-            const password = connectionConfig.password || process.env[`${envPrefix}_PASSWORD`] || process.env.MONGO_DEFAULT_PASSWORD || '';
+            // Prefer uri property if available
+            if (connectionConfig.uri) {
+                uri = connectionConfig.uri;
+                logger.debug('Using pre-configured MongoDB URI', { instanceId });
+            } else if (connectionConfig.host && connectionConfig.port) {
+                // Construct URI from host/port
+                const envPrefix = `MONGO_${instanceId.toUpperCase().replace(/-/g, '_')}`;
+                const user = connectionConfig.user || process.env[`${envPrefix}_USER`] || process.env.MONGO_DEFAULT_USER || '';
+                const password = connectionConfig.password || process.env[`${envPrefix}_PASSWORD`] || process.env.MONGO_DEFAULT_PASSWORD || '';
 
-            let authPart = '';
-            if (user && password) {
-                authPart = `${encodeURIComponent(user)}:${encodeURIComponent(password)}@`;
+                let authPart = '';
+                if (user && password) {
+                    authPart = `${encodeURIComponent(user)}:${encodeURIComponent(password)}@`;
+                }
+
+                uri = `mongodb://${authPart}${connectionConfig.host}:${connectionConfig.port}/?maxPoolSize=${process.env.MONGO_POOL_SIZE || '5'}`;
+            } else {
+                throw new Error(`MongoDB instance ${instanceId} missing uri or host/port configuration`);
             }
-
-            const uri = `mongodb://${authPart}${connectionConfig.host}:${connectionConfig.port}/?maxPoolSize=${process.env.MONGO_POOL_SIZE || '5'}`;
 
             const client = new MongoClient(uri, {
                 connectTimeoutMS: 10000,

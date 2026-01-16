@@ -321,8 +321,18 @@ router.post(
  *             schema:
  *               type: object
  *               properties:
- *                 success: { type: 'boolean' }
+ *                 success: { type: 'boolean', example: true }
  *                 data: { $ref: '#/components/schemas/QueryRequest' }
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       429:
+ *         $ref: '#/components/responses/RateLimitExceeded'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router.post(
     '/submit-script',
@@ -448,10 +458,16 @@ router.get(
  *             schema:
  *               type: object
  *               properties:
- *                 success: { type: 'boolean' }
+ *                 success: { type: 'boolean', example: true }
  *                 data: { $ref: '#/components/schemas/QueryRequest' }
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
  *       404:
- *         $ref: '#/components/schemas/Error'
+ *         $ref: '#/components/responses/NotFound'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router.get(
     '/requests/:uuid',
@@ -531,6 +547,14 @@ router.post(
  *                       type: object
  *                       properties:
  *                         total: { type: 'integer' }
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router.get(
     '/pending',

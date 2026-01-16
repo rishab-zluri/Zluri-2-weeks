@@ -83,10 +83,18 @@ const router = express.Router();
  *                       $ref: '#/components/schemas/User'
  *                     accessToken:
  *                       type: string
+ *                     refreshToken:
+ *                       type: string
  *                     expiresIn:
  *                       type: string
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
  *       401:
- *         $ref: '#/components/schemas/Error'
+ *         $ref: '#/components/responses/Unauthorized'
+ *       429:
+ *         $ref: '#/components/responses/RateLimitExceeded'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router.post(
     '/login',
@@ -127,12 +135,12 @@ router.post(
  *                       type: string
  *                     expiresIn:
  *                       type: string
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
  *       401:
- *         description: Invalid or expired refresh token
- *         content:
- *             application/json:
- *               schema:
- *                 $ref: '#/components/schemas/Error'
+ *         $ref: '#/components/responses/Unauthorized'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router.post(
     '/refresh',

@@ -185,8 +185,11 @@ function parseBoolean(value: string | undefined, defaultValue: boolean = false):
  * Supports single origin or comma-separated multiple origins
  */
 /* istanbul ignore next */
-function parseCorsOrigin(value: string | undefined): string | string[] {
-    if (!value || value === '*') {
+function parseCorsOrigin(value: string | undefined, defaultValue: string | string[] = '*'): string | string[] {
+    if (!value) {
+        return defaultValue;
+    }
+    if (value === '*') {
         return '*';
     }
     const origins = value.split(',').map((o) => o.trim());
@@ -332,7 +335,7 @@ const config: AppConfig = {
 
     // CORS Configuration
     cors: {
-        origin: parseCorsOrigin(process.env.CORS_ORIGIN || '*'),
+        origin: parseCorsOrigin(process.env.CORS_ORIGIN, process.env.NODE_ENV === 'production' ? '' : '*'),
         credentials: parseBoolean(process.env.CORS_CREDENTIALS, true),
         methods: (process.env.CORS_METHODS || 'GET,POST,PUT,DELETE,PATCH,OPTIONS').split(','),
         allowedHeaders: (process.env.CORS_ALLOWED_HEADERS || 'Content-Type,Authorization,X-Requested-With').split(','),
