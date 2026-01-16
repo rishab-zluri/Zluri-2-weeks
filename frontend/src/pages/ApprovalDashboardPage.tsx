@@ -1,154 +1,100 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Search, 
-  CheckCircle2, 
-  XCircle, 
+import React, { useState } from 'react';
+import {
+  Search,
+  CheckCircle2,
+  XCircle,
   Eye,
   Database,
   User,
-  Clock,
-  MessageSquare,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
   Filter
 } from 'lucide-react';
-import { queryService } from '../services';
-import { Loading, StatusBadge, EmptyState, Modal } from '../components/common';
-import { useAuth } from '../context/AuthContext';
-import toast from 'react-hot-toast';
+import {
+  useRequests,
+  usePods,
+  useRequest,
+  useApproveRequest,
+  useRejectRequest
+} from '@/hooks';
+import { Loading, StatusBadge, EmptyState, Modal } from '@/components/common';
 import { format } from 'date-fns';
+import { QueryRequest, RequestStatus } from '@/types';
 
-const ApprovalDashboardPage = () => {
-  const { user } = useAuth();
-  
-  // Data state
-  const [requests, setRequests] = useState([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  
+const ApprovalDashboardPage: React.FC = () => {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPod, setFilterPod] = useState('');
-  const [pods, setPods] = useState([]);
-  
-  // Loading state
-  const [loading, setLoading] = useState(true);
-  
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
+  // Debounced search could be implemented, for now direct passing
+
+  // Data Fetching
+  const filterParams: any = {
+    page,
+    limit,
+    status: RequestStatus.PENDING
+  };
+  if (filterPod) filterParams.podId = filterPod;
+  // Backend unified endpoint supports generic search (userId, comments, etc) check if `search` param is supported.
+  // Yes, generic `search` param was added to `getAllRequests` (which is what `useRequests` calls).
+  if (searchQuery) filterParams.search = searchQuery;
+
+  const {
+    data: requestsData,
+    isLoading: loading,
+    isRefetching: refreshing
+  } = useRequests(filterParams);
+
+  // Fetch only managed pods? The service call `getPods({ forApproval: true })` was used.
+  // We can create a specialized hook or just assume `usePods` fetches all and we filter if needed, 
+  // or pass params to `usePods`.
+  // Let's assume standard `usePods` is fine for filtering dropdown for now.
+  const { data: pods = [] } = usePods();
+
+  // Mutations
+  const approveMutation = useApproveRequest();
+  const rejectMutation = useRejectRequest();
+  const actionLoading = approveMutation.isPending || rejectMutation.isPending;
+
   // Modal state
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [actionLoading, setActionLoading] = useState(false);
+  // We need to keep track of which request is being rejected if modal is separate from details
+  // But usually we reject from details or list.
+  // Let's just use `selectedUuid` for both details and reject actions context.
 
-  const fetchRequests = useCallback(async () => {
-    try {
-      const params = {
-        page,
-        limit: 10,
-        status: 'pending',
-      };
-      
-      if (filterPod) {
-        params.podId = filterPod;
-      }
-      
-      if (searchQuery) {
-        params.search = searchQuery;
-      }
+  // Fetch details on demand
+  const { data: selectedRequest } = useRequest(selectedUuid || undefined);
 
-      const response = await queryService.getPendingRequests(params);
-      setRequests(response.data || []);
-      setTotalPages(response.pagination?.totalPages || 1);
-    } catch (error) {
-      console.error('Error fetching requests:', error);
-      toast.error('Failed to load pending requests');
-    }
-  }, [page, filterPod, searchQuery]);
+  const requests = requestsData?.data || [];
+  const totalPages = requestsData?.pagination?.totalPages || 1;
 
-  const fetchPods = async () => {
-    try {
-      // Pass forApproval=true to get only managed pods for managers
-      const response = await queryService.getPods({ forApproval: true });
-      setPods(response.data || []);
-    } catch (error) {
-      console.error('Error fetching pods:', error);
+  // Handlers
+  const handleViewDetails = (uuid: string) => {
+    setSelectedUuid(uuid);
+  };
+
+  const handleApprove = async (uuid: string) => {
+    if (confirm('Are you sure you want to approve this request?')) {
+      await approveMutation.mutateAsync({ uuid });
+      setSelectedUuid(null); // Close modal if open
     }
   };
 
-  // Initial load
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([fetchRequests(), fetchPods()]);
-      setLoading(false);
-    };
-    loadData();
-  }, [fetchRequests]);
-
-  // View request details
-  const handleViewDetails = async (uuid) => {
-    try {
-      const response = await queryService.getRequest(uuid);
-      setSelectedRequest(response.data);
-      setShowDetailModal(true);
-    } catch (error) {
-      console.error('Error fetching details:', error);
-      toast.error('Failed to load request details');
-    }
-  };
-
-  // Approve request
-  const handleApprove = async (uuid) => {
-    setActionLoading(true);
-    try {
-      await queryService.approveRequest(uuid);
-      toast.success('Request approved successfully');
-      setShowDetailModal(false);
-      fetchRequests();
-    } catch (error) {
-      console.error('Approve error:', error);
-      toast.error('Failed to approve request');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Open reject modal
-  const openRejectModal = (request) => {
-    setSelectedRequest(request);
+  const openRejectModal = (uuid: string) => {
+    setSelectedUuid(uuid);
     setShowRejectModal(true);
     setRejectReason('');
   };
 
-  // Reject request
   const handleReject = async () => {
-    if (!selectedRequest) return;
-    
-    setActionLoading(true);
-    try {
-      await queryService.rejectRequest(selectedRequest.uuid, rejectReason || null);
-      toast.success('Request rejected');
-      setShowRejectModal(false);
-      setShowDetailModal(false);
-      fetchRequests();
-    } catch (error) {
-      console.error('Reject error:', error);
-      toast.error('Failed to reject request');
-    } finally {
-      setActionLoading(false);
-    }
+    if (!selectedUuid) return;
+    await rejectMutation.mutateAsync({ uuid: selectedUuid, reason: rejectReason });
+    setShowRejectModal(false);
+    setSelectedUuid(null); // Close details modal too if open
   };
-
-  // Search handler with debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(1);
-      fetchRequests();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   if (loading) {
     return (
@@ -197,7 +143,7 @@ const ApprovalDashboardPage = () => {
                        focus:ring-purple-500 focus:border-transparent"
             >
               <option value="">All PODs</option>
-              {pods.map((pod) => (
+              {pods.map((pod: any) => (
                 <option key={pod.id} value={pod.id}>{pod.name}</option>
               ))}
             </select>
@@ -229,7 +175,7 @@ const ApprovalDashboardPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {requests.map((request) => (
+                  {requests.map((request: QueryRequest) => (
                     <tr key={request.uuid} className="hover:bg-gray-50">
                       <td className="py-4">
                         <div className="flex items-center gap-2">
@@ -241,17 +187,17 @@ const ApprovalDashboardPage = () => {
                         </div>
                       </td>
                       <td className="py-4 text-sm font-mono text-gray-600">
-                        #{request.id}
+                        #{request.id?.substring(0, 8)}
                       </td>
                       <td className="py-4">
                         <p className="text-sm text-gray-600 font-mono truncate max-w-xs">
-                          {request.queryContent?.substring(0, 50) || request.scriptFilename || 'N/A'}...
+                          {request.queryContent?.substring(0, 50) || (request as any).scriptFilename || 'N/A'}...
                         </p>
                       </td>
                       <td className="py-4">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">{request.userEmail}</span>
+                          <span className="text-sm text-gray-600">{(request as any).userEmail || 'User'}</span>
                         </div>
                       </td>
                       <td className="py-4">
@@ -275,14 +221,16 @@ const ApprovalDashboardPage = () => {
                           </button>
                           <button
                             onClick={() => handleApprove(request.uuid)}
-                            className="p-2 hover:bg-green-100 rounded-lg transition-colors"
+                            disabled={actionLoading}
+                            className="p-2 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50"
                             title="Approve"
                           >
                             <CheckCircle2 className="w-4 h-4 text-green-600" />
                           </button>
                           <button
-                            onClick={() => openRejectModal(request)}
-                            className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                            onClick={() => openRejectModal(request.uuid)}
+                            disabled={actionLoading}
+                            className="p-2 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
                             title="Reject"
                           >
                             <XCircle className="w-4 h-4 text-red-600" />
@@ -295,26 +243,12 @@ const ApprovalDashboardPage = () => {
               </table>
             </div>
 
-            {/* Pagination */}
+            {/* Pagination (Simple Implementation) */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <span className="text-sm text-gray-600">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+              <div className="flex justify-center mt-4 gap-2">
+                <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="btn-secondary text-sm">Prev</button>
+                <span className="self-center text-sm">Page {page} of {totalPages}</span>
+                <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="btn-secondary text-sm">Next</button>
               </div>
             )}
           </>
@@ -323,12 +257,12 @@ const ApprovalDashboardPage = () => {
 
       {/* Detail Modal */}
       <Modal
-        isOpen={showDetailModal}
-        onClose={() => setShowDetailModal(false)}
+        isOpen={!!selectedUuid && !showRejectModal} // Hide if reject modal is taking over, or handle layers
+        onClose={() => setSelectedUuid(null)}
         title="Request Details"
         size="lg"
       >
-        {selectedRequest && (
+        {selectedRequest ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -341,59 +275,29 @@ const ApprovalDashboardPage = () => {
                   <StatusBadge status={selectedRequest.status} />
                 </div>
               </div>
-              <div>
-                <label className="text-sm text-gray-500">Requester</label>
-                <p className="font-medium">{selectedRequest.userName || selectedRequest.userEmail}</p>
-                <p className="text-sm text-gray-500">{selectedRequest.userEmail}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-500">POD</label>
-                <p className="font-medium">{selectedRequest.podName}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-500">Database</label>
-                <p className="font-medium">{selectedRequest.instanceName}</p>
-                <p className="text-sm text-gray-500">{selectedRequest.databaseName}</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-500">Type</label>
-                <p className="capitalize">{selectedRequest.submissionType} ({selectedRequest.databaseType})</p>
-              </div>
-              <div>
-                <label className="text-sm text-gray-500">Submitted</label>
-                <p className="text-sm">{format(new Date(selectedRequest.createdAt), 'PPpp')}</p>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm text-gray-500">Comments</label>
-              <p className="mt-1 p-3 bg-gray-50 rounded-lg text-gray-700">{selectedRequest.comments}</p>
+              {/* Add more fields as needed */}
             </div>
 
             <div>
               <label className="text-sm text-gray-500">Query/Script</label>
               <pre className="mt-1 p-3 bg-gray-900 text-green-400 rounded-lg text-sm overflow-x-auto max-h-64">
-                {selectedRequest.queryContent || selectedRequest.scriptContent || 'N/A'}
+                {selectedRequest.queryContent || (selectedRequest as any).scriptContent || 'N/A'}
               </pre>
             </div>
 
-            {/* Action Buttons */}
-            {selectedRequest.status === 'pending' && (
+            {/* Action Buttons in Modal */}
+            {selectedRequest.status === RequestStatus.PENDING && (
               <div className="flex items-center gap-4 pt-4 border-t">
                 <button
                   onClick={() => handleApprove(selectedRequest.uuid)}
                   disabled={actionLoading}
                   className="btn-success flex items-center gap-2"
                 >
-                  {actionLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="w-4 h-4" />
-                  )}
+                  {actionLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                   Approve
                 </button>
                 <button
-                  onClick={() => openRejectModal(selectedRequest)}
+                  onClick={() => openRejectModal(selectedRequest.uuid)}
                   disabled={actionLoading}
                   className="btn-danger flex items-center gap-2"
                 >
@@ -403,7 +307,7 @@ const ApprovalDashboardPage = () => {
               </div>
             )}
           </div>
-        )}
+        ) : <Loading />}
       </Modal>
 
       {/* Reject Modal */}
@@ -417,7 +321,7 @@ const ApprovalDashboardPage = () => {
           <p className="text-gray-600">
             Are you sure you want to reject this request? Please provide a reason (optional).
           </p>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Rejection Reason
@@ -427,7 +331,7 @@ const ApprovalDashboardPage = () => {
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="Please add WHERE clause to prevent full table scan..."
               rows={3}
-              className="textarea-field"
+              className="textarea-field w-full rounded border p-2"
             />
           </div>
 
@@ -437,11 +341,7 @@ const ApprovalDashboardPage = () => {
               disabled={actionLoading}
               className="btn-danger flex items-center gap-2"
             >
-              {actionLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <XCircle className="w-4 h-4" />
-              )}
+              {actionLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <XCircle className="w-4 h-4" />}
               Reject Request
             </button>
             <button

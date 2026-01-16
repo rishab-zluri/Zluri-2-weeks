@@ -1,25 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Search, 
-  Download, 
-  Key, 
+import {
+  Search,
+  Download,
+  Key,
   Info,
   CheckCircle2,
   Loader2
 } from 'lucide-react';
-import { secretsService } from '../services';
-import { Loading, EmptyState } from '../components/common';
+import secretsService from '@/services/secretsService';
+import { Loading, EmptyState } from '@/components/common';
 import toast from 'react-hot-toast';
 
-const SecretsManagerPage = () => {
+const SecretsManagerPage: React.FC = () => {
   // Data state
-  const [secrets, setSecrets] = useState([]);
-  const [filteredSecrets, setFilteredSecrets] = useState([]);
-  const [selectedSecret, setSelectedSecret] = useState(null);
-  
+  const [secrets, setSecrets] = useState<string[]>([]);
+  const [filteredSecrets, setFilteredSecrets] = useState<string[]>([]);
+  const [selectedSecret, setSelectedSecret] = useState<string | null>(null);
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Loading state
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -58,7 +58,7 @@ const SecretsManagerPage = () => {
   }, [searchQuery, secrets]);
 
   // Handle secret selection
-  const handleSelectSecret = (secret) => {
+  const handleSelectSecret = (secret: string) => {
     setSelectedSecret(secret === selectedSecret ? null : secret);
   };
 
@@ -141,8 +141,8 @@ const SecretsManagerPage = () => {
                 key={secret}
                 onClick={() => handleSelectSecret(secret)}
                 className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-colors
-                  ${selectedSecret === secret 
-                    ? 'bg-purple-50 border-l-4 border-purple-500' 
+                  ${selectedSecret === secret
+                    ? 'bg-purple-50 border-l-4 border-purple-500'
                     : 'hover:bg-gray-50 border-l-4 border-transparent'
                   }
                   ${index !== filteredSecrets.length - 1 ? 'border-b border-gray-100' : ''}
@@ -185,8 +185,8 @@ const SecretsManagerPage = () => {
             <div>
               <h4 className="font-medium text-blue-900">About Secrets Manager</h4>
               <p className="text-sm text-blue-700 mt-1">
-                This interface allows you to browse and download secrets from AWS Secrets Manager. 
-                Use the search box to filter secrets by name, select the desired secret, and click 
+                This interface allows you to browse and download secrets from AWS Secrets Manager.
+                Use the search box to filter secrets by name, select the desired secret, and click
                 the download button to retrieve it.
               </p>
             </div>

@@ -2,15 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Menu, LogOut, User, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-const Header = ({ onMenuToggle }) => {
+interface HeaderProps {
+  onMenuToggle: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
   const { user, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
     };
@@ -65,18 +69,18 @@ const Header = ({ onMenuToggle }) => {
                   {user?.role || 'developer'}
                 </span>
               </div>
-              
+
               <button
-                onClick={() => {/* Navigate to profile */}}
+                onClick={() => {/* Navigate to profile */ }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 
                          hover:bg-gray-50 transition-colors"
               >
                 <User className="w-4 h-4" />
                 Profile Settings
               </button>
-              
+
               <hr className="my-1" />
-              
+
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 

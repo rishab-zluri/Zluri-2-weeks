@@ -1,7 +1,13 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
 
-const Loading = ({ size = 'md', text = '', fullScreen = false }) => {
+interface LoadingProps {
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  text?: string;
+  fullScreen?: boolean;
+}
+
+const Loading: React.FC<LoadingProps> = ({ size = 'md', text = '', fullScreen = false }) => {
   const sizeClasses = {
     sm: 'w-4 h-4',
     md: 'w-8 h-8',

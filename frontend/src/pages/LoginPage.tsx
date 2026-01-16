@@ -4,10 +4,10 @@ import { Zap, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
-const LoginPage = () => {
+const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { login, isAuthenticated, loading: authLoading } = useAuth();
-  
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -28,27 +28,27 @@ const LoginPage = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setError(''); // Clear error on input change
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
       const result = await login(formData.email, formData.password);
-      
+
       if (result.success) {
         toast.success('Welcome back!');
         navigate('/dashboard');
       } else {
         setError(result.error || 'Invalid credentials');
       }
-    } catch (err) {
+    } catch (err: any) {
       const message = err.response?.data?.message || 'Login failed. Please try again.';
       setError(message);
     } finally {

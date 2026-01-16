@@ -1,7 +1,16 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 
-const Modal = ({ 
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title?: React.ReactNode;
+  children: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  showClose?: boolean;
+}
+
+const Modal: React.FC<ModalProps> = ({ 
   isOpen, 
   onClose, 
   title, 
@@ -11,7 +20,7 @@ const Modal = ({
 }) => {
   // Handle escape key
   useEffect(() => {
-    const handleEscape = (e) => {
+    const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
       }
@@ -56,7 +65,7 @@ const Modal = ({
           {(title || showClose) && (
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               {title && (
-                <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+                <div className="text-lg font-semibold text-gray-900">{title}</div>
               )}
               {showClose && (
                 <button

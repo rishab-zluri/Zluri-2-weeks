@@ -1,0 +1,72 @@
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { toast } from 'react-hot-toast';
+
+// Define standard API response wrapper
+export interface ApiResponse<T = any> {
+    success: boolean;
+    data: T;
+    message?: string;
+}
+
+// Create Axios Instance
+const client: AxiosInstance = axios.create({
+    baseURL: import.meta.env.VITE_API_URL || '',
+    timeout: 30000,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    withCredentials: true, // IMPORTANT: Send cookies with every request
+});
+
+// Request Interceptor
+client.interceptors.request.use(
+    (config: InternalAxiosRequestConfig) => {
+        // No need to manually attach tokens - Cookies handle it!
+        return config;
+    },
+    (error: AxiosError) => {
+        return Promise.reject(error);
+    }
+);
+
+// Response Interceptor
+client.interceptors.response.use(
+    (response) => {
+        // Unwrap standard response format if present
+        return response;
+    },
+    async (error: AxiosError) => {
+        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+        // Handle 401 Unauthorized - Token Refresh
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+
+            try {
+                // Call refresh endpoint - Cookies should be sent automatically
+                await client.post('/api/auth/refresh');
+
+                // Retry original request
+                return client(originalRequest);
+            } catch (refreshError) {
+                // Refresh failed - User must log in again
+                // We let the auth context/hook handle the redirect via state, 
+                // or simpler: window.location
+                if (!window.location.pathname.includes('/login')) {
+                    window.location.href = '/login';
+                }
+                return Promise.reject(refreshError);
+            }
+        }
+
+        // Global Error Toasts (skip 401/403 as they are handled by logic/UI)
+        if (error.response?.status !== 401) {
+            const message = (error.response?.data as any)?.message || 'Something went wrong';
+            toast.error(message);
+        }
+
+        return Promise.reject(error);
+    }
+);
+
+export default client;

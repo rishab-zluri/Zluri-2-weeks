@@ -5,45 +5,59 @@ import {
   XCircle, 
   AlertCircle, 
   Loader2,
-  CheckCheck 
+  CheckCheck,
+  LucideIcon
 } from 'lucide-react';
+import { RequestStatus } from '@/types';
 
-const StatusBadge = ({ status }) => {
-  const statusConfig = {
-    pending: {
+interface StatusBadgeProps {
+  status: RequestStatus | string; // Allow string for flexibility during migration, but prefer enum
+}
+
+interface StatusConfig {
+  label: string;
+  icon: LucideIcon;
+  className: string;
+  animate?: boolean;
+}
+
+const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
+  const statusConfig: Record<string, StatusConfig> = {
+    [RequestStatus.PENDING]: {
       label: 'Pending',
       icon: Clock,
       className: 'status-badge status-pending',
     },
-    approved: {
+    [RequestStatus.APPROVED]: {
       label: 'Approved',
       icon: CheckCircle2,
       className: 'status-badge status-approved',
     },
-    executing: {
+    [RequestStatus.EXECUTING]: {
       label: 'Processing',
       icon: Loader2,
       className: 'status-badge status-executing',
       animate: true,
     },
-    completed: {
+    [RequestStatus.COMPLETED]: {
       label: 'Completed',
       icon: CheckCheck,
       className: 'status-badge status-completed',
     },
-    failed: {
+    [RequestStatus.FAILED]: {
       label: 'Failed',
       icon: AlertCircle,
       className: 'status-badge status-failed',
     },
-    rejected: {
+    [RequestStatus.REJECTED]: {
       label: 'Rejected',
       icon: XCircle,
       className: 'status-badge status-rejected',
     },
   };
 
-  const config = statusConfig[status] || statusConfig.pending;
+  // Fallback for unknown status
+  const config = statusConfig[status] || statusConfig[RequestStatus.PENDING];
   const Icon = config.icon;
 
   return (

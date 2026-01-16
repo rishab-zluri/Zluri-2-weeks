@@ -1,4 +1,13 @@
-import api from './api';
+import client, { ApiResponse } from '@/api/client';
+
+export interface SecretResponse {
+  name: string;
+  value: any;
+}
+
+export interface SecretsListResponse {
+  secrets: string[];
+}
 
 /**
  * Secrets Service
@@ -7,20 +16,17 @@ import api from './api';
 const secretsService = {
   /**
    * Get all secrets
-   * @returns {Promise<Object>}
    */
-  async getSecrets() {
-    const response = await api.get('/api/secrets');
+  async getSecrets(): Promise<ApiResponse<SecretsListResponse>> {
+    const response = await client.get<ApiResponse<SecretsListResponse>>('/api/secrets');
     return response.data;
   },
 
   /**
    * Search secrets by query
-   * @param {string} query 
-   * @returns {Promise<Object>}
    */
-  async searchSecrets(query) {
-    const response = await api.get('/api/secrets/search', {
+  async searchSecrets(query: string): Promise<ApiResponse<SecretsListResponse>> {
+    const response = await client.get<ApiResponse<SecretsListResponse>>('/api/secrets/search', {
       params: { q: query },
     });
     return response.data;
@@ -28,21 +34,21 @@ const secretsService = {
 
   /**
    * Get a specific secret value
-   * @param {string} secretName 
-   * @returns {Promise<Object>}
    */
-  async getSecret(secretName) {
+  async getSecret(secretName: string): Promise<ApiResponse<SecretResponse>> {
     const encodedName = encodeURIComponent(secretName);
-    const response = await api.get(`/api/secrets/${encodedName}`);
+    const response = await client.get<ApiResponse<SecretResponse>>(`/api/secrets/${encodedName}`);
     return response.data;
   },
 
   /**
    * Download secret as JSON file
-   * @param {string} secretName 
    */
-  async downloadSecret(secretName) {
+  async downloadSecret(secretName: string): Promise<void> {
     const data = await this.getSecret(secretName);
+    if (!data.data) {
+      throw new Error('Secret data not found');
+    }
     const blob = new Blob([JSON.stringify(data.data.value, null, 2)], {
       type: 'application/json',
     });

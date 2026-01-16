@@ -1,20 +1,28 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  ClipboardCheck, 
-  FileText, 
+import {
+  Home,
+  ClipboardCheck,
+  FileText,
   Key,
   Zap,
-  Send
+  Send,
+  LucideIcon
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-const Sidebar = () => {
-  const location = useLocation();
-  const { isManager, isAdmin } = useAuth();
+interface NavItem {
+  to: string;
+  icon: LucideIcon;
+  label: string;
+  show?: boolean;
+}
 
-  const navItems = [
+const Sidebar: React.FC = () => {
+  const location = useLocation();
+  const { isManager, isAdmin } = useAuth(); // Note: types for useAuth will be fixed when we migrate context
+
+  const navItems: NavItem[] = [
     {
       to: '/dashboard',
       icon: Send,
@@ -55,8 +63,8 @@ const Sidebar = () => {
             // Skip items that shouldn't be shown
             if (item.show === false) return null;
 
-            const isActive = location.pathname === item.to || 
-                           (item.to === '/dashboard' && location.pathname === '/');
+            const isActive = location.pathname === item.to ||
+              (item.to === '/dashboard' && location.pathname === '/');
 
             return (
               <li key={item.to}>

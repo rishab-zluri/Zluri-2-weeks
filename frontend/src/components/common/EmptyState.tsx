@@ -1,7 +1,14 @@
 import React from 'react';
-import { FileText } from 'lucide-react';
+import { FileText, LucideIcon } from 'lucide-react';
 
-const EmptyState = ({ 
+interface EmptyStateProps {
+  icon?: LucideIcon;
+  title?: string;
+  description?: string;
+  action?: React.ReactNode;
+}
+
+const EmptyState: React.FC<EmptyStateProps> = ({ 
   icon: Icon = FileText,
   title = 'No data found',
   description = '',

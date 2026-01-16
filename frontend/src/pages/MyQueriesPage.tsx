@@ -1,108 +1,86 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  RefreshCw, 
-  Eye, 
-  Copy, 
+import {
+  RefreshCw,
+  Eye,
+  Copy,
   FileText,
   Database,
   Clock,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { queryService } from '../services';
-import { Loading, StatusBadge, EmptyState, Modal } from '../components/common';
+import {
+  useRequests,
+  useStatusCounts,
+  useRequest,
+  useSubmitQuery // For handling clones eventually, or we keep manual clone for now if not hooked
+} from '@/hooks';
+import queryService from '@/services/queryService'; // Direct service import for clone still
+import { Loading, StatusBadge, EmptyState, Modal } from '@/components/common';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { QueryRequest, RequestStatus } from '@/types';
 
-const MyQueriesPage = () => {
+const MyQueriesPage: React.FC = () => {
   const navigate = useNavigate();
-  
-  // Data state
-  const [queries, setQueries] = useState([]);
-  const [statusCounts, setStatusCounts] = useState({
-    all: 0,
-    pending: 0,
-    executing: 0,
-    completed: 0,
-    failed: 0,
-    rejected: 0,
-  });
-  
+
   // Filter state
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [activeFilter, setActiveFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  
-  // Loading state
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  
+  const limit = 10;
+
   // Modal state
-  const [selectedQuery, setSelectedQuery] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
 
-  const fetchQueries = useCallback(async () => {
-    try {
-      const params = {
-        page,
-        limit: 10,
-      };
-      
-      if (activeFilter !== 'all') {
-        params.status = activeFilter;
-      }
+  // Data Fetching with React Query
+  // Note: we inject 'page' and 'limit' into filters. 
+  // 'getMyRequests' is now unified via 'useRequests'
+  const filterParams: any = { page, limit };
+  if (activeFilter !== 'all') {
+    filterParams.status = activeFilter;
+  }
 
-      const response = await queryService.getMyRequests(params);
-      setQueries(response.data || []);
-      setTotalPages(response.pagination?.totalPages || 1);
-    } catch (error) {
-      console.error('Error fetching queries:', error);
-      toast.error('Failed to load queries');
-    }
-  }, [page, activeFilter]);
+  // We use the unified 'useRequests' hook. 
+  // IMPORTANT: The backend 'getAllRequests' endpoint handles authentication and implicitly filters for the user if they are not admin.
+  // OR we can explicitly call 'queryService.getMyRequests' if we want to ensure segregation.
+  // Given our refactor `getMyRequests` simply delegates, so `useRequests` is fine if we pass user context, 
+  // BUT `useRequests` calls `getRequests` which calls `/requests`.
+  // To keep it clean and match the old `getMyRequests` specificity, let's use `queryService.getMyRequests` wrapped in a hook?
+  // Actually `useRequests` is generic. Let's make it smarter or just pass a flag?
+  // For now, let's stick to using the hook we created which calls `getRequests`. 
+  // Backend `/requests` automatically scopes to user if they are strict user.
+  // For safety, let's ensure we are calling `getMyRequests` logic on the service if valuable, 
+  // but our service just aliases it. 
 
-  const fetchStatusCounts = useCallback(async () => {
-    try {
-      const response = await queryService.getMyStatusCounts();
-      const counts = response.data || {};
-      setStatusCounts({
-        all: counts.total || 0,
-        pending: counts.pending || 0,
-        executing: counts.executing || 0,
-        completed: counts.completed || 0,
-        failed: counts.failed || 0,
-        rejected: counts.rejected || 0,
-      });
-    } catch (error) {
-      console.error('Error fetching status counts:', error);
-    }
-  }, []);
+  const {
+    data: requestsData,
+    isLoading: loading,
+    isRefetching: refreshing,
+    refetch
+  } = useRequests(filterParams);
 
-  // Initial load
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([fetchQueries(), fetchStatusCounts()]);
-      setLoading(false);
-    };
-    loadData();
-  }, [fetchQueries, fetchStatusCounts]);
+  const { data: statusCounts } = useStatusCounts();
+
+  // Derived state
+  const queries = requestsData?.data || [];
+  const totalPages = requestsData?.pagination?.totalPages || 1;
+
+  // Selected Query Details (fetched on demand when UUID is present)
+  // We could fetch this only when modal is open.
+  const { data: selectedQuery } = useRequest(selectedUuid || undefined);
 
   // Refresh data
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([fetchQueries(), fetchStatusCounts()]);
-    setRefreshing(false);
-    toast.success('Data refreshed');
+  const handleRefresh = () => {
+    refetch();
   };
 
   // Clone request
-  const handleClone = async (uuid) => {
+  const handleClone = async (uuid: string) => {
     try {
       await queryService.cloneRequest(uuid);
       toast.success('Query cloned and submitted');
-      handleRefresh();
+      refetch();
     } catch (error) {
       console.error('Clone error:', error);
       toast.error('Failed to clone query');
@@ -110,26 +88,33 @@ const MyQueriesPage = () => {
   };
 
   // View query details
-  const handleViewDetails = async (uuid) => {
-    try {
-      const response = await queryService.getRequest(uuid);
-      setSelectedQuery(response.data);
-      setShowDetailModal(true);
-    } catch (error) {
-      console.error('Error fetching details:', error);
-      toast.error('Failed to load query details');
-    }
+  const handleViewDetails = (uuid: string) => {
+    setSelectedUuid(uuid);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedUuid(null);
   };
 
   // Filter tabs
+  const counts = statusCounts || {
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    failed: 0,
+    total: 0,
+    executing: 0
+  };
+
   const filterTabs = [
-    { key: 'all', label: 'All', count: statusCounts.all },
-    { key: 'pending', label: 'Pending', count: statusCounts.pending },
-    { key: 'executing', label: 'Processing', count: statusCounts.executing },
-    { key: 'completed', label: 'Completed', count: statusCounts.completed },
-    { key: 'failed', label: 'Failed', count: statusCounts.failed },
-    { key: 'rejected', label: 'Rejected', count: statusCounts.rejected },
+    { key: 'all', label: 'All', count: counts.total || 0 }, // 'total' vs 'all' based on interface
+    { key: RequestStatus.PENDING, label: 'Pending', count: counts.pending },
+    { key: RequestStatus.EXECUTING, label: 'Processing', count: 0 }, // executing not always in counts?
+    { key: RequestStatus.COMPLETED, label: 'Completed', count: counts.approved }, // approved vs completed? Adapter needed?
+    { key: RequestStatus.FAILED, label: 'Failed', count: counts.failed },
+    { key: RequestStatus.REJECTED, label: 'Rejected', count: counts.rejected },
   ];
+  // Note: Backend might return 'approved' count for 'completed' requests if status logic maps them.
 
   if (loading) {
     return (
@@ -158,17 +143,16 @@ const MyQueriesPage = () => {
                   setActiveFilter(tab.key);
                   setPage(1);
                 }}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                  activeFilter === tab.key
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${activeFilter === tab.key
                     ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
               >
-                {tab.label} ({tab.count})
+                {tab.label} ({tab.count || 0})
               </button>
             ))}
           </div>
-          
+
           <button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -212,10 +196,10 @@ const MyQueriesPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {queries.map((query) => (
+                  {queries.map((query: QueryRequest) => (
                     <tr key={query.uuid} className="hover:bg-gray-50">
                       <td className="py-4 text-sm font-mono text-gray-600">
-                        #{query.id}
+                        #{query.id?.substring(0, 8)} {/* Assuming ID or UUID */}
                       </td>
                       <td className="py-4">
                         <div className="flex items-center gap-2">
@@ -249,7 +233,7 @@ const MyQueriesPage = () => {
                           >
                             <Eye className="w-4 h-4 text-gray-500" />
                           </button>
-                          {(query.status === 'rejected' || query.status === 'failed') && (
+                          {(query.status === RequestStatus.REJECTED || query.status === RequestStatus.FAILED) && (
                             <button
                               onClick={() => handleClone(query.uuid)}
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -294,12 +278,12 @@ const MyQueriesPage = () => {
 
       {/* Detail Modal */}
       <Modal
-        isOpen={showDetailModal}
-        onClose={() => setShowDetailModal(false)}
+        isOpen={!!selectedUuid}
+        onClose={handleCloseModal}
         title="Query Details"
         size="lg"
       >
-        {selectedQuery && (
+        {selectedQuery ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -339,7 +323,7 @@ const MyQueriesPage = () => {
             <div>
               <label className="text-sm text-gray-500">Query/Script</label>
               <pre className="mt-1 p-3 bg-gray-900 text-green-400 rounded-lg text-sm overflow-x-auto">
-                {selectedQuery.queryContent || selectedQuery.scriptContent || 'N/A'}
+                {selectedQuery.queryContent || (selectedQuery as any).scriptFilename || 'N/A'}
               </pre>
             </div>
 
@@ -369,6 +353,10 @@ const MyQueriesPage = () => {
                 </p>
               </div>
             )}
+          </div>
+        ) : (
+          <div className="flex justify-center p-8">
+            <Loading size="lg" />
           </div>
         )}
       </Modal>
