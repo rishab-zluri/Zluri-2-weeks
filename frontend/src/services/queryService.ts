@@ -65,6 +65,8 @@ export interface StatusCounts {
   rejected: number;
   failed: number;
   total: number;
+  completed?: number;
+  executing?: number;
 }
 
 /**
@@ -81,8 +83,8 @@ const queryService = {
   },
 
   async getDatabases(instanceId: string): Promise<string[]> {
-    const response = await client.get<ApiResponse<string[]>>(`/api/queries/instances/${instanceId}/databases`);
-    return response.data.data;
+    const response = await client.get<ApiResponse<{ instanceId: string; instanceName: string; type: string; databases: string[] }>>(`/api/queries/instances/${instanceId}/databases`);
+    return response.data.data.databases;
   },
 
   async getPods(params: object = {}): Promise<Pod[]> {
@@ -101,10 +103,11 @@ const queryService = {
     const formData = new FormData();
     formData.append('instanceId', data.instanceId);
     formData.append('databaseName', data.databaseName);
-    formData.append('script', data.scriptFile);
+    formData.append('scriptFile', data.scriptFile);
     formData.append('comments', data.comments);
     formData.append('podId', data.podId);
     formData.append('databaseType', data.databaseType);
+    formData.append('submissionType', 'script'); // Required by backend validation
 
     const response = await client.post<ApiResponse<QueryRequest>>('/api/queries/submit-script', formData, {
       headers: {
@@ -123,16 +126,23 @@ const queryService = {
   async getRequests(params: RequestFilters = {}): Promise<PaginatedResponse<QueryRequest>> {
     // Map legacy params if needed, or just pass through
     // The backend now accepts generic filters
-    const response = await client.get<ApiResponse<PaginatedResponse<QueryRequest>>>('/api/requests', { params });
+    const response = await client.get<ApiResponse<PaginatedResponse<QueryRequest>>>('/api/queries/requests', { params });
     return response.data.data;
   },
 
   /**
-   * Legacy wrapper for "My Requests" - delegates to unified endpoint
+   * Get current user's requests (for developers/all users)
+   * Uses /my-requests endpoint which doesn't require admin/manager role
    */
   async getMyRequests(params: RequestFilters = {}): Promise<PaginatedResponse<QueryRequest>> {
-    // Current user ID is inferred by backend from token
-    return this.getRequests(params);
+    // Backend returns: { success, message, data: [...], pagination: {...} }
+    // We need to extract and return { data, pagination }
+    const response = await client.get<{ success: boolean; message: string; data: QueryRequest[]; pagination: PaginatedResponse<QueryRequest>['pagination'] }>('/api/queries/my-requests', { params });
+    return {
+      success: response.data.success,
+      data: response.data.data,
+      pagination: response.data.pagination,
+    };
   },
 
   /**

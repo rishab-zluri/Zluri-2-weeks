@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, XCircle } from 'lucide-react';
 import { DatabaseInstance, Pod } from '@/services/queryService';
 
 export interface DatabaseSelectorProps {
@@ -27,6 +27,8 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
     onDatabaseChange,
     onPodChange,
 }) => {
+    const isDatabaseDisabled = !selectedInstanceId;
+
     return (
         <div className="space-y-6">
             {/* Instance Selection */}
@@ -41,7 +43,7 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
                     required
                 >
                     <option value="">Select Instance</option>
-                    {instances.map((instance) => (
+                    {Array.isArray(instances) && instances.map((instance) => (
                         <option key={instance.id} value={instance.id}>
                             {instance.name} ({instance.type})
                         </option>
@@ -50,27 +52,55 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
             </div>
 
             {/* Database Selection */}
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="relative group">
+                <label className={`block text-sm font-medium mb-2 transition-colors ${isDatabaseDisabled ? 'text-gray-400' : 'text-gray-700'
+                    }`}>
                     Database Name <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                     <select
                         value={selectedDatabaseName}
                         onChange={(e) => onDatabaseChange(e.target.value)}
-                        className="select-field"
+                        className={`select-field transition-all ${isDatabaseDisabled
+                                ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400'
+                                : ''
+                            }`}
                         required
-                        disabled={!selectedInstanceId || loadingDatabases}
+                        disabled={isDatabaseDisabled || loadingDatabases}
                     >
-                        <option value="">Select Database Name</option>
-                        {databases.map((db) => (
+                        <option value="">
+                            {isDatabaseDisabled
+                                ? '← Select an instance first'
+                                : 'Select Database Name'
+                            }
+                        </option>
+                        {Array.isArray(databases) && databases.map((db) => (
                             <option key={db} value={db}>{db}</option>
                         ))}
                     </select>
+
+                    {/* Loading spinner */}
                     {loadingDatabases && (
-                        <Loader2 className="absolute right-10 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+                        <Loader2 className="absolute right-10 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-purple-500" />
+                    )}
+
+                    {/* Red X indicator when disabled - shows on hover */}
+                    {isDatabaseDisabled && (
+                        <div className="absolute right-10 top-1/2 -translate-y-1/2 
+                                        opacity-0 group-hover:opacity-100 transition-opacity">
+                            <XCircle className="w-5 h-5 text-red-400" />
+                        </div>
                     )}
                 </div>
+
+                {/* Tooltip on hover when disabled */}
+                {isDatabaseDisabled && (
+                    <div className="absolute z-10 left-0 -bottom-8 
+                                    opacity-0 group-hover:opacity-100 transition-opacity
+                                    text-xs text-red-500 bg-red-50 px-2 py-1 rounded border border-red-200">
+                        Please select an instance first
+                    </div>
+                )}
             </div>
 
             {/* POD Selection */}
@@ -85,7 +115,7 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
                     required
                 >
                     <option value="">Select POD</option>
-                    {pods.map((pod) => (
+                    {Array.isArray(pods) && pods.map((pod) => (
                         <option key={pod.id} value={pod.id}>{pod.name}</option>
                     ))}
                 </select>

@@ -46,6 +46,18 @@ export const useRequests = (filters: RequestFilters) => {
     });
 };
 
+/**
+ * Hook for developers to get their own requests (uses /my-requests endpoint)
+ */
+export const useMyRequests = (filters: RequestFilters) => {
+    return useQuery({
+        queryKey: ['myRequests', filters],
+        queryFn: () => queryService.getMyRequests(filters),
+        placeholderData: keepPreviousData,
+        staleTime: 30 * 1000,
+    });
+};
+
 export const useRequest = (uuid: string | undefined) => {
     return useQuery({
         queryKey: QUERY_KEYS.request(uuid || ''),

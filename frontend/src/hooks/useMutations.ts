@@ -11,7 +11,8 @@ export const useSubmitQuery = () => {
         onSuccess: () => {
             toast.success('Query submitted successfully');
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.statusCounts });
-            queryClient.invalidateQueries({ queryKey: ['requests'] }); // Invalidate all request lists
+            queryClient.invalidateQueries({ queryKey: ['requests'] }); // Admin/Manager requests
+            queryClient.invalidateQueries({ queryKey: ['myRequests'] }); // Developer's own requests
         },
 
     });
@@ -25,7 +26,8 @@ export const useSubmitScript = () => {
         onSuccess: () => {
             toast.success('Script submitted successfully');
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.statusCounts });
-            queryClient.invalidateQueries({ queryKey: ['requests'] });
+            queryClient.invalidateQueries({ queryKey: ['requests'] }); // Admin/Manager requests
+            queryClient.invalidateQueries({ queryKey: ['myRequests'] }); // Developer's own requests
         },
     });
 };

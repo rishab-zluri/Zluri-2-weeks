@@ -185,7 +185,7 @@ const ApprovalDashboardPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-4 text-sm font-mono text-gray-600">
-                        #{request.id?.substring(0, 8)}
+                        #{request.uuid?.substring(0, 8)}
                       </td>
                       <td className="py-4">
                         <p className="text-sm text-gray-600 font-mono truncate max-w-xs">
