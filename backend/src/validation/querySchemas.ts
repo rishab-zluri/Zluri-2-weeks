@@ -175,7 +175,14 @@ export const RequestQuerySchema = z.object({
 
     submissionType: SubmissionTypeEnum.optional(),
 
+    databaseType: z
+        .enum(['postgresql', 'mongodb'])
+        .optional(),
+
     userId: z.string().uuid().optional(),
+
+    // Generic search (comments, instances)
+    search: z.string().optional(),
 
     // Date range filters
     startDate: z

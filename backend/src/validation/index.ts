@@ -66,6 +66,11 @@ export {
     type InstancesQueryInput,
 } from './databaseSchemas';
 
+export {
+    RequestQuerySchema,
+    type RequestQueryInput,
+} from './querySchemas';
+
 // Common/shared schemas
 export {
     PaginationSchema,

@@ -32,6 +32,7 @@ import {
     PaginationSchema,
     RequestUuidParamSchema,
     InstanceIdParamSchema,
+    RequestQuerySchema,
 } from '../validation';
 import {
     InstancesQuerySchema,
@@ -516,7 +517,9 @@ router.post(
  * @swagger
  * /queries/pending:
  *   get:
- *     summary: Get pending requests (Manager/Admin)
+ *     summary: Get pending requests (Deprecated)
+ *     description: Deprecated. Use /queries/requests?status=pending instead.
+ *     deprecated: true
  *     tags: [Approval]
  *     security:
  *       - bearerAuth: []
@@ -691,39 +694,103 @@ router.get(
 
 /**
  * @swagger
+ * /queries/requests:
+ *   get:
+ *     summary: Search query requests
+ *     description: |
+ *       Unified search endpoint for requests. Supports filtering by status, POD, type, and dates.
+ *       
+ *       **RBAC**: Manager or Admin role required
+ *     tags: [Queries]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageParam'
+ *       - $ref: '#/components/parameters/LimitParam'
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved, rejected, executing, completed, failed]
+ *         description: Filter by request status
+ *       - in: query
+ *         name: podId
+ *         schema: { type: 'string' }
+ *         description: Filter by POD ID
+ *       - in: query
+ *         name: databaseType
+ *         schema:
+ *           type: string
+ *           enum: [postgresql, mongodb]
+ *         description: Filter by database type
+ *       - in: query
+ *         name: submissionType
+ *         schema:
+ *           type: string
+ *           enum: [query, script]
+ *         description: Filter by submission type (query vs script)
+ *       - in: query
+ *         name: search
+ *         schema: { type: 'string' }
+ *         description: Search text in comments or instance names
+ *       - in: query
+ *         name: startDate
+ *         schema: { type: 'string', format: 'date-time' }
+ *         description: Filter by start date (ISO 8601)
+ *       - in: query
+ *         name: endDate
+ *         schema: { type: 'string', format: 'date-time' }
+ *         description: Filter by end date (ISO 8601)
+ *     responses:
+ *       200:
+ *         description: Paginated List of requests
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PaginatedQueryRequests'
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
+ */
+router.get(
+    '/requests',
+    auth.authenticate,
+    auth.requireRole(UserRole.MANAGER, UserRole.ADMIN),
+    validateQuery(RequestQuerySchema),
+    queryController.getAllRequests
+);
+
+/**
+ * @swagger
  * /queries/all:
  *   get:
- *     summary: Get all requests (Admin)
+ *     summary: Get all requests (Deprecated)
+ *     description: Deprecated. Use /queries/requests instead.
+ *     deprecated: true
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *       - cookieAuth: []
  *     parameters:
- *       - in: query
- *         name: page
- *         schema: { type: 'integer', default: 1 }
- *       - in: query
- *         name: limit
- *         schema: { type: 'integer', default: 10 }
+ *       - $ref: '#/components/parameters/PageParam'
+ *       - $ref: '#/components/parameters/LimitParam'
  *     responses:
  *       200:
  *         description: List of all requests
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success: { type: 'boolean' }
- *                 data:
- *                   type: object
- *                   properties:
- *                     requests:
- *                       type: array
- *                       items: { $ref: '#/components/schemas/QueryRequest' }
- *                     pagination:
- *                       type: object
- *                       properties:
- *                         total: { type: 'integer' }
+ *               $ref: '#/components/schemas/PaginatedQueryRequests'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
  */
 router.get(
     '/all',
