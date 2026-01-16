@@ -10,7 +10,6 @@ import {
   QuerySubmissionPage,
   MyQueriesPage,
   ApprovalDashboardPage,
-  SecretsManagerPage,
 } from './pages';
 
 const queryClient = new QueryClient({
@@ -63,7 +62,6 @@ const App = () => {
                 <Route path="dashboard" element={<QuerySubmissionPage />} />
                 <Route path="queries" element={<MyQueriesPage />} />
                 <Route path="approval" element={<ApprovalDashboardPage />} />
-                <Route path="secrets" element={<SecretsManagerPage />} />
               </Route>
 
               {/* Catch all - redirect to dashboard */}

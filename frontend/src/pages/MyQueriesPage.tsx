@@ -127,7 +127,6 @@ const MyQueriesPage: React.FC = () => {
   const {
     data: managerData,
     isLoading: loadingManager,
-    isRefetching: _refreshingManager,
     refetch: refetchManager
   } = useRequests(managerFilters, {
     enabled: isManager && (viewMode === 'approvals' || viewMode === 'history')
@@ -475,7 +474,7 @@ const MyQueriesPage: React.FC = () => {
                       <td className="py-4">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">{(query as any).userEmail || 'Me'}</span>
+                          <span className="text-sm text-gray-600">{query.userEmail || 'Me'}</span>
                         </div>
                       </td>
 
@@ -578,8 +577,8 @@ const MyQueriesPage: React.FC = () => {
             <div>
               <label className="text-sm text-gray-500">Query/Script</label>
               <pre className="mt-1 p-3 bg-gray-900 text-green-400 rounded-lg text-sm overflow-x-auto max-h-64 whitespace-pre-wrap break-all">
-                {(selectedQuery.queryContent || (selectedQuery as any).scriptContent || 'N/A').substring(0, 500)}
-                {((selectedQuery.queryContent?.length || 0) > 500 || ((selectedQuery as any).scriptContent?.length || 0) > 500) && '...'}
+                {(selectedQuery.queryContent || selectedQuery.scriptContent || 'N/A').substring(0, 500)}
+                {((selectedQuery.queryContent?.length || 0) > 500 || (selectedQuery.scriptContent?.length || 0) > 500) && '...'}
               </pre>
             </div>
 

@@ -111,7 +111,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Helper getters
     isManager: user?.role === UserRole.MANAGER || user?.role === UserRole.ADMIN,
     isAdmin: user?.role === UserRole.ADMIN,
-    isDeveloper: !user || user.role === UserRole.USER, // Default or specific user role
+    isDeveloper: !!user && user.role === UserRole.USER,
   };
 
   return (

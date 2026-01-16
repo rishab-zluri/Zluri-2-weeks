@@ -4,7 +4,6 @@ import {
 
   ClipboardCheck,
   FileText,
-  Key,
   Zap,
   Send,
   LucideIcon
@@ -38,11 +37,6 @@ const Sidebar: React.FC = () => {
       to: '/queries',
       icon: FileText,
       label: 'My Requests',
-    },
-    {
-      to: '/secrets',
-      icon: Key,
-      label: 'Secrets Manager',
     },
   ];
 
@@ -84,7 +78,7 @@ const Sidebar: React.FC = () => {
       {/* Footer */}
       <div className="p-4 border-t border-gray-700">
         <p className="text-gray-500 text-xs text-center">
-          © 2024 Zluri Inc.
+          © 2025 Zluri Inc.
         </p>
       </div>
     </aside>

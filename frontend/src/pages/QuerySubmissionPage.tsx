@@ -118,13 +118,13 @@ const QuerySubmissionPage: React.FC = () => {
     e.preventDefault();
 
     // Common validation
-    if (!instanceId || !databaseName || !podId || !comments) {
+    if (!instanceId || !databaseName || !podId || !comments.trim()) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     // Type-specific validation
-    if (submissionType === 'query' && !query) {
+    if (submissionType === 'query' && !query.trim()) {
       toast.error('Please enter a query');
       return;
     }

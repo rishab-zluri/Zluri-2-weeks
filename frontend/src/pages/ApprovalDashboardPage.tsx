@@ -19,6 +19,7 @@ import {
 } from '@/hooks';
 import { Loading, StatusBadge, EmptyState, Modal } from '@/components/common';
 import { QueryRequest, RequestStatus } from '@/types';
+import toast from 'react-hot-toast';
 
 
 
@@ -45,6 +46,7 @@ const ApprovalDashboardPage: React.FC = () => {
   // Modal state
   const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const { data: selectedRequest } = useRequest(selectedUuid || undefined);
 
@@ -98,11 +100,16 @@ const ApprovalDashboardPage: React.FC = () => {
   // Handlers
   const handleViewDetails = (uuid: string) => setSelectedUuid(uuid);
 
-  const handleApprove = async (uuid: string) => {
-    if (confirm('Are you sure you want to approve this request?')) {
-      await approveMutation.mutateAsync({ uuid });
-      setSelectedUuid(null);
-    }
+  const openApproveModal = (uuid: string) => {
+    setSelectedUuid(uuid);
+    setShowApproveModal(true);
+  };
+
+  const handleApprove = async () => {
+    if (!selectedUuid) return;
+    await approveMutation.mutateAsync({ uuid: selectedUuid });
+    setShowApproveModal(false);
+    setSelectedUuid(null);
   };
 
   const openRejectModal = (uuid: string) => {
@@ -113,7 +120,11 @@ const ApprovalDashboardPage: React.FC = () => {
 
   const handleReject = async () => {
     if (!selectedUuid) return;
-    await rejectMutation.mutateAsync({ uuid: selectedUuid, reason: rejectReason });
+    if (!rejectReason.trim()) {
+      toast.error('Please provide a rejection reason');
+      return;
+    }
+    await rejectMutation.mutateAsync({ uuid: selectedUuid, reason: rejectReason.trim() });
     setShowRejectModal(false);
     setSelectedUuid(null);
   };
@@ -306,7 +317,7 @@ const ApprovalDashboardPage: React.FC = () => {
                       <td className="py-4">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">{(request as any).userEmail || 'User'}</span>
+                          <span className="text-sm text-gray-600">{request.userEmail || 'User'}</span>
                         </div>
                       </td>
 
@@ -337,7 +348,7 @@ const ApprovalDashboardPage: React.FC = () => {
                           {request.status === RequestStatus.PENDING && (
                             <>
                               <button
-                                onClick={() => handleApprove(request.uuid)}
+                                onClick={() => openApproveModal(request.uuid)}
                                 disabled={actionLoading}
                                 className="p-2 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50"
                                 title="Approve"
@@ -404,8 +415,8 @@ const ApprovalDashboardPage: React.FC = () => {
             <div>
               <label className="text-sm text-gray-500">Query/Script Limit 500 chars</label>
               <pre className="mt-1 p-3 bg-gray-900 text-green-400 rounded-lg text-sm overflow-x-auto max-h-64 whitespace-pre-wrap break-all">
-                {(selectedRequest.queryContent || (selectedRequest as any).scriptContent || 'N/A').substring(0, 500)}
-                {((selectedRequest.queryContent?.length || 0) > 500 || ((selectedRequest as any).scriptContent?.length || 0) > 500) && '...'}
+                {(selectedRequest.queryContent || selectedRequest.scriptContent || 'N/A').substring(0, 500)}
+                {((selectedRequest.queryContent?.length || 0) > 500 || (selectedRequest.scriptContent?.length || 0) > 500) && '...'}
               </pre>
             </div>
 
@@ -413,7 +424,7 @@ const ApprovalDashboardPage: React.FC = () => {
             {selectedRequest.status === RequestStatus.PENDING && (
               <div className="flex items-center gap-4 pt-4 border-t">
                 <button
-                  onClick={() => handleApprove(selectedRequest.uuid)}
+                  onClick={() => openApproveModal(selectedRequest.uuid)}
                   disabled={actionLoading}
                   className="btn-success flex items-center gap-2"
                 >
@@ -470,6 +481,36 @@ const ApprovalDashboardPage: React.FC = () => {
             </button>
             <button
               onClick={() => setShowRejectModal(false)}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Approve Confirmation Modal */}
+      <Modal
+        isOpen={showApproveModal}
+        onClose={() => setShowApproveModal(false)}
+        title="Confirm Approval"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Are you sure you want to approve this request? This action cannot be undone.
+          </p>
+          <div className="flex items-center gap-4 pt-4">
+            <button
+              onClick={handleApprove}
+              disabled={actionLoading}
+              className="btn-success flex items-center gap-2"
+            >
+              {actionLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+              Confirm Approval
+            </button>
+            <button
+              onClick={() => setShowApproveModal(false)}
               className="btn-secondary"
             >
               Cancel

@@ -19,6 +19,7 @@ const SecretsManagerPage: React.FC = () => {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
   // Loading state
   const [loading, setLoading] = useState(true);
@@ -44,18 +45,26 @@ const SecretsManagerPage: React.FC = () => {
     fetchSecrets();
   }, [fetchSecrets]);
 
-  // Filter secrets based on search
+  // Debounce search input
   useEffect(() => {
-    if (!searchQuery) {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Filter secrets based on debounced search
+  useEffect(() => {
+    if (!debouncedSearchQuery) {
       setFilteredSecrets(secrets);
     } else {
-      const query = searchQuery.toLowerCase();
+      const query = debouncedSearchQuery.toLowerCase();
       const filtered = secrets.filter((secret) =>
         secret.toLowerCase().includes(query)
       );
       setFilteredSecrets(filtered);
     }
-  }, [searchQuery, secrets]);
+  }, [debouncedSearchQuery, secrets]);
 
   // Handle secret selection
   const handleSelectSecret = (secret: string) => {

@@ -40,6 +40,7 @@ export interface QueryRequest {
     id: string; // Added for display purposes (numeric ID from backend)
     uuid: string;
     user: User;
+    userEmail?: string; // Populated in list responses for display
     status: RequestStatus;
     databaseType: DatabaseType;
     submissionType: SubmissionType;
@@ -47,6 +48,7 @@ export interface QueryRequest {
     instanceName: string;
     databaseName: string;
     queryContent?: string;
+    scriptContent?: string; // Script file content
     scriptFilename?: string; // If script
     comments: string;
     podId: string;

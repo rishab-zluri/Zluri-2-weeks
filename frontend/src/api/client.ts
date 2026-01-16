@@ -59,8 +59,14 @@ client.interceptors.response.use(
             }
         }
 
-        // Global Error Toasts (skip 401/403 as they are handled by logic/UI)
-        if (error.response?.status !== 401) {
+        // Handle 403 Forbidden - Access Denied
+        if (error.response?.status === 403) {
+            toast.error('Access denied. You do not have permission to perform this action.');
+            return Promise.reject(error);
+        }
+
+        // Global Error Toasts (skip 401 and Canceled requests)
+        if (error.response?.status !== 401 && !axios.isCancel(error)) {
             const message = (error.response?.data as any)?.message || 'Something went wrong';
             toast.error(message);
         }

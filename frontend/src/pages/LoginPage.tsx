@@ -148,7 +148,7 @@ const LoginPage: React.FC = () => {
 
         {/* Footer */}
         <p className="text-center text-sm text-gray-400 mt-6">
-          © 2024 Zluri Inc. All rights reserved.
+          © 2025 Zluri Inc. All rights reserved.
         </p>
       </div>
     </div>
