@@ -215,29 +215,9 @@ export const getRequest = async (req: Request<{ uuid: string }>, res: Response):
  * GET /api/requests/my
  */
 export const getMyRequests = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const user = req.user!;
-        const { page, limit, offset } = parsePagination(req.query as any);
-        const { status } = req.query;
-
-        const em = getEntityManager();
-        const where: any = { user: user.id };
-        if (status) {
-            where.status = status as RequestStatus;
-        }
-
-        const [requests, total] = await em.findAndCount(QueryRequest, where, {
-            limit,
-            offset,
-            orderBy: { createdAt: 'DESC' }
-        });
-
-        response.paginated(res, requests, { page, limit, total });
-    } catch (error) {
-        const err = error as Error;
-        logger.error('Get my requests error', { error: err.message });
-        response.error(res, 'Failed to get requests', 500);
-    }
+    // Inject userId into query params so getAllRequests logic filters by current user
+    req.query.userId = req.user!.id;
+    return getAllRequests(req, res);
 };
 
 /**
@@ -273,57 +253,11 @@ export const getMyStatusCounts = async (req: Request, res: Response): Promise<vo
  * GET /api/requests/pending
  */
 export const getPendingRequests = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const user = req.user!;
-        const { page, limit, offset } = parsePagination(req.query as any);
-        const { podId, status } = req.query;
-
-        // Get PODs managed by this user
-        let podIds: string[] = [];
-
-        if (user.role === UserRole.ADMIN) {
-            // Admin can see all PODs
-            podIds = staticData.getAllPods().map((p: { id: string }) => p.id);
-        } else {
-            // Manager can only see their PODs
-            const managedPods = staticData.getPodsByManager(user.email);
-            podIds = managedPods.map((p: { id: string }) => p.id);
-        }
-
-        // Filter by specific POD if requested
-        if (podId) {
-            const requestedPodId = podId as string;
-            if (!podIds.includes(requestedPodId)) {
-                response.error(res, 'Access denied to this POD', 403, 'AUTHORIZATION_ERROR');
-                return;
-            }
-            podIds = [requestedPodId];
-        }
-
-        if (podIds.length === 0) {
-            response.paginated(res, [], { page, limit, total: 0 });
-            return;
-        }
-
-        const filterStatus = (status as RequestStatus) || RequestStatus.PENDING;
-
-        const em = getEntityManager();
-        const [requests, total] = await em.findAndCount(QueryRequest, {
-            podId: { $in: podIds },
-            status: filterStatus
-        }, {
-            limit,
-            offset,
-            orderBy: { createdAt: 'DESC' },
-            populate: ['user'] // Populate user for UI
-        });
-
-        response.paginated(res, requests, { page, limit, total });
-    } catch (error) {
-        const err = error as Error;
-        logger.error('Get pending requests error', { error: err.message });
-        response.error(res, 'Failed to get pending requests', 500);
+    // Default to pending status if not provided, but allow overriding
+    if (!req.query.status) {
+        req.query.status = RequestStatus.PENDING;
     }
+    return getAllRequests(req, res);
 };
 
 // =============================================================================
@@ -618,12 +552,40 @@ export const cloneRequest = async (req: Request<{ uuid: string }>, res: Response
 export const getAllRequests = async (req: Request, res: Response): Promise<void> => {
     try {
         const { page, limit, offset } = parsePagination(req.query as any);
-        const { status, podId, databaseType, submissionType, search, startDate, endDate } = req.query;
+        const { status, podId, databaseType, submissionType, search, startDate, endDate, userId } = req.query;
+        const user = req.user!;
         const em = getEntityManager();
 
         const where: any = {};
+
+        // RBAC: Managers can only see requests for their managed PODs
+        if (user.role === UserRole.MANAGER) {
+            const managedPods = staticData.getPodsByManager(user.email).map(p => p.id);
+            if (managedPods.length === 0) {
+                // Manager manages no pods, return empty list immediately
+                response.paginated(res, [], { page, limit, total: 0 });
+                return;
+            }
+
+            if (podId) {
+                // If filtering by specific pod, verify access
+                const requestedPodId = podId as string;
+                if (!managedPods.includes(requestedPodId)) {
+                    response.error(res, 'Access denied to this POD', 403, 'AUTHORIZATION_ERROR');
+                    return;
+                }
+                where.podId = requestedPodId;
+            } else {
+                // Otherwise, return all requests from managed pods
+                where.podId = { $in: managedPods };
+            }
+        } else if (podId) {
+            // Admins can filter by any pod
+            where.podId = podId;
+        }
+
+        if (userId) where.user = userId;
         if (status) where.status = status;
-        if (podId) where.podId = podId;
         if (databaseType) where.databaseType = databaseType;
         if (submissionType) where.submissionType = submissionType;
         if (startDate) where.createdAt = { $gte: new Date(startDate as string) };
@@ -631,11 +593,12 @@ export const getAllRequests = async (req: Request, res: Response): Promise<void>
             where.createdAt = { ...where.createdAt, $lte: new Date(endDate as string) };
         }
         if (search) {
-            // Basic search impl - adjust based on requirements (e.g. search comments or instance name)
-            // where.$or = [
-            //    { comments: { $ilike: `%${search}%` } },
-            //    { instanceName: { $ilike: `%${search}%` } }
-            // ];
+            const searchTerm = `%${search}%`;
+            where.$or = [
+                { comments: { $ilike: searchTerm } },
+                { instanceName: { $ilike: searchTerm } },
+                { databaseName: { $ilike: searchTerm } }
+            ];
         }
 
         const [requests, total] = await em.findAndCount(QueryRequest, where, {

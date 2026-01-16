@@ -40,6 +40,11 @@ export class QueryRequest extends IntBaseEntity {
     @Property({ type: 'uuid', unique: true, onCreate: () => crypto.randomUUID() })
     uuid: string = crypto.randomUUID();
 
+    // Index creation time for fast range queries and sorting
+    @Property({ type: 'timestamptz' })
+    @Index()
+    createdAt: Date = new Date();
+
     // User who submitted the request
     @ManyToOne(() => User, { deleteRule: 'restrict', ref: true })
     @Index()
