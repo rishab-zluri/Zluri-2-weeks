@@ -275,35 +275,19 @@ export class ScriptExecutor {
         });
 
         try {
-            // 1. Validation
-            const syntaxCheck = this.validateSyntax(scriptContent);
-            if (!syntaxCheck.valid && syntaxCheck.error) {
-                return this.createErrorResult('SyntaxError', syntaxCheck.error.details, output, startTime, request);
-            }
-
-            // 2. Get Instance (Dynamic import to avoid circular dep if any, though less likely now)
-            // Assuming we have centralized config or passing it in.
-            // For now, retaining the dynamic import pattern from original service to be safe
-            const { getInstanceById } = await import('../../config/staticData');
-            const instance = getInstanceById(instanceId);
-
-            if (!instance) throw new Error(`Instance not found: ${instanceId}`);
-
-            // 3. Prepare Worker Config
-            const workerConfig: WorkerConfig = {
-                scriptContent,
-                databaseType,
-                instance,
-                databaseName,
-                timeout: ScriptExecutor.EXECUTION_CONFIG.timeout,
-            };
-
-            // 4. Detect language and run appropriate worker
+            // 1. Detect language FIRST (before any validation)
             const language = this.detectLanguage(request);
             logger.info('Script language detected', { language, instanceId, databaseName });
 
-            // Validate based on language
-            if (language === 'python') {
+            // 2. Validate based on detected language
+            if (language === 'javascript') {
+                // JavaScript syntax validation
+                const syntaxCheck = this.validateSyntax(scriptContent);
+                if (!syntaxCheck.valid && syntaxCheck.error) {
+                    return this.createErrorResult('SyntaxError', syntaxCheck.error.details, output, startTime, request);
+                }
+            } else if (language === 'python') {
+                // Python pattern validation (syntax checked by Python interpreter)
                 const pyValidation = this.validatePython(scriptContent);
                 if (!pyValidation.valid) {
                     return this.createErrorResult('ValidationError', pyValidation.errors.join('; '), output, startTime, request);
@@ -312,6 +296,21 @@ export class ScriptExecutor {
                     output.push({ type: 'warn', message: pyValidation.warnings.join('; '), timestamp: new Date().toISOString() });
                 }
             }
+
+            // 3. Get Instance
+            const { getInstanceById } = await import('../../config/staticData');
+            const instance = getInstanceById(instanceId);
+
+            if (!instance) throw new Error(`Instance not found: ${instanceId}`);
+
+            // 4. Prepare Worker Config
+            const workerConfig: WorkerConfig = {
+                scriptContent,
+                databaseType,
+                instance,
+                databaseName,
+                timeout: ScriptExecutor.EXECUTION_CONFIG.timeout,
+            };
 
             // 5. Run in appropriate Child Process
             const result = language === 'python'
@@ -354,12 +353,23 @@ export class ScriptExecutor {
             // Handle both development (ts-node) and production (compiled) modes
             // In dev, __dirname is in src/. In prod, __dirname is in dist/.
             const jsWorkerPath = path.join(__dirname, 'worker/scriptWorker.js');
+            const tsWorkerPath = path.join(__dirname, 'worker/scriptWorker.ts');
             const distWorkerPath = path.resolve(__dirname, '../../../dist/services/script/worker/scriptWorker.js');
 
-            // Check if running from src/ (dev mode) or dist/ (prod mode)
-            const workerPath = require('fs').existsSync(jsWorkerPath)
-                ? jsWorkerPath
-                : distWorkerPath;
+            // Detect if running in dev mode (ts-node or explicit NODE_ENV)
+            const isDev = process.env.NODE_ENV !== 'production' || process.argv.some(arg => arg.includes('ts-node'));
+
+            // Determine worker path
+            let workerPath = distWorkerPath;
+
+            if (isDev && require('fs').existsSync(tsWorkerPath)) {
+                workerPath = tsWorkerPath;
+                logger.debug('Using TypeScript worker', { workerPath });
+            } else if (require('fs').existsSync(jsWorkerPath)) {
+                workerPath = jsWorkerPath;
+            } else {
+                logger.warn('Using distribution worker path (potential mismatch if code changed)', { workerPath });
+            }
 
             // Get secure fork options with memory limits and sanitized env
             const secureOptions = getSecureForkOptions();
@@ -372,6 +382,7 @@ export class ScriptExecutor {
 
             let resolved = false;
             let timeoutId: NodeJS.Timeout | null = null;
+            let stderrData = '';
 
             const cleanup = () => {
                 if (timeoutId) clearTimeout(timeoutId);
@@ -385,6 +396,15 @@ export class ScriptExecutor {
                 resolve(data);
             };
 
+            // Capture stderr for better error messages
+            if (child.stderr) {
+                child.stderr.on('data', (data: Buffer) => {
+                    const errMsg = data.toString();
+                    stderrData += errMsg;
+                    logger.error('Worker stderr:', { error: errMsg });
+                });
+            }
+
             timeoutId = setTimeout(() => {
                 if (!resolved) handleResult({ success: false, error: { type: 'TimeoutError', message: 'Timed out' } });
             }, config.timeout + 5000);
@@ -397,11 +417,18 @@ export class ScriptExecutor {
             child.on('error', (err) => handleResult({ success: false, error: { type: 'ProcessError', message: err.message } }));
             child.on('exit', (code, signal) => {
                 if (!resolved) {
+                    // Include stderr in error message if available
+                    const errorMessage = signal
+                        ? `Terminated with ${signal}`
+                        : stderrData
+                            ? `Exited with ${code}: ${stderrData.slice(0, 500)}`
+                            : `Exited with ${code}`;
+
                     handleResult({
                         success: false,
                         error: {
                             type: 'ProcessError',
-                            message: signal ? `Terminated with ${signal}` : `Exited with ${code}`
+                            message: errorMessage
                         }
                     });
                 }

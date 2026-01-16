@@ -24,8 +24,9 @@ export const EXECUTION_LIMITS = {
     /**
      * Maximum heap memory in MB for child process
      * Prevents memory exhaustion attacks
+     * Note: Set to 512MB as MongoDB driver + ts-node compilation needs ~300-400MB
      */
-    MAX_MEMORY_MB: 128,
+    MAX_MEMORY_MB: 512,
 
     /**
      * Default execution timeout in milliseconds
@@ -268,23 +269,35 @@ export function validatePythonScript(scriptContent: string): ValidationResult {
 
 /**
  * Get secure fork options for JavaScript child process
+ * 
+ * In development mode (ts-node), we need to pass ts-node/register
+ * to the child process so it can execute TypeScript files.
  */
 export function getSecureForkOptions(): {
     execArgv: string[];
     env: NodeJS.ProcessEnv;
 } {
+    const isDevMode = process.argv.some(arg => arg.includes('ts-node'));
+
+    const baseArgs = [
+        // Memory limit - CRITICAL: Must be first arg
+        `--max-old-space-size=${EXECUTION_LIMITS.MAX_MEMORY_MB}`,
+        // Disable inspector/debugger
+        '--no-inspect',
+    ];
+
+    // In dev mode, add ts-node register for TypeScript support
+    if (isDevMode) {
+        baseArgs.push('--require', 'ts-node/register');
+    }
+
     return {
-        execArgv: [
-            // Memory limit
-            `--max-old-space-size=${EXECUTION_LIMITS.MAX_MEMORY_MB}`,
-            // Disable inspector/debugger
-            '--no-inspect',
-            // Disable experimental features
-            '--no-experimental-fetch',
-        ],
+        execArgv: baseArgs,
         env: {
             ...process.env,
             NODE_ENV: process.env.NODE_ENV || 'production',
+            // Disable ts-node type checking in child for faster startup
+            TS_NODE_TRANSPILE_ONLY: 'true',
             // Clear sensitive env vars from child process
             JWT_SECRET: undefined,
             JWT_ACCESS_SECRET: undefined,

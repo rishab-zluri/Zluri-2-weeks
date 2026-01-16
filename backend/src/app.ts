@@ -126,13 +126,14 @@ app.use(hpp({
 app.use(xss());
 
 // Body parser with size limits
+// Note: Increased to 20MB to support 16MB max script file submissions
 app.use(express.json({
-    limit: '10kb',
+    limit: '20mb',
     verify: (req: Request, res: Response, buf: Buffer) => {
         (req as any).rawBody = buf;
     },
 }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // Cookie parser for HttpOnly cookie-based auth
 app.use(cookieParser());

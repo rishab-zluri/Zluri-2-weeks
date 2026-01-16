@@ -259,14 +259,29 @@ function createMongoWrapper(db: Db): MongoWrapper {
     const wrapCollection = (name: string) => {
         const collection = db.collection(name);
         return {
-            find: async (query: any = {}, options: any = {}) => {
-                const startTime = Date.now();
-                const safeOptions = { ...options, limit: options.limit || 1000 };
-                const results = await collection.find(query).limit(safeOptions.limit).toArray();
-                const duration = Date.now() - startTime;
-                logOp('find', { collection: name, count: results.length, duration: `${duration}ms` });
-                if (results.length > 0) addOutput('data', { message: `Returned ${results.length} docs`, preview: results.slice(0, 5) });
-                return results;
+            find: (query: any = {}, options: any = {}) => {
+                // Return a cursor-like object that matches MongoDB API
+                const cursor = collection.find(query, options);
+
+                return {
+                    toArray: async () => {
+                        const startTime = Date.now();
+                        const safeOptions = { limit: options.limit || 1000 };
+                        const results = await cursor.limit(safeOptions.limit).toArray();
+                        const duration = Date.now() - startTime;
+                        logOp('find', { collection: name, count: results.length, duration: `${duration}ms` });
+                        if (results.length > 0) addOutput('data', { message: `Returned ${results.length} docs`, preview: results.slice(0, 5) });
+                        return results;
+                    },
+                    limit: (n: number) => {
+                        cursor.limit(n);
+                        return { toArray: async () => cursor.toArray() };
+                    },
+                    sort: (sortSpec: any) => {
+                        cursor.sort(sortSpec);
+                        return { toArray: async () => cursor.toArray() };
+                    },
+                };
             },
             findOne: async (query: any = {}) => {
                 const startTime = Date.now();

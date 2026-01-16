@@ -59,6 +59,46 @@ ALLOWED_BUILTINS = {
     'RuntimeError', 'AttributeError', 'StopIteration',
 }
 
+# Whitelisted modules that can be imported
+ALLOWED_MODULES = {
+    'json',
+    'datetime', 
+    're',
+    'math',
+    'time',
+    'collections',
+    'functools',
+    'itertools',
+}
+
+# Pre-import allowed modules
+_PRELOADED_MODULES = {}
+for _mod_name in ALLOWED_MODULES:
+    try:
+        _PRELOADED_MODULES[_mod_name] = __import__(_mod_name)
+    except ImportError:
+        pass
+
+
+def restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
+    """
+    Restricted __import__ that only allows whitelisted modules.
+    
+    This allows scripts to use 'import json' syntax while still
+    blocking dangerous modules like os, subprocess, etc.
+    """
+    # Get base module name (e.g., 'datetime' from 'from datetime import datetime')
+    base_module = name.split('.')[0]
+    
+    if base_module not in ALLOWED_MODULES:
+        raise ImportError(f"Module '{name}' is not allowed. Allowed modules: {', '.join(sorted(ALLOWED_MODULES))}")
+    
+    # Return pre-loaded module
+    if base_module in _PRELOADED_MODULES:
+        return _PRELOADED_MODULES[base_module]
+    
+    raise ImportError(f"Module '{name}' could not be loaded")
+
 
 def create_restricted_builtins() -> Dict[str, Any]:
     """Create a restricted builtins dict for script execution."""
@@ -67,6 +107,10 @@ def create_restricted_builtins() -> Dict[str, Any]:
     for name in ALLOWED_BUILTINS:
         if hasattr(builtins, name):
             restricted[name] = getattr(builtins, name)
+    
+    # Add restricted import function to allow 'import json' etc.
+    restricted['__import__'] = restricted_import
+    
     return restricted
 
 
