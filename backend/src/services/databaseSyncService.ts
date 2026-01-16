@@ -409,12 +409,13 @@ async function performSyncInTransaction(
     // Upsert databases
     for (const dbName of filteredDatabases) {
         const upsertResult = await client.query<{ is_insert: boolean }>(`
-      INSERT INTO databases (instance_id, name, source, is_active, last_seen_at)
-      VALUES ($1, $2, 'synced', true, CURRENT_TIMESTAMP)
+      INSERT INTO databases (instance_id, name, source, is_active, last_seen_at, created_at, updated_at)
+      VALUES ($1, $2, 'synced', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       ON CONFLICT (instance_id, name) 
       DO UPDATE SET 
         is_active = true, 
         last_seen_at = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP,
         source = CASE WHEN databases.source = 'manual' THEN 'manual' ELSE 'synced' END
       RETURNING (xmax = 0) AS is_insert
     `, [instanceId, dbName]);
@@ -542,8 +543,8 @@ export async function syncInstanceDatabases(
     // Record sync history (outside transaction - audit log should always be recorded)
     await portalQuery(`
     INSERT INTO database_sync_history 
-    (instance_id, sync_type, status, databases_found, databases_added, databases_removed, error_message, duration_ms, triggered_by)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    (instance_id, sync_type, status, databases_found, databases_added, databases_removed, error_message, duration_ms, triggered_by_id, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
   `, [
         instance.id,
         syncType,

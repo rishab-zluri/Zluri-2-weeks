@@ -30,6 +30,7 @@
     "@mikro-orm/seeder": "^6.6.4",
     "@slack/web-api": "^6.11.0",
     "axios": "^1.6.2",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
@@ -54,6 +55,7 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.8.1",
     "@types/cookie-parser": "^1.4.10",

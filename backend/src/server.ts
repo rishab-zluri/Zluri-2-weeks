@@ -65,27 +65,45 @@ const stopBackgroundTasks = (): void => {
 // =============================================================================
 
 /**
+ * Guard to prevent multiple shutdown attempts
+ * WHY: Ctrl+C can trigger multiple signals, and errors during shutdown
+ * could trigger unhandledRejection which would call shutdown again
+ */
+let isShuttingDown = false;
+
+/**
  * Graceful shutdown handler
  */
 const gracefulShutdown = async (signal: string) => {
+    // Prevent multiple shutdown attempts (guard pattern)
+    if (isShuttingDown) {
+        logger.debug(`Shutdown already in progress, ignoring ${signal}`);
+        return;
+    }
+    isShuttingDown = true;
+
     logger.info(`${signal} received. Starting graceful shutdown...`);
 
     // 1. Stop background tasks
     stopBackgroundTasks();
 
     // 2. Stop HTTP server (stop accepting new connections)
-    if (server) {
-        await new Promise<void>((resolve, reject) => {
-            server.close((err) => {
-                if (err) {
-                    logger.error('Error closing HTTP server:', err);
-                    reject(err);
-                } else {
-                    logger.info('HTTP server closed.');
+    if (server && server.listening) {
+        try {
+            await new Promise<void>((resolve) => {
+                server.close((err) => {
+                    if (err) {
+                        // Don't reject - just log and continue
+                        logger.warn('Error closing HTTP server (may already be closed):', err.message);
+                    } else {
+                        logger.info('HTTP server closed.');
+                    }
                     resolve();
-                }
+                });
             });
-        });
+        } catch (err) {
+            logger.warn('HTTP server close error:', (err as Error).message);
+        }
     }
 
     // 3. Close Database Connections
@@ -101,7 +119,7 @@ const gracefulShutdown = async (signal: string) => {
         });
 
     } catch (err) {
-        logger.error('Error closing database connections:', err);
+        logger.warn('Error closing database connections:', (err as Error).message);
     }
 
     logger.info('Graceful shutdown completed. Exiting.');
@@ -164,8 +182,13 @@ const startServer = async () => {
         });
 
         process.on('unhandledRejection', (reason, promise) => {
-            logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-            gracefulShutdown('unhandledRejection');
+            logger.error('Unhandled Rejection at:', promise);
+            logger.error('Reason:', reason);
+            // Don't call gracefulShutdown here - it can cause infinite loop
+            // The shutdown guard will prevent re-entry anyway, but better to just log
+            if (!isShuttingDown) {
+                gracefulShutdown('unhandledRejection');
+            }
         });
 
     } catch (error) {

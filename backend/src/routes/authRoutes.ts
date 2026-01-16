@@ -193,14 +193,16 @@ router.put(
 /**
  * @route   POST /api/auth/logout
  * @desc    Logout user (invalidate token on client side)
- * @access  Private
+ * @access  Public (uses refresh token for identity)
+ *
+ * WHY PUBLIC: Users should be able to logout even when their access token
+ * is expired. The refresh token in the body/cookie identifies the session.
  *
  * VALIDATION:
- * - refreshToken: Optional, to invalidate specific session
+ * - refreshToken: Optional (from cookie or body)
  */
 router.post(
     '/logout',
-    auth.authenticate,
     validate(LogoutSchema),
     authController.logout
 );

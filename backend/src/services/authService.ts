@@ -25,6 +25,11 @@ import logger from '../utils/logger';
 import { TokenPair } from '../types/express';
 import config from '../config'; // Use default config export
 
+// Get JWT secrets from same source as auth middleware
+const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'access-secret-key-change-in-production';
+const JWT_ISSUER = process.env.JWT_ISSUER || 'db-query-portal';
+const JWT_AUDIENCE = process.env.JWT_AUDIENCE || 'db-query-portal-users';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -114,6 +119,8 @@ export interface VerifyResult {
 
 /**
  * Generate access token (short-lived, stateless)
+ * 
+ * IMPORTANT: Must use same secret and options as auth.verifyAccessToken()
  */
 export function generateAccessToken(user: UserForToken): string {
     const payload: Omit<AccessTokenPayload, 'iat' | 'exp'> = {
@@ -124,8 +131,11 @@ export function generateAccessToken(user: UserForToken): string {
         type: TokenType.ACCESS,
     };
 
-    return jwt.sign(payload, config.jwt.secret, {
+    // Use same secret and options as auth middleware verification
+    return jwt.sign(payload, JWT_ACCESS_SECRET, {
         expiresIn: config.jwt.expiresIn,
+        issuer: JWT_ISSUER,
+        audience: JWT_AUDIENCE,
     } as SignOptions);
 }
 
@@ -216,6 +226,7 @@ export async function createSession(
     const refreshTokenEntity = new RefreshToken();
     refreshTokenEntity.user = ref(user);
     refreshTokenEntity.tokenHash = refreshTokenHash;
+    refreshTokenEntity.familyId = crypto.randomUUID(); // Token Family for reuse detection
     refreshTokenEntity.deviceInfo = deviceInfo || undefined;
     refreshTokenEntity.ipAddress = ipAddress || undefined;
     refreshTokenEntity.expiresAt = expiresAt;
