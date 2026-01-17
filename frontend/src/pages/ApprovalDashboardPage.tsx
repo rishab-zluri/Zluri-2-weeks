@@ -127,14 +127,15 @@ const ApprovalDashboardPage: React.FC = () => {
 
   const {
     data: approvalsData,
-    isLoading: loadingApprovals
+    isLoading: loadingApprovals,
+    isRefetching: refreshingApprovals
   } = useRequests(approvalsFilters);
 
   const { data: pods = [] } = usePods();
 
   // Data Assignment
   const currentData = approvalsData;
-  const loading = loadingApprovals;
+  const loading = loadingApprovals || refreshingApprovals;
   const requests = currentData?.data || [];
   const totalPages = currentData?.pagination?.totalPages || 1;
 

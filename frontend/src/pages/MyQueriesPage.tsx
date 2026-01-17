@@ -133,6 +133,7 @@ const MyQueriesPage: React.FC = () => {
   const {
     data: managerData,
     isLoading: loadingManager,
+    isRefetching: refreshingManager,
     refetch: refetchManager
   } = useRequests(managerFilters, {
     enabled: isManager && (viewMode === 'approvals' || viewMode === 'history')
@@ -145,7 +146,7 @@ const MyQueriesPage: React.FC = () => {
   const effectiveViewMode = isManager ? viewMode : 'my-requests';
   const currentData = effectiveViewMode === 'my-requests' ? myRequestsData : managerData;
   const loading = effectiveViewMode === 'my-requests' ? loadingMyRequests : loadingManager;
-  const refreshing = effectiveViewMode === 'my-requests' ? refreshingMyRequests : (managerData && false);
+  const refreshing = effectiveViewMode === 'my-requests' ? refreshingMyRequests : refreshingManager;
   const refetch = effectiveViewMode === 'my-requests' ? refetchMyRequests : refetchManager;
 
   const queries = currentData?.data || [];
@@ -434,7 +435,11 @@ const MyQueriesPage: React.FC = () => {
 
       {/* Queries List */}
       <div className="card">
-        {queries.length === 0 ? (
+        {loading || refreshing ? (
+          <div className="flex items-center justify-center h-64">
+            <Loading text={refreshing ? "Refreshing..." : "Loading queries..."} />
+          </div>
+        ) : queries.length === 0 ? (
           <EmptyState
             icon={effectiveViewMode === 'approvals' ? CheckCircle2 : FileText}
             title={
