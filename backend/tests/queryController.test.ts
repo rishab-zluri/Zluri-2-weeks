@@ -103,6 +103,17 @@ describe('Query Controller', () => {
             body: {},
             params: {},
             query: {},
+            headers: {
+                'x-forwarded-for': '127.0.0.1',
+                'user-agent': 'Jest Test Runner',
+            },
+            connection: {
+                remoteAddress: '127.0.0.1',
+            } as any,
+            socket: {
+                remoteAddress: '127.0.0.1',
+            } as any,
+            ip: '127.0.0.1',
             user: createMockUser(),
         };
 

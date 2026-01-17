@@ -7,12 +7,17 @@ import { jest, beforeAll, afterAll, afterEach } from '@jest/globals';
 
 // Set test environment
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-secret-key-for-testing';
-process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-key';
+process.env.JWT_SECRET = 'test-secret-at-least-32-chars-long-for-validation';
+process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-at-least-32-chars-long-for-validation';
 process.env.JWT_EXPIRES_IN = '1h';
 process.env.JWT_REFRESH_EXPIRES_IN = '7d';
 process.env.PORT = '5001';
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_db';
+process.env.PG_INSTANCE_1_HOST = 'localhost';
+process.env.PG_INSTANCE_1_PORT = '5432';
+process.env.PG_INSTANCE_1_USER = 'test_user';
+process.env.PG_INSTANCE_1_PASSWORD = 'test_password';
+process.env.MONGO_INSTANCE_1_URI = 'mongodb://localhost:27017';
 process.env.SLACK_BOT_TOKEN = 'xoxb-test-token';
 process.env.SLACK_APPROVAL_CHANNEL = 'C123456';
 process.env.SCRIPT_TIMEOUT_MS = '5000';
