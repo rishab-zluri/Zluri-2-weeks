@@ -36,7 +36,7 @@ const Sidebar: React.FC = () => {
     {
       to: '/queries',
       icon: FileText,
-      label: 'My Requests',
+      label: isManager || isAdmin ? 'Requests' : 'My Requests',
     },
   ];
 

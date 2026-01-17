@@ -8,7 +8,11 @@ import {
   User,
   Loader2,
   Filter,
-  X
+  X,
+  AlertTriangle,
+  Shield,
+  AlertCircle,
+  Copy
 } from 'lucide-react';
 import {
   useRequests,
@@ -20,6 +24,7 @@ import {
 import { Loading, StatusBadge, EmptyState, Modal } from '@/components/common';
 import { QueryRequest, RequestStatus } from '@/types';
 import toast from 'react-hot-toast';
+import queryService, { QueryAnalysis } from '@/services/queryService';
 
 
 
@@ -49,6 +54,42 @@ const ApprovalDashboardPage: React.FC = () => {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const { data: selectedRequest } = useRequest(selectedUuid || undefined);
+
+  // Risk analysis state
+  const [queryAnalysis, setQueryAnalysis] = useState<QueryAnalysis | null>(null);
+  const [analyzingQuery, setAnalyzingQuery] = useState(false);
+
+  // Analyze query/script when viewing a request
+  useEffect(() => {
+    const analyzeRequest = async () => {
+      // Analyze both queries and scripts - both contain SQL/MongoDB commands
+      const contentToAnalyze = selectedRequest?.queryContent || selectedRequest?.scriptContent;
+
+      if (contentToAnalyze) {
+        setAnalyzingQuery(true);
+        try {
+          // Default to postgresql if databaseType is missing (for old requests)
+          const dbType = selectedRequest.databaseType || 'postgresql';
+          const analysis = await queryService.analyzeQuery(
+            contentToAnalyze,
+            dbType
+          );
+          setQueryAnalysis(analysis);
+        } catch (error) {
+          console.error('Query/script analysis failed:', error);
+          setQueryAnalysis(null);
+        } finally {
+          setAnalyzingQuery(false);
+        }
+      } else {
+        setQueryAnalysis(null);
+      }
+    };
+
+    if (selectedRequest) {
+      analyzeRequest();
+    }
+  }, [selectedRequest]);
 
   // Close filter dropdown on outside click
   useEffect(() => {
@@ -283,7 +324,11 @@ const ApprovalDashboardPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {requests.map((request: QueryRequest) => (
-                    <tr key={request.uuid} className="hover:bg-gray-50">
+                    <tr
+                      key={request.uuid}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => handleViewDetails(request.uuid)}
+                    >
                       {/* Database Info */}
                       <td className="py-4">
                         <div className="flex items-center gap-2">
@@ -317,7 +362,9 @@ const ApprovalDashboardPage: React.FC = () => {
                       <td className="py-4">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">{request.userEmail || 'User'}</span>
+                          <span className="text-sm text-gray-600">
+                            {request.userEmail || request.user?.email || 'Unknown'}
+                          </span>
                         </div>
                       </td>
 
@@ -334,7 +381,7 @@ const ApprovalDashboardPage: React.FC = () => {
                       </td>
 
                       {/* Actions */}
-                      <td className="py-4 text-right">
+                      <td className="py-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleViewDetails(request.uuid)}
@@ -413,12 +460,248 @@ const ApprovalDashboardPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-sm text-gray-500">Query/Script Limit 500 chars</label>
-              <pre className="mt-1 p-3 bg-gray-900 text-green-400 rounded-lg text-sm overflow-x-auto max-h-64 whitespace-pre-wrap break-all">
-                {(selectedRequest.queryContent || selectedRequest.scriptContent || 'N/A').substring(0, 500)}
-                {((selectedRequest.queryContent?.length || 0) > 500 || (selectedRequest.scriptContent?.length || 0) > 500) && '...'}
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm text-gray-500">
+                  {selectedRequest.submissionType === 'script' ? 'Script Content' : 'Query Content'}
+                  {(selectedRequest.queryContent || selectedRequest.scriptContent) && (
+                    <span className="ml-2 text-xs text-gray-400">
+                      ({(selectedRequest.queryContent?.length || selectedRequest.scriptContent?.length || 0).toLocaleString()} chars)
+                    </span>
+                  )}
+                </label>
+                <button
+                  onClick={async () => {
+                    const content = selectedRequest.queryContent || selectedRequest.scriptContent || '';
+                    try {
+                      if (!navigator.clipboard) {
+                        toast.error('Clipboard not available in this browser');
+                        return;
+                      }
+                      await navigator.clipboard.writeText(content);
+                      toast.success('Copied to clipboard!');
+                    } catch (err) {
+                      console.error('Clipboard error:', err);
+                      toast.error('Failed to copy to clipboard');
+                    }
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                  title="Copy to clipboard"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy
+                </button>
+              </div>
+              <pre className="p-3 bg-gray-900 text-green-400 rounded-lg text-sm overflow-auto max-h-80 whitespace-pre-wrap break-words font-mono leading-relaxed">
+                {selectedRequest.queryContent || selectedRequest.scriptContent || 'N/A'}
               </pre>
+              {((selectedRequest.queryContent?.length || 0) > 2000 || (selectedRequest.scriptContent?.length || 0) > 2000) && (
+                <p className="mt-1 text-xs text-gray-400 italic">
+                  Scroll to see full content • Use "Copy" to get complete text
+                </p>
+              )}
             </div>
+
+            {/* Risk Analysis Section */}
+            {(selectedRequest.queryContent || selectedRequest.scriptContent) && (
+              <div className="border-t pt-4">
+                <label className="text-sm text-gray-500 mb-3 block">Risk Analysis</label>
+
+                {analyzingQuery && (
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Analyzing query...</span>
+                  </div>
+                )}
+
+                {queryAnalysis && !analyzingQuery && (
+                  <div className="space-y-4">
+                    {/* Header with Risk Badge and Statement Count */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-gray-600">Overall Risk:</span>
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-semibold inline-flex items-center gap-1.5 ${queryAnalysis.overallRisk === 'critical'
+                            ? 'bg-red-100 text-red-700 border border-red-200'
+                            : queryAnalysis.overallRisk === 'high'
+                              ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                              : queryAnalysis.overallRisk === 'medium'
+                                ? 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                                : queryAnalysis.overallRisk === 'low'
+                                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                  : 'bg-green-100 text-green-700 border border-green-200'
+                            }`}
+                        >
+                          {queryAnalysis.overallRisk === 'critical' && <AlertTriangle className="w-4 h-4" />}
+                          {queryAnalysis.overallRisk === 'high' && <AlertCircle className="w-4 h-4" />}
+                          {queryAnalysis.overallRisk === 'safe' && <Shield className="w-4 h-4" />}
+                          {queryAnalysis.overallRisk.toUpperCase()}
+                        </span>
+                      </div>
+                      {queryAnalysis.isMultiStatement && (
+                        <span className="text-sm text-gray-500">
+                          {queryAnalysis.statementCount} statements
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Risk Breakdown (for multi-statement) */}
+                    {queryAnalysis.isMultiStatement && queryAnalysis.riskBreakdown && (
+                      <div className="bg-gray-50 rounded-lg p-3 border">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Risk Breakdown:</p>
+                        <div className="flex flex-wrap gap-3 text-sm">
+                          {queryAnalysis.riskBreakdown.critical > 0 && (
+                            <span className="px-2 py-1 bg-red-100 text-red-700 rounded-md font-medium">
+                              {queryAnalysis.riskBreakdown.critical} Critical
+                            </span>
+                          )}
+                          {queryAnalysis.riskBreakdown.high > 0 && (
+                            <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-md font-medium">
+                              {queryAnalysis.riskBreakdown.high} High
+                            </span>
+                          )}
+                          {queryAnalysis.riskBreakdown.medium > 0 && (
+                            <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-md font-medium">
+                              {queryAnalysis.riskBreakdown.medium} Medium
+                            </span>
+                          )}
+                          {queryAnalysis.riskBreakdown.low > 0 && (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-medium">
+                              {queryAnalysis.riskBreakdown.low} Low
+                            </span>
+                          )}
+                          {queryAnalysis.riskBreakdown.safe > 0 && (
+                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-md font-medium">
+                              {queryAnalysis.riskBreakdown.safe} Safe
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Operations with Counts */}
+                    {queryAnalysis.operationCounts && queryAnalysis.operationCounts.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-3 border">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Operations Breakdown:</p>
+                        <div className="space-y-1">
+                          {queryAnalysis.operationCounts.map((op, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between text-sm py-1 border-b border-gray-100 last:border-0"
+                            >
+                              <span className="font-mono text-gray-700">{op.operation}</span>
+                              <div className="flex items-center gap-3">
+                                <span className="text-gray-500">{op.count}x</span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${op.risk === 'critical'
+                                    ? 'bg-red-100 text-red-700'
+                                    : op.risk === 'high'
+                                      ? 'bg-orange-100 text-orange-700'
+                                      : op.risk === 'medium'
+                                        ? 'bg-yellow-100 text-yellow-700'
+                                        : op.risk === 'low'
+                                          ? 'bg-blue-100 text-blue-700'
+                                          : 'bg-green-100 text-green-700'
+                                    }`}
+                                >
+                                  {op.risk}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Fallback: Show operations without counts for backward compatibility */}
+                    {!queryAnalysis.operationCounts && queryAnalysis.operations.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-3 border">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Detected Operations:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {queryAnalysis.operations.map((op, idx) => (
+                            <span
+                              key={idx}
+                              className={`px-2 py-1 rounded text-xs font-medium ${op.risk === 'critical'
+                                ? 'bg-red-100 text-red-700'
+                                : op.risk === 'high'
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : op.risk === 'medium'
+                                    ? 'bg-yellow-100 text-yellow-700'
+                                    : op.risk === 'low'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-green-100 text-green-700'
+                                }`}
+                              title={op.description}
+                            >
+                              {op.operation} ({op.risk})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Warnings with Line Numbers */}
+                    {queryAnalysis.warnings.length > 0 && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <p className="text-sm font-medium text-amber-800 mb-2 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4" />
+                          Warnings ({queryAnalysis.warnings.length}):
+                        </p>
+                        <ul className="space-y-2 max-h-48 overflow-y-auto">
+                          {queryAnalysis.warnings.map((warning, idx) => (
+                            <li key={idx} className="text-sm">
+                              <div className="flex items-start gap-2">
+                                <span className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${warning.level === 'critical' ? 'bg-red-500' :
+                                  warning.level === 'high' ? 'bg-orange-500' :
+                                    warning.level === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
+                                  }`} />
+                                <div>
+                                  <span className="text-amber-700">{warning.message}</span>
+                                  {warning.suggestion && (
+                                    <p className="text-amber-600 text-xs mt-0.5">
+                                      💡 {warning.suggestion}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Recommendations */}
+                    {queryAnalysis.recommendations && queryAnalysis.recommendations.length > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-sm font-medium text-blue-800 mb-2">
+                          📋 Recommendations:
+                        </p>
+                        <ul className="space-y-1">
+                          {queryAnalysis.recommendations.slice(0, 4).map((rec, idx) => (
+                            <li key={idx} className="text-sm text-blue-700 flex items-start gap-2">
+                              <span className={`mt-1 px-1.5 py-0.5 rounded text-xs font-medium ${rec.priority === 'high' ? 'bg-red-100 text-red-600' :
+                                rec.priority === 'medium' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                {rec.priority.toUpperCase()}
+                              </span>
+                              <span>{rec.action}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Summary */}
+                    <div className="bg-gray-100 rounded-lg p-3">
+                      <p className="text-sm font-mono text-gray-700">{queryAnalysis.summary}</p>
+                    </div>
+                  </div>
+                )}
+
+                {!queryAnalysis && !analyzingQuery && (
+                  <p className="text-sm text-gray-500 italic">Unable to analyze content.</p>
+                )}
+              </div>
+            )}
 
             {/* Action Buttons in Modal (Only if Pending) */}
             {selectedRequest.status === RequestStatus.PENDING && (

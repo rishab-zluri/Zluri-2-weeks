@@ -13,7 +13,8 @@ import {
   X,
   Check,
   CheckCircle2,
-  User
+  User,
+  Copy
 } from 'lucide-react';
 import {
   useMyRequests,
@@ -25,6 +26,7 @@ import { Loading, StatusBadge, EmptyState, Modal } from '@/components/common';
 import { format } from 'date-fns';
 import { QueryRequest } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+import toast from 'react-hot-toast';
 
 // Status options for filter
 const STATUS_OPTIONS = [
@@ -40,7 +42,7 @@ type ViewMode = 'my-requests' | 'approvals' | 'history';
 
 const MyQueriesPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isManager } = useAuth(); // Check role
+  const { isManager, user } = useAuth(); // Check role and get current user
   const filterDropdownRef = useRef<HTMLDivElement>(null);
 
   // View Mode - Default to 'my-requests'
@@ -121,8 +123,12 @@ const MyQueriesPage: React.FC = () => {
   } = useMyRequests(commonFilters);
 
   // 2. Approvals/History Data (Only computed if Manager)
-  const managerFilters = { ...commonFilters };
+  const managerFilters: Record<string, any> = { ...commonFilters };
   if (filterPod) managerFilters.podId = filterPod;
+  // Exclude manager's own requests in history (Processed Requests) view
+  if (viewMode === 'history') {
+    managerFilters.excludeOwnRequests = 'true';
+  }
 
   const {
     data: managerData,
@@ -162,6 +168,26 @@ const MyQueriesPage: React.FC = () => {
   const handleViewDetails = (uuid: string) => setSelectedUuid(uuid);
   const handleCloseModal = () => setSelectedUuid(null);
 
+  // Clone request - navigate to submit page with pre-filled data
+  const handleClone = (query: QueryRequest) => {
+    // Store clone data in sessionStorage for the submit page to read
+    const cloneData = {
+      instanceId: query.instanceId,
+      databaseName: query.databaseName,
+      podId: query.podId,
+      comments: query.comments,
+      queryContent: query.queryContent || '',
+      submissionType: query.submissionType,
+    };
+    sessionStorage.setItem('cloneRequestData', JSON.stringify(cloneData));
+    navigate('/dashboard');
+  };
+
+  // Check if a request belongs to the current user
+  const isOwnRequest = (query: QueryRequest): boolean => {
+    return query.user?.id === user?.id || query.userEmail === user?.email;
+  };
+
   const handleStatusToggle = (status: string) => {
     setSelectedStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
   };
@@ -195,12 +221,18 @@ const MyQueriesPage: React.FC = () => {
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {effectiveViewMode === 'history' ? 'Processed Requests' : 'My Queries'}
+            {effectiveViewMode === 'history'
+              ? 'Processed Requests'
+              : isManager
+                ? 'Requests'
+                : 'My Queries'}
           </h1>
           <p className="text-gray-500 mt-1">
             {effectiveViewMode === 'history'
               ? 'View history of requests you have approved or rejected'
-              : 'Track the status of your submitted queries'}
+              : isManager
+                ? 'View and manage submitted requests'
+                : 'Track the status of your submitted queries'}
           </p>
         </div>
 
@@ -214,7 +246,7 @@ const MyQueriesPage: React.FC = () => {
                 : 'text-gray-500 hover:text-gray-700'
                 }`}
             >
-              My Requests
+              Requests
             </button>
             <button
               onClick={() => setViewMode('history')}
@@ -452,7 +484,11 @@ const MyQueriesPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {queries.map((query: QueryRequest) => (
-                    <tr key={query.uuid} className="hover:bg-gray-50">
+                    <tr
+                      key={query.uuid}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => handleViewDetails(query.uuid)}
+                    >
                       <td className="py-4 text-sm font-mono text-gray-600">
                         #{query.uuid?.substring(0, 8)}
                       </td>
@@ -474,7 +510,11 @@ const MyQueriesPage: React.FC = () => {
                       <td className="py-4">
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">{query.userEmail || 'Me'}</span>
+                          <span className="text-sm text-gray-600">
+                            {isOwnRequest(query)
+                              ? 'Me'
+                              : query.userEmail || query.user?.email || 'Unknown'}
+                          </span>
                         </div>
                       </td>
 
@@ -487,7 +527,7 @@ const MyQueriesPage: React.FC = () => {
                           {format(new Date(query.createdAt), 'MMM d')}
                         </div>
                       </td>
-                      <td className="py-4">
+                      <td className="py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleViewDetails(query.uuid)}
@@ -496,6 +536,16 @@ const MyQueriesPage: React.FC = () => {
                           >
                             <Eye className="w-4 h-4 text-gray-500" />
                           </button>
+                          {/* Clone button - only for user's own requests */}
+                          {isOwnRequest(query) && (
+                            <button
+                              onClick={() => handleClone(query)}
+                              className="p-2 hover:bg-purple-100 rounded-lg transition-colors"
+                              title="Clone Request"
+                            >
+                              <Copy className="w-4 h-4 text-purple-500" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -575,11 +625,45 @@ const MyQueriesPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-sm text-gray-500">Query/Script</label>
-              <pre className="mt-1 p-3 bg-gray-900 text-green-400 rounded-lg text-sm overflow-x-auto max-h-64 whitespace-pre-wrap break-all">
-                {(selectedQuery.queryContent || selectedQuery.scriptContent || 'N/A').substring(0, 500)}
-                {((selectedQuery.queryContent?.length || 0) > 500 || (selectedQuery.scriptContent?.length || 0) > 500) && '...'}
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm text-gray-500">
+                  {selectedQuery.submissionType === 'script' ? 'Script Content' : 'Query Content'}
+                  {(selectedQuery.queryContent || selectedQuery.scriptContent) && (
+                    <span className="ml-2 text-xs text-gray-400">
+                      ({(selectedQuery.queryContent?.length || selectedQuery.scriptContent?.length || 0).toLocaleString()} chars)
+                    </span>
+                  )}
+                </label>
+                <button
+                  onClick={async () => {
+                    const content = selectedQuery.queryContent || selectedQuery.scriptContent || '';
+                    try {
+                      if (!navigator.clipboard) {
+                        toast.error('Clipboard not available in this browser');
+                        return;
+                      }
+                      await navigator.clipboard.writeText(content);
+                      toast.success('Copied to clipboard!');
+                    } catch (err) {
+                      console.error('Clipboard error:', err);
+                      toast.error('Failed to copy to clipboard');
+                    }
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                  title="Copy to clipboard"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy
+                </button>
+              </div>
+              <pre className="p-3 bg-gray-900 text-green-400 rounded-lg text-sm overflow-auto max-h-80 whitespace-pre-wrap break-words font-mono leading-relaxed">
+                {selectedQuery.queryContent || selectedQuery.scriptContent || 'N/A'}
               </pre>
+              {((selectedQuery.queryContent?.length || 0) > 2000 || (selectedQuery.scriptContent?.length || 0) > 2000) && (
+                <p className="mt-1 text-xs text-gray-400 italic">
+                  Scroll to see full content • Use "Copy" to get complete text
+                </p>
+              )}
             </div>
 
             {selectedQuery.executionResult && (

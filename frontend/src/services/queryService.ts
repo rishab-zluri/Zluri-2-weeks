@@ -83,8 +83,16 @@ const queryService = {
   },
 
   async getDatabases(instanceId: string): Promise<string[]> {
-    const response = await client.get<ApiResponse<{ instanceId: string; instanceName: string; type: string; databases: string[] }>>(`/api/queries/instances/${instanceId}/databases`);
-    return response.data.data.databases;
+    // Use the database sync service endpoint which has real cached database data
+    // API returns array of {name, description, source, last_seen_at} objects
+    interface DatabaseEntry {
+      name: string;
+      description?: string;
+      source?: string;
+      last_seen_at?: string;
+    }
+    const response = await client.get<ApiResponse<DatabaseEntry[]>>(`/api/v1/databases/instances/${instanceId}/databases`);
+    return response.data.data.map(db => db.name);
   },
 
   async getPods(params: object = {}): Promise<Pod[]> {
@@ -182,6 +190,89 @@ const queryService = {
     const response = await client.post<ApiResponse<QueryRequest>>(`/api/queries/requests/${uuid}/reject`, { reason });
     return response.data.data;
   },
+
+  // ==================== Query Analysis ====================
+
+  async analyzeQuery(query: string, databaseType: string): Promise<QueryAnalysis> {
+    const response = await client.post<ApiResponse<QueryAnalysis>>('/api/v1/queries/analyze', {
+      query,
+      databaseType,
+    });
+    return response.data.data;
+  },
 };
 
+// Query Analysis Types
+export interface OperationImpact {
+  scope: string;
+  reversible: boolean | null;
+  estimatedEffect: string;
+  rowEstimate?: string;
+}
+
+export interface AnalyzedOperation {
+  operation: string;
+  type: string;
+  risk: 'critical' | 'high' | 'medium' | 'low' | 'safe';
+  description: string;
+  impact: OperationImpact;
+  count?: number;
+  lineNumbers?: number[];
+}
+
+export interface AnalysisWarning {
+  level: 'critical' | 'high' | 'medium' | 'low';
+  message: string;
+  suggestion?: string;
+  lineNumber?: number;
+}
+
+export interface AnalysisRecommendation {
+  priority: 'high' | 'medium' | 'low';
+  action: string;
+  reason: string;
+}
+
+export interface StatementDetail {
+  lineNumber: number;
+  statement: string;
+  operation: string;
+  risk: 'critical' | 'high' | 'medium' | 'low' | 'safe';
+  type: string;
+}
+
+export interface OperationCount {
+  operation: string;
+  count: number;
+  risk: 'critical' | 'high' | 'medium' | 'low' | 'safe';
+  type: string;
+}
+
+export interface RiskBreakdown {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  safe: number;
+}
+
+export interface QueryAnalysis {
+  query?: string;
+  databaseType: string;
+  operations: AnalyzedOperation[];
+  overallRisk: 'critical' | 'high' | 'medium' | 'low' | 'safe';
+  riskColor: string;
+  warnings: AnalysisWarning[];
+  recommendations: AnalysisRecommendation[];
+  summary: string;
+  error?: string;
+  // Enhanced fields for multi-statement analysis
+  statementCount?: number;
+  operationCounts?: OperationCount[];
+  statementDetails?: StatementDetail[];
+  riskBreakdown?: RiskBreakdown;
+  isMultiStatement?: boolean;
+}
+
 export default queryService;
+

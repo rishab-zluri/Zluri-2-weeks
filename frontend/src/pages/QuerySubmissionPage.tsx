@@ -57,6 +57,32 @@ const QuerySubmissionPage: React.FC = () => {
     setDatabaseName('');
   }, [instanceId]);
 
+  // Check for clone data from sessionStorage (from MyQueriesPage)
+  useEffect(() => {
+    const cloneDataStr = sessionStorage.getItem('cloneRequestData');
+    if (cloneDataStr) {
+      try {
+        const cloneData = JSON.parse(cloneDataStr);
+        // Pre-fill form with clone data
+        if (cloneData.instanceId) setInstanceId(cloneData.instanceId);
+        if (cloneData.podId) setPodId(cloneData.podId);
+        if (cloneData.comments) setComments(cloneData.comments);
+        if (cloneData.queryContent) setQuery(cloneData.queryContent);
+        if (cloneData.submissionType) setSubmissionType(cloneData.submissionType as 'query' | 'script');
+        // Set database name after a short delay to allow databases to load
+        if (cloneData.databaseName) {
+          setTimeout(() => setDatabaseName(cloneData.databaseName), 500);
+        }
+        // Clear the sessionStorage after reading
+        sessionStorage.removeItem('cloneRequestData');
+        toast.success('Request cloned - review and submit');
+      } catch (e) {
+        console.error('Failed to parse clone data:', e);
+        sessionStorage.removeItem('cloneRequestData');
+      }
+    }
+  }, []); // Run once on mount
+
   const handleReset = () => {
     setInstanceId('');
     setDatabaseName('');
