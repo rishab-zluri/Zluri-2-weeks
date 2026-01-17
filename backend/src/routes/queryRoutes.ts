@@ -165,6 +165,83 @@ router.get(
 );
 
 // =============================================================================
+// QUERY ANALYSIS ROUTES
+// =============================================================================
+
+/**
+ * @swagger
+ * /queries/analyze:
+ *   post:
+ *     summary: Analyze a query for risk level
+ *     description: |
+ *       Analyzes a SQL or MongoDB query to determine its risk level and potential impact.
+ *       Returns detailed operation analysis, warnings, and recommendations.
+ *     tags: [Query Analysis]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [query, databaseType]
+ *             properties:
+ *               query:
+ *                 type: string
+ *                 description: The query to analyze
+ *                 example: "DELETE FROM users WHERE id = 1"
+ *               databaseType:
+ *                 type: string
+ *                 enum: [postgresql, mongodb]
+ *                 description: The database type
+ *     responses:
+ *       200:
+ *         description: Query analysis result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     overallRisk:
+ *                       type: string
+ *                       enum: [critical, high, medium, low, safe]
+ *                     riskColor:
+ *                       type: string
+ *                     operations:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           operation:
+ *                             type: string
+ *                           type:
+ *                             type: string
+ *                           risk:
+ *                             type: string
+ *                           description:
+ *                             type: string
+ *                     warnings:
+ *                       type: array
+ *                     recommendations:
+ *                       type: array
+ *                     summary:
+ *                       type: string
+ */
+router.post(
+    '/analyze',
+    auth.authenticate,
+    queryController.analyzeQueryContent
+);
+
+// =============================================================================
 // SUBMISSION ROUTES
 // =============================================================================
 

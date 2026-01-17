@@ -119,9 +119,29 @@ export const getDatabases = async (req: Request<{ instanceId: string }>, res: Re
     try {
         const { instanceId } = req.params;
 
-        // Verify instance exists
+        // First try sync service (database-backed)
         const instance = await databaseSyncService.getInstanceById(instanceId);
-        if (!instance) {
+
+        if (instance) {
+            // Instance found in database - use sync service
+            const databases = await databaseSyncService.getDatabasesForInstance(instanceId);
+
+            res.json({
+                success: true,
+                data: databases,
+                count: databases.length,
+                source: 'cache',
+                lastSync: instance.last_sync_at,
+                syncStatus: instance.last_sync_status,
+            });
+            return;
+        }
+
+        // Fallback to static config for instances not yet synced to database
+        const staticData = require('../config/staticData');
+        const staticInstance = staticData.getInstanceById(instanceId);
+
+        if (!staticInstance) {
             res.status(404).json({
                 success: false,
                 error: 'Instance not found',
@@ -129,15 +149,15 @@ export const getDatabases = async (req: Request<{ instanceId: string }>, res: Re
             return;
         }
 
-        const databases = await databaseSyncService.getDatabasesForInstance(instanceId);
-
+        // Return databases from static config
+        const databases = staticData.getDatabasesForInstance(instanceId);
         res.json({
             success: true,
-            data: databases,
+            data: databases.map((name: string) => ({ name, source: 'static' })),
             count: databases.length,
-            source: 'cache',
-            lastSync: instance.last_sync_at,
-            syncStatus: instance.last_sync_status,
+            source: 'static',
+            lastSync: null,
+            syncStatus: 'not_synced',
         });
     } catch (error) {
         const err = error as Error;

@@ -33,8 +33,35 @@ export { MONGODB_PATTERNS } from './analyzers/MongoAnalyzer';
  * @returns Complete analysis result
  */
 export function analyzeQuery(query: string, databaseType: string): QueryAnalysis {
-    const analyzer = QueryAnalyzerFactory.getAnalyzer(databaseType);
-    return analyzer.analyze(query);
+    // Validate input
+    if (!query || typeof query !== 'string' || query.trim() === '') {
+        return {
+            databaseType: databaseType || 'unknown',
+            operations: [],
+            overallRisk: RiskLevel.MEDIUM,
+            riskColor: RiskColors.medium,
+            warnings: [],
+            recommendations: [],
+            summary: 'Unable to analyze query.',
+            error: 'Invalid query',
+        };
+    }
+
+    try {
+        const analyzer = QueryAnalyzerFactory.getAnalyzer(databaseType);
+        return analyzer.analyze(query);
+    } catch (error) {
+        return {
+            databaseType: databaseType || 'unknown',
+            operations: [],
+            overallRisk: RiskLevel.MEDIUM,
+            riskColor: RiskColors.medium,
+            warnings: [],
+            recommendations: [],
+            summary: 'Unable to analyze query.',
+            error: (error as Error).message || 'Unsupported database type',
+        };
+    }
 }
 
 /**

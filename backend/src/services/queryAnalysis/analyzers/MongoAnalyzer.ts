@@ -357,20 +357,8 @@ export const MONGODB_PATTERNS: Record<string, QueryPattern[]> = {
         },
     ],
 
-    // Aggregation
+    // Aggregation - More specific patterns MUST come first
     aggregation: [
-        {
-            pattern: /\.aggregate\s*\(/i,
-            operation: 'aggregate',
-            type: OperationType.AGGREGATION,
-            risk: RiskLevel.SAFE,
-            description: 'Aggregation pipeline',
-            impact: {
-                scope: 'none',
-                reversible: true,
-                estimatedEffect: 'Read-only data transformation',
-            },
-        },
         {
             pattern: /\$out\s*:/i,
             operation: 'aggregate with $out',
@@ -395,12 +383,32 @@ export const MONGODB_PATTERNS: Record<string, QueryPattern[]> = {
                 estimatedEffect: 'Documents merged into target collection',
             },
         },
+        {
+            pattern: /\.aggregate\s*\(/i,
+            operation: 'aggregate',
+            type: OperationType.AGGREGATION,
+            risk: RiskLevel.SAFE,
+            description: 'Aggregation pipeline',
+            impact: {
+                scope: 'none',
+                reversible: true,
+                estimatedEffect: 'Read-only data transformation',
+            },
+        },
     ],
 };
 
 export class MongoAnalyzer implements IQueryAnalyzer {
+    /**
+     * Main analysis entry point - handles both single and multi-statement MongoDB queries
+     */
     public analyze(query: string): QueryAnalysis {
         const trimmedQuery = query.trim();
+
+        // Split content into statements for detailed analysis
+        const { statements, lineMapping } = this.splitIntoStatements(trimmedQuery);
+        const isMultiStatement = statements.length > 1;
+
         const analysis: QueryAnalysis = {
             query: trimmedQuery,
             databaseType: 'mongodb',
@@ -410,9 +418,15 @@ export class MongoAnalyzer implements IQueryAnalyzer {
             warnings: [],
             recommendations: [],
             summary: '',
+            // Enhanced fields
+            statementCount: statements.length,
+            operationCounts: [],
+            statementDetails: [],
+            riskBreakdown: { critical: 0, high: 0, medium: 0, low: 0, safe: 0 },
+            isMultiStatement,
         };
 
-        // Combine all patterns (check most specific first - they are ordered within each category)
+        // Combine all patterns (check most specific first)
         const allPatterns = [
             ...MONGODB_PATTERNS.admin,
             ...MONGODB_PATTERNS.index,
@@ -421,26 +435,99 @@ export class MongoAnalyzer implements IQueryAnalyzer {
             ...MONGODB_PATTERNS.aggregation,
         ];
 
-        // Track matched operations to avoid duplicates
-        const matchedOperations = new Set<string>();
+        // Track operations with counts and line numbers
+        const operationTracker = new Map<string, {
+            pattern: QueryPattern;
+            count: number;
+            lineNumbers: number[];
+        }>();
 
-        for (const patternDef of allPatterns) {
-            if (patternDef.pattern.test(trimmedQuery)) {
-                /* istanbul ignore else */
-                if (!matchedOperations.has(patternDef.operation)) {
-                    matchedOperations.add(patternDef.operation);
-                    analysis.operations.push({
+        // Analyze each statement individually
+        for (let i = 0; i < statements.length; i++) {
+            const stmt = statements[i].trim();
+            if (!stmt) continue;
+
+            const lineNumber = lineMapping[i];
+            let matched = false;
+
+            // Find matching pattern for this statement
+            for (const patternDef of allPatterns) {
+                if (patternDef.pattern.test(stmt)) {
+                    matched = true;
+                    const opName = patternDef.operation;
+
+                    // Track operation counts and line numbers
+                    if (operationTracker.has(opName)) {
+                        const tracker = operationTracker.get(opName)!;
+                        tracker.count++;
+                        tracker.lineNumbers.push(lineNumber);
+                    } else {
+                        operationTracker.set(opName, {
+                            pattern: patternDef,
+                            count: 1,
+                            lineNumbers: [lineNumber],
+                        });
+                    }
+
+                    // Add statement detail
+                    analysis.statementDetails!.push({
+                        lineNumber,
+                        statement: stmt.length > 100 ? stmt.substring(0, 100) + '...' : stmt,
                         operation: patternDef.operation,
-                        type: patternDef.type,
                         risk: patternDef.risk,
-                        description: patternDef.description,
-                        impact: patternDef.impact,
+                        type: patternDef.type,
                     });
+
+                    // Update risk breakdown
+                    analysis.riskBreakdown![patternDef.risk]++;
+
+                    // Check for statement-level warnings
+                    this.addStatementWarnings(stmt, patternDef, lineNumber, analysis.warnings);
+
+                    break; // First match wins for this statement
                 }
+            }
+
+            // Handle unrecognized statements
+            if (!matched && stmt.length > 5) {
+                analysis.statementDetails!.push({
+                    lineNumber,
+                    statement: stmt.length > 100 ? stmt.substring(0, 100) + '...' : stmt,
+                    operation: 'UNKNOWN',
+                    risk: RiskLevel.MEDIUM,
+                    type: 'UNKNOWN',
+                });
+                analysis.riskBreakdown!.medium++;
             }
         }
 
-        // If no patterns matched, mark as unknown
+        // Build operations array with counts
+        for (const [opName, tracker] of operationTracker) {
+            analysis.operations.push({
+                operation: opName,
+                type: tracker.pattern.type,
+                risk: tracker.pattern.risk,
+                description: tracker.pattern.description,
+                impact: tracker.pattern.impact,
+                count: tracker.count,
+                lineNumbers: tracker.lineNumbers,
+            });
+
+            // Build operation counts
+            analysis.operationCounts!.push({
+                operation: opName,
+                count: tracker.count,
+                risk: tracker.pattern.risk,
+                type: tracker.pattern.type,
+            });
+        }
+
+        // Sort operations by risk level (critical first)
+        const riskOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, safe: 4 };
+        analysis.operations.sort((a, b) => riskOrder[a.risk] - riskOrder[b.risk]);
+        analysis.operationCounts!.sort((a, b) => riskOrder[a.risk] - riskOrder[b.risk]);
+
+        // Handle case where no operations were matched
         if (analysis.operations.length === 0) {
             analysis.operations.push({
                 operation: 'UNKNOWN',
@@ -452,6 +539,7 @@ export class MongoAnalyzer implements IQueryAnalyzer {
                     reversible: null,
                     estimatedEffect: 'Unable to determine impact - review carefully',
                 },
+                count: 1,
             });
         }
 
@@ -459,50 +547,193 @@ export class MongoAnalyzer implements IQueryAnalyzer {
         analysis.overallRisk = calculateOverallRisk(analysis.operations);
         analysis.riskColor = RiskColors[analysis.overallRisk];
 
-        // Generate warnings and recommendations
-        analysis.warnings = this.generateWarnings(trimmedQuery, analysis.operations);
+        // Generate additional warnings and recommendations
+        analysis.warnings.push(...this.generateGlobalWarnings(trimmedQuery, analysis));
         analysis.recommendations = this.generateRecommendations(trimmedQuery, analysis.operations);
-        analysis.summary = generateSummary(analysis);
+
+        // Generate enhanced summary
+        analysis.summary = this.generateEnhancedSummary(analysis);
 
         return analysis;
     }
 
-    private generateWarnings(query: string, operations: AnalyzedOperation[]): AnalysisWarning[] {
-        const warnings: AnalysisWarning[] = [];
+    /**
+     * Split MongoDB query content into individual statements with line number mapping
+     * MongoDB statements can be separated by semicolons, newlines with db. prefixes, or method chains
+     */
+    private splitIntoStatements(content: string): { statements: string[]; lineMapping: number[] } {
+        const statements: string[] = [];
+        const lineMapping: number[] = [];
 
-        // Check for empty filter in destructive operations
-        if (/\.(deleteMany|updateMany|remove)\s*\(\s*\{\s*\}\s*[,)]/i.test(query)) {
+        // Track line numbers for each character position
+        const lines = content.split('\n');
+        let currentLine = 1;
+        let charIndex = 0;
+        const positionToLine: number[] = [];
+
+        for (const line of lines) {
+            for (let i = 0; i < line.length + 1; i++) { // +1 for newline
+                positionToLine[charIndex++] = currentLine;
+            }
+            currentLine++;
+        }
+
+        // MongoDB scripts can be split by:
+        // 1. Semicolons (traditional)
+        // 2. Lines starting with db.
+        // For simplicity, we'll split by semicolons and also by lines starting with db.
+
+        let currentStatement = '';
+        let statementStartPos = 0;
+        let inString = false;
+        let stringChar = '';
+        let braceDepth = 0;
+        let bracketDepth = 0;
+        let parenDepth = 0;
+
+        for (let i = 0; i < content.length; i++) {
+            const char = content[i];
+
+            // Handle string detection
+            if ((char === "'" || char === '"' || char === '`') && content[i - 1] !== '\\') {
+                if (!inString) {
+                    inString = true;
+                    stringChar = char;
+                } else if (char === stringChar) {
+                    inString = false;
+                }
+            }
+
+            if (!inString) {
+                if (char === '{') braceDepth++;
+                if (char === '}') braceDepth--;
+                if (char === '[') bracketDepth++;
+                if (char === ']') bracketDepth--;
+                if (char === '(') parenDepth++;
+                if (char === ')') parenDepth--;
+            }
+
+            currentStatement += char;
+
+            // Statement boundary (semicolon at depth 0 or newline followed by db.)
+            const isAtZeroDepth = braceDepth === 0 && bracketDepth === 0 && parenDepth === 0;
+            const isSemicolon = !inString && isAtZeroDepth && char === ';';
+            const isNewDbStatement = !inString && isAtZeroDepth && char === '\n' &&
+                content.substring(i + 1).trimStart().startsWith('db.');
+
+            if (isSemicolon || isNewDbStatement) {
+                const trimmed = currentStatement.trim().replace(/;$/, '').trim();
+                if (trimmed && trimmed.length > 2) {
+                    statements.push(trimmed);
+                    lineMapping.push(positionToLine[statementStartPos] || 1);
+                }
+                currentStatement = '';
+                statementStartPos = i + 1;
+            }
+        }
+
+        // Handle last statement
+        const lastStmt = currentStatement.trim().replace(/;$/, '').trim();
+        if (lastStmt && lastStmt.length > 2) {
+            statements.push(lastStmt);
+            lineMapping.push(positionToLine[statementStartPos] || 1);
+        }
+
+        return { statements, lineMapping };
+    }
+
+    /**
+     * Add warnings specific to a single statement
+     */
+    private addStatementWarnings(
+        stmt: string,
+        pattern: QueryPattern,
+        lineNumber: number,
+        warnings: AnalysisWarning[]
+    ): void {
+        // Empty filter in destructive operations
+        if ((pattern.operation.includes('delete') || pattern.operation.includes('update')) &&
+            /\(\s*\{\s*\}\s*[,)]/i.test(stmt)) {
             warnings.push({
                 level: 'critical',
-                message: 'Empty filter {} will affect ALL documents',
+                message: `Line ${lineNumber}: Empty filter {} will affect ALL documents`,
                 suggestion: 'Add filter criteria to limit affected documents',
+                lineNumber,
             });
         }
 
-        // Check for $out in aggregation
-        if (/\$out/i.test(query)) {
+        // dropDatabase
+        if (pattern.operation === 'dropDatabase') {
+            warnings.push({
+                level: 'critical',
+                message: `Line ${lineNumber}: dropDatabase will delete the ENTIRE database`,
+                suggestion: 'Ensure you have a full backup before executing',
+                lineNumber,
+            });
+        }
+
+        // drop collection
+        if (pattern.operation === 'drop collection') {
+            warnings.push({
+                level: 'critical',
+                message: `Line ${lineNumber}: drop() will delete the entire collection`,
+                suggestion: 'Create backup of collection data first',
+                lineNumber,
+            });
+        }
+
+        // $out in aggregation
+        if (/\$out/i.test(stmt)) {
             warnings.push({
                 level: 'high',
-                message: '$out will replace entire target collection',
+                message: `Line ${lineNumber}: $out will replace entire target collection`,
                 suggestion: 'Ensure target collection can be safely replaced',
+                lineNumber,
             });
         }
 
-        // Check for no limit in find
-        if (/\.find\s*\(/i.test(query) && !/\.limit\s*\(/i.test(query)) {
+        // $where (JavaScript execution)
+        if (/\$where/i.test(stmt)) {
+            warnings.push({
+                level: 'high',
+                message: `Line ${lineNumber}: $where executes JavaScript - security risk`,
+                suggestion: 'Use standard query operators instead',
+                lineNumber,
+            });
+        }
+    }
+
+    /**
+     * Generate global warnings that apply to the entire script
+     */
+    private generateGlobalWarnings(query: string, analysis: QueryAnalysis): AnalysisWarning[] {
+        const warnings: AnalysisWarning[] = [];
+
+        // Multi-statement warning
+        if (analysis.isMultiStatement && analysis.statementCount! > 3) {
+            warnings.push({
+                level: 'medium',
+                message: `Script contains ${analysis.statementCount} operations`,
+                suggestion: 'Consider using transactions for atomicity (replica set required)',
+            });
+        }
+
+        // Mixed risk levels warning
+        if (analysis.riskBreakdown!.critical > 0 && analysis.riskBreakdown!.safe > 0) {
+            warnings.push({
+                level: 'high',
+                message: 'Script mixes CRITICAL and SAFE operations',
+                suggestion: 'Review critical operations carefully',
+            });
+        }
+
+        // find without limit (only for multiple finds)
+        const findOps = analysis.operations.filter(op => op.operation === 'find');
+        if (findOps.length > 0 && findOps[0].count! > 2 && !/\.limit\s*\(/i.test(query)) {
             warnings.push({
                 level: 'low',
-                message: 'find() without limit() may return large result set',
+                message: 'Multiple find() without limit()',
                 suggestion: 'Consider adding .limit() for large collections',
-            });
-        }
-
-        // Check for $where (JavaScript execution)
-        if (/\$where/i.test(query)) {
-            warnings.push({
-                level: 'high',
-                message: '$where executes JavaScript and has security implications',
-                suggestion: 'Consider using standard query operators instead',
             });
         }
 
@@ -511,33 +742,105 @@ export class MongoAnalyzer implements IQueryAnalyzer {
 
     private generateRecommendations(query: string, operations: AnalyzedOperation[]): AnalysisRecommendation[] {
         const recommendations: AnalysisRecommendation[] = [];
+        const addedActions = new Set<string>();
 
         for (const op of operations) {
             if (op.risk === RiskLevel.CRITICAL || op.risk === RiskLevel.HIGH) {
-                recommendations.push({
-                    priority: 'high',
-                    action: 'Create backup before executing',
-                    reason: `${op.operation} is ${op.impact.reversible ? 'partially' : 'not'} reversible`,
-                });
-
-                if (op.type === OperationType.CRUD_WRITE && op.operation.includes('delete')) {
+                const backupAction = 'Create backup before executing';
+                if (!addedActions.has(backupAction)) {
                     recommendations.push({
                         priority: 'high',
-                        action: 'Run find() with same filter first',
-                        reason: 'Verify affected documents before deletion',
+                        action: backupAction,
+                        reason: `Contains ${op.count || 1}x ${op.operation} which is ${op.impact.reversible ? 'partially' : 'not'} reversible`,
                     });
+                    addedActions.add(backupAction);
+                }
+
+                if (op.type === OperationType.CRUD_WRITE && op.operation.includes('delete')) {
+                    const previewAction = 'Run find() with same filter first';
+                    if (!addedActions.has(previewAction)) {
+                        recommendations.push({
+                            priority: 'high',
+                            action: previewAction,
+                            reason: 'Verify affected documents before deletion',
+                        });
+                        addedActions.add(previewAction);
+                    }
                 }
             }
 
             if (op.type === OperationType.INDEX) {
+                const scheduleAction = 'Schedule during low-traffic period';
+                if (!addedActions.has(scheduleAction)) {
+                    recommendations.push({
+                        priority: 'medium',
+                        action: scheduleAction,
+                        reason: 'Index operations may impact performance',
+                    });
+                    addedActions.add(scheduleAction);
+                }
+            }
+        }
+
+        // Transaction recommendation for multi-statement writes
+        const writeOps = operations.filter(op =>
+            op.type === OperationType.CRUD_WRITE || op.type === OperationType.ADMIN
+        );
+        if (writeOps.length > 1) {
+            const txAction = 'Use transactions for atomicity';
+            if (!addedActions.has(txAction)) {
                 recommendations.push({
                     priority: 'medium',
-                    action: 'Schedule during low-traffic period',
-                    reason: 'Index operations may impact performance',
+                    action: txAction,
+                    reason: 'Requires replica set - allows rollback if any operation fails',
                 });
             }
         }
 
         return recommendations;
     }
+
+    /**
+     * Generate enhanced summary with operation breakdown
+     */
+    private generateEnhancedSummary(analysis: QueryAnalysis): string {
+        const parts: string[] = [];
+
+        // Overall risk header
+        const riskLabels: Record<string, string> = {
+            critical: '🔴 CRITICAL RISK',
+            high: '🟠 HIGH RISK',
+            medium: '🟡 MEDIUM RISK',
+            low: '🔵 LOW RISK',
+            safe: '🟢 SAFE',
+        };
+        parts.push(riskLabels[analysis.overallRisk] || analysis.overallRisk.toUpperCase());
+
+        // Statement count
+        if (analysis.isMultiStatement) {
+            parts.push(`${analysis.statementCount} operations detected`);
+        }
+
+        // Operations breakdown
+        if (analysis.operationCounts && analysis.operationCounts.length > 0) {
+            const opSummary = analysis.operationCounts
+                .slice(0, 5) // Top 5 operations
+                .map(op => `${op.count}x ${op.operation}`)
+                .join(', ');
+            parts.push(`Operations: ${opSummary}`);
+        }
+
+        // Risk breakdown
+        const riskCounts: string[] = [];
+        if (analysis.riskBreakdown!.critical > 0) riskCounts.push(`${analysis.riskBreakdown!.critical} critical`);
+        if (analysis.riskBreakdown!.high > 0) riskCounts.push(`${analysis.riskBreakdown!.high} high`);
+        if (analysis.riskBreakdown!.medium > 0) riskCounts.push(`${analysis.riskBreakdown!.medium} medium`);
+
+        if (riskCounts.length > 0) {
+            parts.push(`Risk breakdown: ${riskCounts.join(', ')}`);
+        }
+
+        return parts.join(' | ');
+    }
 }
+

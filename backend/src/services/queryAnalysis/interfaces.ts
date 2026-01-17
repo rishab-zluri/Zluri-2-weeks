@@ -77,18 +77,61 @@ export interface AnalyzedOperation {
     risk: RiskLevelType;
     description: string;
     impact: OperationImpact;
+    /** Number of times this operation appears in the content */
+    count?: number;
+    /** Line numbers where this operation appears */
+    lineNumbers?: number[];
 }
 
 export interface AnalysisWarning {
     level: 'critical' | 'high' | 'medium' | 'low';
     message: string;
     suggestion?: string;
+    /** Line number where the warning originates */
+    lineNumber?: number;
 }
 
 export interface AnalysisRecommendation {
     priority: 'high' | 'medium' | 'low';
     action: string;
     reason: string;
+}
+
+/**
+ * Detailed breakdown of a single statement
+ */
+export interface StatementDetail {
+    /** Line number where statement starts */
+    lineNumber: number;
+    /** The statement content (truncated for display) */
+    statement: string;
+    /** Detected operation for this statement */
+    operation: string;
+    /** Risk level for this statement */
+    risk: RiskLevelType;
+    /** Type of operation */
+    type: OperationTypeValue;
+}
+
+/**
+ * Operation count summary
+ */
+export interface OperationCount {
+    operation: string;
+    count: number;
+    risk: RiskLevelType;
+    type: OperationTypeValue;
+}
+
+/**
+ * Risk breakdown summary
+ */
+export interface RiskBreakdown {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    safe: number;
 }
 
 export interface QueryAnalysis {
@@ -101,6 +144,18 @@ export interface QueryAnalysis {
     recommendations: AnalysisRecommendation[];
     summary: string;
     error?: string;
+
+    // Enhanced fields for multi-statement analysis
+    /** Total number of statements detected */
+    statementCount?: number;
+    /** Breakdown of operations by count */
+    operationCounts?: OperationCount[];
+    /** Detailed per-statement analysis */
+    statementDetails?: StatementDetail[];
+    /** Risk breakdown by level */
+    riskBreakdown?: RiskBreakdown;
+    /** Whether this is a multi-statement script */
+    isMultiStatement?: boolean;
 }
 
 export interface RiskBadge {
@@ -117,3 +172,4 @@ export interface RiskBadge {
 export interface IQueryAnalyzer {
     analyze(query: string): QueryAnalysis;
 }
+

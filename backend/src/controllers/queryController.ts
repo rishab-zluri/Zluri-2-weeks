@@ -20,8 +20,9 @@ import { Request, Response } from 'express';
 import { getEntityManager, getORM } from '../db';
 import { QueryRequest, RequestStatus, SubmissionType, DatabaseType } from '../entities/QueryRequest';
 import { User, UserRole } from '../entities/User';
+import { Pod } from '../entities/Pod';
 import * as staticData from '../config/staticData';
-import { slackService, queryExecutionService, scriptExecutionService } from '../services';
+import { slackService, queryExecutionService, scriptExecutionService, analyzeQuery } from '../services';
 import * as response from '../utils/response';
 import logger from '../utils/logger';
 import { auditLogger } from '../utils/auditLogger';
@@ -574,7 +575,7 @@ export const cloneRequest = async (req: Request<{ uuid: string }>, res: Response
 export const getAllRequests = async (req: Request, res: Response): Promise<void> => {
     try {
         const { page, limit, offset } = parsePagination(req.query as any);
-        const { status, podId, databaseType, submissionType, search, startDate, endDate, userId } = req.query;
+        const { status, podId, databaseType, submissionType, search, startDate, endDate, userId, excludeOwnRequests } = req.query;
         const user = req.user!;
         const em = getEntityManager();
 
@@ -610,6 +611,11 @@ export const getAllRequests = async (req: Request, res: Response): Promise<void>
         }
 
         if (userId) where.user = userId;
+
+        // Exclude current user's own requests (used in Processed Requests view for managers)
+        if (excludeOwnRequests === 'true') {
+            where.user = { $ne: user.id };
+        }
 
         // Support comma-separated filters for status, databaseType, submissionType
         if (status) {
@@ -658,7 +664,16 @@ export const getAllRequests = async (req: Request, res: Response): Promise<void>
             populate: ['user']
         });
 
-        response.paginated(res, requests, { page, limit, total });
+        // Transform to include userEmail for frontend display
+        const transformedRequests = requests.map(req => {
+            const userEntity = req.user?.getEntity?.() || req.user;
+            return {
+                ...req,
+                userEmail: (userEntity as any)?.email || undefined,
+            };
+        });
+
+        response.paginated(res, transformedRequests, { page, limit, total });
     } catch (error) {
         const err = error as Error;
         logger.error('Get all requests error', { error: err.message });
@@ -772,18 +787,62 @@ export const getDatabases = async (req: Request, res: Response): Promise<void> =
  */
 export const getPods = async (req: Request, res: Response): Promise<void> => {
     const user = req.user!;
+    const em = getEntityManager();
 
-    // For approval dashboard, managers should only see their managed PODs
-    // Check if this is for filtering (has 'forApproval' query param)
-    if (req.query.forApproval === 'true' && user.role === UserRole.MANAGER) {
-        const managedPods = staticData.getPodsByManager(user.email);
-        response.success(res, managedPods);
-        return;
+    try {
+        // Fetch only active pods from database
+        const pods = await em.find(Pod, { isActive: true }, { orderBy: { name: 'ASC' } });
+
+        // For approval dashboard, managers should only see their managed PODs
+        if (req.query.forApproval === 'true' && user.role === UserRole.MANAGER) {
+            const managedPods = pods.filter(pod => pod.managerEmail === user.email);
+            response.success(res, managedPods.map(p => ({ id: p.id, name: p.name, manager_email: p.managerEmail })));
+            return;
+        }
+
+        // For admins or general use, return all active PODs
+        response.success(res, pods.map(p => ({ id: p.id, name: p.name, manager_email: p.managerEmail })));
+    } catch (error) {
+        const err = error as Error;
+        logger.error('Get pods error', { error: err.message });
+        response.error(res, 'Failed to get pods', 500);
     }
+};
 
-    // For admins or general use, return all PODs
-    const pods = staticData.getAllPods();
-    response.success(res, pods);
+/**
+ * Analyze query content for risk
+ * POST /api/queries/analyze
+ * 
+ * WHY: Allows frontend to show risk analysis before submission
+ */
+interface AnalyzeQueryBody {
+    query: string;
+    databaseType: string;
+}
+
+export const analyzeQueryContent = async (req: Request<unknown, unknown, AnalyzeQueryBody>, res: Response): Promise<void> => {
+    try {
+        const { query, databaseType } = req.body;
+
+        if (!query || !databaseType) {
+            response.error(res, 'Query and database type are required', 400, 'VALIDATION_ERROR');
+            return;
+        }
+
+        const analysis = analyzeQuery(query, databaseType);
+
+        logger.debug('Query analyzed', {
+            databaseType,
+            overallRisk: analysis.overallRisk,
+            operationsCount: analysis.operations.length
+        });
+
+        response.success(res, analysis, 'Query analyzed successfully');
+    } catch (error) {
+        const err = error as Error;
+        logger.error('Analyze query error', { error: err.message });
+        response.error(res, 'Failed to analyze query', 500);
+    }
 };
 
 export default {
@@ -800,4 +859,5 @@ export default {
     getInstances,
     getDatabases,
     getPods,
+    analyzeQueryContent,
 };

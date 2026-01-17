@@ -194,13 +194,15 @@ describe('Query Analysis Service', () => {
       });
 
       it('should warn about multiple statements', () => {
-        const result = analyzePostgresQuery('SELECT 1; SELECT 2; SELECT 3');
-        const multiWarning = result.warnings.find((w: { message: string }) => w.message.includes('Multiple statements'));
+        // Enhanced analyzer warns about multi-statement scripts with > 3 statements
+        const result = analyzePostgresQuery('SELECT 1; SELECT 2; SELECT 3; SELECT 4');
+        const multiWarning = result.warnings.find((w: { message: string }) => w.message.includes('statements'));
         expect(multiWarning).toBeDefined();
       });
 
-      it('should warn about SELECT without LIMIT', () => {
-        const result = analyzePostgresQuery('SELECT * FROM users');
+      it('should warn about SELECT without LIMIT (only for multiple selects)', () => {
+        // Enhanced analyzer only warns about LIMIT for 3+ SELECT statements
+        const result = analyzePostgresQuery('SELECT * FROM users; SELECT * FROM orders; SELECT * FROM items');
         const limitWarning = result.warnings.find((w: { message: string }) => w.message.includes('LIMIT'));
         expect(limitWarning).toBeDefined();
       });
@@ -386,8 +388,9 @@ describe('Query Analysis Service', () => {
         expect(outWarning).toBeDefined();
       });
 
-      it('should warn about find without limit', () => {
-        const result = analyzeMongoQuery('db.users.find({})');
+      it('should warn about find without limit (for multiple finds)', () => {
+        // Enhanced analyzer only warns about limit for 3+ find operations
+        const result = analyzeMongoQuery('db.users.find({}); db.orders.find({}); db.items.find({})');
         const limitWarning = result.warnings.find((w: { message: string }) => w.message.includes('limit'));
         expect(limitWarning).toBeDefined();
       });
@@ -492,7 +495,7 @@ describe('Query Analysis Service', () => {
   describe('Summary Generation', () => {
     it('should generate summary with risk level', () => {
       const result = analyzePostgresQuery('SELECT * FROM users');
-      expect(result.summary).toContain('Safe query');
+      expect(result.summary).toContain('SAFE');
     });
 
     it('should generate summary with operation name', () => {
@@ -502,7 +505,7 @@ describe('Query Analysis Service', () => {
 
     it('should generate summary with impact', () => {
       const result = analyzePostgresQuery('DROP TABLE users');
-      expect(result.summary).toContain('CRITICAL RISK');
+      expect(result.summary).toContain('CRITICAL');
     });
 
     it('should handle empty operations array in generateSummary', () => {
