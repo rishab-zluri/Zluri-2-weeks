@@ -16,6 +16,7 @@ export class SlackMessageBuilder {
                         `*Requester:*\n${request.userEmail}`,
                         `*Database:*\n${request.instanceName} (${request.databaseType})`,
                         `*POD:*\n${request.podName}`,
+                        `*Manager:*\n${request.managerSlackId ? `<@${request.managerSlackId}>` : (request.managerEmail || 'N/A')}`,
                     ]),
                 Blocks.Section({
                     text: `*Comment:*\n${truncate(request.comments, 300)}`

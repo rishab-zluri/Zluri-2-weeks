@@ -147,7 +147,7 @@ export const SYNC_CONFIG: SyncConfig = {
     intervalMinutes: parseInt(process.env.DB_SYNC_INTERVAL_MINUTES || '60', 10) || 60,
     connectionTimeoutMs: parseInt(process.env.DB_SYNC_TIMEOUT_MS || '15000', 10) || 15000,
     syncOnStartup: process.env.DB_SYNC_ON_STARTUP !== 'false',
-    startupDelaySeconds: parseInt(process.env.DB_SYNC_STARTUP_DELAY || '30', 10) || 30,
+    startupDelaySeconds: parseInt(process.env.DB_SYNC_STARTUP_DELAY || '5', 10) || 5,
 };
 
 // Interval reference for cleanup
@@ -220,10 +220,21 @@ async function getOrCreateMongoClient(instance: DatabaseInstance, credentials: I
         let connectionString = credentials.connectionString;
 
         if (!connectionString) {
+            const isAtlas = instance.host && instance.host.endsWith('.mongodb.net');
+            const protocol = isAtlas ? 'mongodb+srv' : 'mongodb';
+
+            // For SRV (Atlas), we typically don't specify port as it's handled by DNS lookup
+            // But if we must, it's usually part of the SRV record. 
+            // Standard construction: mongodb+srv://user:pass@host/
+            const portPart = (!isAtlas && instance.port) ? `:${instance.port}` : '';
+
             const auth = credentials.user && credentials.password
                 ? `${encodeURIComponent(credentials.user)}:${encodeURIComponent(credentials.password)}@`
                 : '';
-            connectionString = `mongodb://${auth}${instance.host}:${instance.port}`;
+
+            connectionString = `${protocol}://${auth}${instance.host}${portPart}`;
+
+            // For Atlas, we might need to ensure retryWrites is true, but that's usually default
         }
 
         const client = new MongoClient(connectionString, {

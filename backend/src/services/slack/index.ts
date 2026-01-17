@@ -59,6 +59,14 @@ export async function notifyNewSubmission(request: SlackQueryRequest): Promise<v
     }
 
     try {
+        // Lookup manager's Slack ID if email is provided
+        if (request.managerEmail) {
+            const managerSlackId = await lookupUserByEmail(request.managerEmail);
+            if (managerSlackId) {
+                request.managerSlackId = managerSlackId;
+            }
+        }
+
         const blocks = SlackMessageBuilder.buildNewSubmissionMessage(request) || [];
 
         const message: ChatPostMessageArguments = {

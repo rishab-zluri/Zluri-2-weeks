@@ -11,6 +11,8 @@ export interface SlackQueryRequest {
     databaseType: string;
     databaseName?: string;
     podName: string;
+    managerEmail?: string;
+    managerSlackId?: string;
     submissionType: 'query' | 'script';
     queryContent?: string | null;
     scriptFilename?: string | null;

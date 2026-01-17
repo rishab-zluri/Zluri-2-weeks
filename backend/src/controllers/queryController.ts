@@ -139,6 +139,7 @@ export const submitRequest = async (req: Request<unknown, unknown, SubmitRequest
             databaseName: queryRequest.databaseName,
             submissionType: queryRequest.submissionType,
             podName: queryRequest.podName,
+            managerEmail: pod.manager_email,
             createdAt: queryRequest.createdAt,
             slackUserId: user.slackUserId || undefined,
         } as any);
