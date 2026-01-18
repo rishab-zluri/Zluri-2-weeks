@@ -233,6 +233,26 @@ if (process.env.NODE_ENV === 'production' && !process.env.JEST_WORKER_ID) {
 // Configuration Object
 // ============================================================================
 
+// Helper to parse DB URL for legacy config compatibility
+const parseDbUrl = (url: string | undefined) => {
+    if (!url) return null;
+    try {
+        const u = new URL(url);
+        return {
+            host: u.hostname,
+            port: parseInt(u.port || '5432', 10),
+            database: u.pathname.slice(1), // Remove leading slash
+            user: u.username,
+            password: decodeURIComponent(u.password), // Handle special chars
+            ssl: u.searchParams.get('sslmode') === 'require' || u.searchParams.get('ssl') === 'true'
+        };
+    } catch (e) {
+        return null;
+    }
+};
+
+const portalUrlConfig = parseDbUrl(process.env.PORTAL_DB_URL);
+
 /* istanbul ignore next */
 const config: AppConfig = {
     // Environment
@@ -252,15 +272,15 @@ const config: AppConfig = {
 
     // Portal Database (PostgreSQL)
     portalDb: {
-        host: process.env.PORTAL_DB_HOST || 'localhost',
-        port: parseInt(process.env.PORTAL_DB_PORT || '', 10) || 5432,
-        database: process.env.PORTAL_DB_NAME || 'dev_sre_internal_portal',
-        user: process.env.PORTAL_DB_USER || 'postgres',
-        password: process.env.PORTAL_DB_PASSWORD || '',
+        host: process.env.PORTAL_DB_HOST || portalUrlConfig?.host || 'localhost',
+        port: parseInt(process.env.PORTAL_DB_PORT || '', 10) || portalUrlConfig?.port || 5432,
+        database: process.env.PORTAL_DB_NAME || portalUrlConfig?.database || 'dev_sre_internal_portal',
+        user: process.env.PORTAL_DB_USER || portalUrlConfig?.user || 'postgres',
+        password: process.env.PORTAL_DB_PASSWORD || portalUrlConfig?.password || '',
         max: parseInt(process.env.PORTAL_DB_POOL_SIZE || '', 10) || 20,
         idleTimeoutMillis: parseInt(process.env.PORTAL_DB_IDLE_TIMEOUT || '', 10) || 30000,
         connectionTimeoutMillis: parseInt(process.env.PORTAL_DB_CONN_TIMEOUT || '', 10) || 5000,
-        ssl: parseBoolean(process.env.PORTAL_DB_SSL, false)
+        ssl: parseBoolean(process.env.PORTAL_DB_SSL, false) || portalUrlConfig?.ssl
             ? { rejectUnauthorized: parseBoolean(process.env.PORTAL_DB_SSL_REJECT_UNAUTHORIZED, true) }
             : false,
     },

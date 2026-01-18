@@ -38,6 +38,9 @@ app.use((req, res, next) => {
     RequestContext.create(getORM().em, next);
 });
 
+// Trust Proxy (Required for Rate Limiting behind Load Balancers like Railway/Vercel)
+app.set('trust proxy', 1);
+
 // =============================================================================
 // Security Middleware
 // =============================================================================
