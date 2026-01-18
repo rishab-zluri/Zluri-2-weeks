@@ -22,7 +22,7 @@ export const EXECUTION_CONFIG: ExecutionConfig = {
  * Creates a command and executes it via the executor
  */
 export async function executeScript(request: ScriptQueryRequest): Promise<ScriptExecutionResult> {
-    const executor = new ScriptExecutor();
+    const executor = new ScriptExecutor(EXECUTION_CONFIG);
     const command = new ExecuteScriptCommand(executor, request);
     return command.execute();
 }

@@ -1,268 +1,320 @@
-/**
- * Database Controller Tests (TypeScript)
- * Tests for database management endpoints
- */
-
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { Request, Response, NextFunction } from 'express';
 import * as databaseController from '../src/controllers/databaseController';
+import * as databaseSyncService from '../src/services/databaseSyncService';
 import { UserRole } from '../src/entities/User';
 
 // Mock dependencies
-jest.mock('../src/services/databaseSyncService', () => ({
-    getInstances: jest.fn<any>(),
-    getInstanceById: jest.fn<any>(),
-    getDatabasesForInstance: jest.fn<any>(),
-    syncInstanceDatabases: jest.fn<any>(),
-    syncAllDatabases: jest.fn<any>(),
-    getSyncHistory: jest.fn<any>(),
-    getBlacklistEntries: jest.fn<any>(),
-    addToBlacklist: jest.fn<any>(),
-    removeFromBlacklist: jest.fn<any>(),
-}));
-
-jest.mock('../src/utils/logger', () => ({
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
-}));
-
-import * as databaseSyncService from '../src/services/databaseSyncService';
+jest.mock('../src/services/databaseSyncService');
+jest.mock('../src/utils/logger');
+jest.mock('../src/config/staticData', () => ({
+    getInstanceById: jest.fn(),
+    getDatabasesForInstance: jest.fn()
+}), { virtual: true });
 
 describe('Database Controller', () => {
     let mockReq: Partial<Request>;
     let mockRes: Partial<Response>;
     let mockNext: NextFunction;
+    let mockJson: jest.Mock;
+    let mockStatus: jest.Mock;
 
     beforeEach(() => {
         jest.clearAllMocks();
 
-        mockReq = {
-            params: {},
-            query: {},
-            body: {},
-            user: { id: 'user-123', email: 'admin@test.com', role: UserRole.ADMIN } as any,
-        };
-
+        mockJson = jest.fn();
+        mockStatus = jest.fn().mockReturnValue({ json: mockJson });
         mockRes = {
-            status: jest.fn().mockReturnThis() as any,
-            json: jest.fn().mockReturnThis() as any,
+            status: mockStatus,
+            json: mockJson,
+        } as Partial<Response>;
+        mockNext = jest.fn();
+        mockReq = {
+            body: {},
+            query: {},
+            params: {},
+            user: { id: 'user-1', role: UserRole.DEVELOPER } as any
         };
-
-        mockNext = jest.fn() as NextFunction;
     });
 
     describe('getInstances', () => {
         it('should return all instances', async () => {
-            const mockInstances = [
-                { id: 'db-1', name: 'Database 1', type: 'postgresql' },
-                { id: 'db-2', name: 'Database 2', type: 'mongodb' },
-            ];
-            (databaseSyncService.getInstances as jest.Mock<any>).mockResolvedValue(mockInstances);
+            const instances = [{ id: '1' }];
+            jest.mocked(databaseSyncService.getInstances).mockResolvedValue(instances as any);
 
-            await databaseController.getInstances(mockReq as Request, mockRes as Response, mockNext);
+            await databaseController.getInstances(mockReq as any, mockRes as Response, mockNext);
 
-            expect(mockRes.json).toHaveBeenCalledWith({
-                success: true,
-                data: mockInstances,
-                count: 2,
-            });
+            expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ success: true, data: instances }));
         });
 
         it('should filter by type', async () => {
             mockReq.query = { type: 'postgresql' };
-            const mockInstances = [{ id: 'db-1', name: 'Database 1', type: 'postgresql' }];
-            (databaseSyncService.getInstances as jest.Mock<any>).mockResolvedValue(mockInstances);
-
-            await databaseController.getInstances(mockReq as Request, mockRes as Response, mockNext);
-
+            await databaseController.getInstances(mockReq as any, mockRes as Response, mockNext);
             expect(databaseSyncService.getInstances).toHaveBeenCalledWith('postgresql');
         });
 
-        it('should return error for invalid type', async () => {
-            mockReq.query = { type: 'mysql' as any };
+        it('should fail with invalid type', async () => {
+            mockReq.query = { type: 'invalid' as any };
+            await databaseController.getInstances(mockReq as any, mockRes as Response, mockNext);
+            expect(mockStatus).toHaveBeenCalledWith(400);
+            expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('Invalid type') }));
+        });
 
-            await databaseController.getInstances(mockReq as Request, mockRes as Response, mockNext);
-
-            expect(mockRes.status).toHaveBeenCalledWith(400);
-            expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
-                success: false,
-            }));
+        it('should call next on error', async () => {
+            jest.mocked(databaseSyncService.getInstances).mockRejectedValue(new Error('Fail'));
+            await databaseController.getInstances(mockReq as any, mockRes as Response, mockNext);
+            expect(mockNext).toHaveBeenCalledWith(expect.any(Error));
         });
     });
 
     describe('getInstanceById', () => {
-        it('should return instance by ID', async () => {
-            mockReq.params = { instanceId: 'db-1' };
-            const mockInstance = { id: 'db-1', name: 'Database 1' };
-            (databaseSyncService.getInstanceById as jest.Mock<any>).mockResolvedValue(mockInstance);
+        it('should return instance', async () => {
+            const instance = { id: '1' };
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getInstanceById).mockResolvedValue(instance as any);
 
             await databaseController.getInstanceById(mockReq as any, mockRes as Response, mockNext);
 
-            expect(mockRes.json).toHaveBeenCalledWith({
-                success: true,
-                data: mockInstance,
-            });
+            expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ data: instance }));
         });
 
-        it('should return 404 for non-existent instance', async () => {
-            mockReq.params = { instanceId: 'non-existent' };
-            (databaseSyncService.getInstanceById as jest.Mock<any>).mockResolvedValue(null);
+        it('should return 404 if not found', async () => {
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getInstanceById).mockResolvedValue(null);
 
             await databaseController.getInstanceById(mockReq as any, mockRes as Response, mockNext);
 
-            expect(mockRes.status).toHaveBeenCalledWith(404);
+            expect(mockStatus).toHaveBeenCalledWith(404);
+        });
+
+        it('should call next on error', async () => {
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getInstanceById).mockRejectedValue(new Error('Err'));
+            await databaseController.getInstanceById(mockReq as any, mockRes as Response, mockNext);
+            expect(mockNext).toHaveBeenCalled();
         });
     });
 
     describe('getDatabases', () => {
-        it('should return databases for instance', async () => {
-            mockReq.params = { instanceId: 'db-1' };
-            const mockInstance = { id: 'db-1', last_sync_at: new Date(), last_sync_status: 'success' };
-            const mockDatabases = ['db1', 'db2', 'db3'];
-
-            (databaseSyncService.getInstanceById as jest.Mock<any>).mockResolvedValue(mockInstance);
-            (databaseSyncService.getDatabasesForInstance as jest.Mock<any>).mockResolvedValue(mockDatabases);
+        it('should return databases from sync service if instance exists', async () => {
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getInstanceById).mockResolvedValue({ id: '1', last_sync_at: new Date() } as any);
+            jest.mocked(databaseSyncService.getDatabasesForInstance).mockResolvedValue([{ name: 'db1' }] as any);
 
             await databaseController.getDatabases(mockReq as any, mockRes as Response, mockNext);
 
-            expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
-                success: true,
-                data: mockDatabases,
-                count: 3,
-                source: 'cache',
-            }));
+            expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ source: 'cache', count: 1 }));
+        });
+
+        it('should fallback to static config if instance not synced', async () => {
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getInstanceById).mockResolvedValue(null);
+
+            // Mock static data require
+            const staticData = require('../src/config/staticData');
+            staticData.getInstanceById.mockReturnValue({ id: '1' });
+            staticData.getDatabasesForInstance.mockReturnValue(['db_static']);
+
+            await databaseController.getDatabases(mockReq as any, mockRes as Response, mockNext);
+
+            expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ source: 'static', count: 1 }));
+        });
+
+        it('should return 404 if not found in cache OR static', async () => {
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getInstanceById).mockResolvedValue(null);
+            const staticData = require('../src/config/staticData');
+            staticData.getInstanceById.mockReturnValue(null);
+
+            await databaseController.getDatabases(mockReq as any, mockRes as Response, mockNext);
+
+            expect(mockStatus).toHaveBeenCalledWith(404);
+        });
+
+        it('should call next on error', async () => {
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getInstanceById).mockRejectedValue(new Error('Err'));
+            await databaseController.getDatabases(mockReq as any, mockRes as Response, mockNext);
+            expect(mockNext).toHaveBeenCalled();
         });
     });
 
     describe('syncInstance', () => {
-        it('should sync instance successfully', async () => {
-            mockReq.params = { instanceId: 'db-1' };
-            const mockInstance = { id: 'db-1', name: 'Database 1' };
-            const mockResult = {
-                success: true,
-                databasesFound: 5,
-                databasesAdded: 2,
-                databasesDeactivated: 1,
-                duration: 1000,
-            };
-
-            (databaseSyncService.getInstanceById as jest.Mock<any>).mockResolvedValue(mockInstance);
-            (databaseSyncService.syncInstanceDatabases as jest.Mock<any>).mockResolvedValue(mockResult);
+        it('should sync successfully if admin', async () => {
+            mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getInstanceById).mockResolvedValue({ id: '1' } as any);
+            jest.mocked(databaseSyncService.syncInstanceDatabases).mockResolvedValue({ success: true, databasesFound: 1 } as any);
 
             await databaseController.syncInstance(mockReq as any, mockRes as Response, mockNext);
 
-            expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
-                success: true,
-                message: 'Database sync completed successfully',
-            }));
+            expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('completed') }));
         });
 
-        it('should return 403 for non-admin users', async () => {
-            mockReq.user!.role = UserRole.DEVELOPER;
-            mockReq.params = { instanceId: 'db-1' };
+        it('should fail if not admin', async () => {
+            mockReq.user = { id: 'dev', role: UserRole.DEVELOPER } as any;
+            await databaseController.syncInstance(mockReq as any, mockRes as Response, mockNext);
+            expect(mockStatus).toHaveBeenCalledWith(403);
+        });
+
+        it('should return 404 if instance not found', async () => {
+            mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getInstanceById).mockResolvedValue(null);
 
             await databaseController.syncInstance(mockReq as any, mockRes as Response, mockNext);
 
-            expect(mockRes.status).toHaveBeenCalledWith(403);
+            expect(mockStatus).toHaveBeenCalledWith(404);
+        });
+
+        it('should handle sync failures', async () => {
+            mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getInstanceById).mockResolvedValue({ id: '1' } as any);
+            jest.mocked(databaseSyncService.syncInstanceDatabases).mockResolvedValue({ success: false, error: 'Fail' } as any);
+
+            await databaseController.syncInstance(mockReq as any, mockRes as Response, mockNext);
+
+            expect(mockStatus).toHaveBeenCalledWith(500);
+        });
+
+        it('should call next on error', async () => {
+            mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getInstanceById).mockRejectedValue(new Error('Err'));
+            await databaseController.syncInstance(mockReq as any, mockRes as Response, mockNext);
+            expect(mockNext).toHaveBeenCalled();
         });
     });
 
     describe('syncAll', () => {
-        it('should sync all instances successfully', async () => {
-            const mockResults = {
-                total: 3,
-                successful: 2,
-                failed: 1,
-                details: [
-                    { instanceId: 'db-1', success: true, databasesFound: 5, databasesAdded: 2 },
-                    { instanceId: 'db-2', success: true, databasesFound: 3, databasesAdded: 0 },
-                    { instanceId: 'db-3', success: false, error: 'Connection failed' },
-                ],
-            };
+        it('should sync all successfully if admin', async () => {
+            mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+            jest.mocked(databaseSyncService.syncAllDatabases).mockResolvedValue({ total: 1, successful: 1, details: [] } as any);
 
-            (databaseSyncService.syncAllDatabases as jest.Mock<any>).mockResolvedValue(mockResults);
+            await databaseController.syncAll(mockReq as any, mockRes as Response, mockNext);
 
-            await databaseController.syncAll(mockReq as Request, mockRes as Response, mockNext);
+            expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+        });
 
-            expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
-                success: true,
-                data: expect.objectContaining({
-                    total: 3,
-                    successful: 2,
-                    failed: 1,
-                }),
-            }));
+        it('should fail if not admin', async () => {
+            mockReq.user = { id: 'dev', role: UserRole.DEVELOPER } as any;
+            await databaseController.syncAll(mockReq as any, mockRes as Response, mockNext);
+            expect(mockStatus).toHaveBeenCalledWith(403);
+        });
+
+        it('should call next on error', async () => {
+            mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+            jest.mocked(databaseSyncService.syncAllDatabases).mockRejectedValue(new Error('Err'));
+            await databaseController.syncAll(mockReq as any, mockRes as Response, mockNext);
+            expect(mockNext).toHaveBeenCalled();
         });
     });
 
     describe('getSyncHistory', () => {
-        it('should return sync history', async () => {
-            mockReq.params = { instanceId: 'db-1' };
-            const mockHistory = [
-                { id: 1, sync_type: 'manual', status: 'success' },
-                { id: 2, sync_type: 'scheduled', status: 'success' },
-            ];
-
-            (databaseSyncService.getSyncHistory as jest.Mock<any>).mockResolvedValue(mockHistory);
-
+        it('should return history', async () => {
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getSyncHistory).mockResolvedValue([]);
             await databaseController.getSyncHistory(mockReq as any, mockRes as Response, mockNext);
+            expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+        });
 
-            expect(mockRes.json).toHaveBeenCalledWith({
-                success: true,
-                data: mockHistory,
-                count: 2,
+        it('should call next on error', async () => {
+            mockReq.params = { instanceId: '1' };
+            jest.mocked(databaseSyncService.getSyncHistory).mockRejectedValue(new Error('Err'));
+            await databaseController.getSyncHistory(mockReq as any, mockRes as Response, mockNext);
+            expect(mockNext).toHaveBeenCalled();
+        });
+    });
+
+    describe('blacklist', () => {
+        describe('getBlacklist', () => {
+            it('should return blacklist', async () => {
+                jest.mocked(databaseSyncService.getBlacklistEntries).mockResolvedValue([]);
+                await databaseController.getBlacklist(mockReq as any, mockRes as Response, mockNext);
+                expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+            });
+            it('should call next on error', async () => {
+                jest.mocked(databaseSyncService.getBlacklistEntries).mockRejectedValue(new Error('Err'));
+                await databaseController.getBlacklist(mockReq as any, mockRes as Response, mockNext);
+                expect(mockNext).toHaveBeenCalled();
             });
         });
-    });
 
-    describe('getBlacklist', () => {
-        it('should return blacklist entries', async () => {
-            const mockEntries = [
-                { id: 1, pattern: 'test_*', pattern_type: 'prefix' },
-                { id: 2, pattern: 'temp_db', pattern_type: 'exact' },
-            ];
+        describe('addToBlacklist', () => {
+            const body = { pattern: 'db', patternType: 'exact' };
 
-            (databaseSyncService.getBlacklistEntries as jest.Mock<any>).mockResolvedValue(mockEntries);
+            it('should add successfully if admin', async () => {
+                mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+                mockReq.body = body;
+                jest.mocked(databaseSyncService.addToBlacklist).mockResolvedValue({ id: 1 });
 
-            await databaseController.getBlacklist(mockReq as Request, mockRes as Response, mockNext);
+                await databaseController.addToBlacklist(mockReq as any, mockRes as Response, mockNext);
 
-            expect(mockRes.json).toHaveBeenCalledWith({
-                success: true,
-                data: mockEntries,
-                count: 2,
+                expect(mockStatus).toHaveBeenCalledWith(201);
+            });
+
+            it('should fail if not admin', async () => {
+                mockReq.user = { id: 'dev', role: UserRole.DEVELOPER } as any;
+                await databaseController.addToBlacklist(mockReq as any, mockRes as Response, mockNext);
+                expect(mockStatus).toHaveBeenCalledWith(403);
+            });
+
+            it('should fail missing pattern', async () => {
+                mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+                mockReq.body = {};
+                await databaseController.addToBlacklist(mockReq as any, mockRes as Response, mockNext);
+                expect(mockStatus).toHaveBeenCalledWith(400);
+            });
+
+            it('should fail invalid type', async () => {
+                mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+                mockReq.body = { pattern: 'p', patternType: 'bad' } as any;
+                await databaseController.addToBlacklist(mockReq as any, mockRes as Response, mockNext);
+                expect(mockStatus).toHaveBeenCalledWith(400);
+            });
+
+            it('should call next on error', async () => {
+                mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+                mockReq.body = body;
+                jest.mocked(databaseSyncService.addToBlacklist).mockRejectedValue(new Error('Err'));
+                await databaseController.addToBlacklist(mockReq as any, mockRes as Response, mockNext);
+                expect(mockNext).toHaveBeenCalled();
             });
         });
-    });
 
-    describe('addToBlacklist', () => {
-        it('should add pattern to blacklist', async () => {
-            mockReq.body = { pattern: 'test_*', patternType: 'prefix', reason: 'Test databases' };
-            const mockEntry = { id: 1, pattern: 'test_*', pattern_type: 'prefix' };
+        describe('removeFromBlacklist', () => {
+            it('should remove successfully if admin', async () => {
+                mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+                mockReq.params = { id: '1' };
+                jest.mocked(databaseSyncService.removeFromBlacklist).mockResolvedValue(true);
 
-            (databaseSyncService.addToBlacklist as jest.Mock<any>).mockResolvedValue(mockEntry);
+                await databaseController.removeFromBlacklist(mockReq as any, mockRes as Response, mockNext);
 
-            await databaseController.addToBlacklist(mockReq as Request, mockRes as Response, mockNext);
+                expect(mockJson).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+            });
 
-            expect(mockRes.status).toHaveBeenCalledWith(201);
-            expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
-                success: true,
-                data: mockEntry,
-            }));
-        });
-    });
+            it('should fail if not admin', async () => {
+                mockReq.user = { id: 'dev', role: UserRole.DEVELOPER } as any;
+                await databaseController.removeFromBlacklist(mockReq as any, mockRes as Response, mockNext);
+                expect(mockStatus).toHaveBeenCalledWith(403);
+            });
 
-    describe('removeFromBlacklist', () => {
-        it('should remove pattern from blacklist', async () => {
-            mockReq.params = { id: '1' };
-            (databaseSyncService.removeFromBlacklist as jest.Mock<any>).mockResolvedValue(true);
+            it('should fail if not found', async () => {
+                mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+                mockReq.params = { id: '1' };
+                jest.mocked(databaseSyncService.removeFromBlacklist).mockResolvedValue(false);
 
-            await databaseController.removeFromBlacklist(mockReq as any, mockRes as Response, mockNext);
+                await databaseController.removeFromBlacklist(mockReq as any, mockRes as Response, mockNext);
+                expect(mockStatus).toHaveBeenCalledWith(404);
+            });
 
-            expect(mockRes.json).toHaveBeenCalledWith({
-                success: true,
-                message: 'Pattern removed from blacklist',
+            it('should call next on error', async () => {
+                mockReq.user = { id: 'admin', role: UserRole.ADMIN } as any;
+                mockReq.params = { id: '1' };
+                jest.mocked(databaseSyncService.removeFromBlacklist).mockRejectedValue(new Error('Err'));
+                await databaseController.removeFromBlacklist(mockReq as any, mockRes as Response, mockNext);
+                expect(mockNext).toHaveBeenCalled();
             });
         });
     });

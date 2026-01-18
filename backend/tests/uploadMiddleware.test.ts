@@ -64,7 +64,7 @@ describe('Upload Middleware', () => {
       it('should handle LIMIT_FILE_SIZE error', () => {
         // Create a mock implementation that simulates multer error
         const multerError = new multer.MulterError('LIMIT_FILE_SIZE');
-        
+
         // Test the error response directly
         const mockResponse = {
           status: jest.fn().mockReturnThis(),
@@ -92,7 +92,7 @@ describe('Upload Middleware', () => {
 
       it('should handle LIMIT_UNEXPECTED_FILE error', () => {
         const multerError = new multer.MulterError('LIMIT_UNEXPECTED_FILE');
-        
+
         const mockResponse = {
           status: jest.fn().mockReturnThis(),
           json: jest.fn().mockReturnThis(),
@@ -119,7 +119,7 @@ describe('Upload Middleware', () => {
       it('should handle generic multer error', () => {
         const multerError = new multer.MulterError('LIMIT_FIELD_COUNT');
         multerError.message = 'Too many fields';
-        
+
         const mockResponse = {
           status: jest.fn().mockReturnThis(),
           json: jest.fn().mockReturnThis(),
@@ -145,7 +145,7 @@ describe('Upload Middleware', () => {
 
       it('should handle ValidationError', () => {
         const validationError = new ValidationError('Invalid file type');
-        
+
         const mockResponse = {
           status: jest.fn().mockReturnThis(),
           json: jest.fn().mockReturnThis(),
@@ -169,7 +169,7 @@ describe('Upload Middleware', () => {
 
       it('should handle generic error', () => {
         const genericError = new Error('Something went wrong');
-        
+
         const mockResponse = {
           status: jest.fn().mockReturnThis(),
           json: jest.fn().mockReturnThis(),
@@ -198,7 +198,7 @@ describe('Upload Middleware', () => {
             mockRes.status(400).json({
               success: false,
               message: 'Script file is required',
-              code: 'MISSING_SCRIPT',
+              code: 'VALIDATION_ERROR',
             });
           }
         }
@@ -206,13 +206,13 @@ describe('Upload Middleware', () => {
         expect(mockRes.status).toHaveBeenCalledWith(400);
         expect(mockRes.json).toHaveBeenCalledWith(
           expect.objectContaining({
-            code: 'MISSING_SCRIPT',
+            code: 'VALIDATION_ERROR',
           })
         );
       });
 
       it('should proceed when scriptContent exists in body', () => {
-        mockReq.body = { 
+        mockReq.body = {
           submissionType: 'script',
           scriptContent: 'console.log("test")',
         };
@@ -259,7 +259,7 @@ describe('Upload Middleware', () => {
 
         // Simulate the file processing logic
         const content = mockReq.file.buffer.toString('utf-8');
-        
+
         const dangerousPatterns = [
           /require\s*\(\s*['"]child_process['"]\s*\)/,
           /require\s*\(\s*['"]fs['"]\s*\)/,
@@ -297,7 +297,7 @@ describe('Upload Middleware', () => {
           process.exit(1);
           new Function('return this')();
         `;
-        
+
         mockReq.file = {
           originalname: 'dangerous.js',
           buffer: Buffer.from(dangerousContent),
@@ -306,7 +306,7 @@ describe('Upload Middleware', () => {
         };
 
         const content = mockReq.file.buffer.toString('utf-8');
-        
+
         const dangerousPatterns = [
           /require\s*\(\s*['"]child_process['"]\s*\)/,
           /require\s*\(\s*['"]fs['"]\s*\)/,
@@ -377,7 +377,7 @@ describe('Upload Middleware', () => {
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          code: 'MISSING_SCRIPT',
+          code: 'VALIDATION_ERROR',
         })
       );
     });
@@ -451,7 +451,7 @@ describe('Upload Middleware', () => {
       const file = { originalname: 'script.js' };
       const ext = '.js';
       const allowedExtensions = ['.js', '.py'];
-      
+
       expect(allowedExtensions.includes(ext)).toBe(true);
     });
 
@@ -459,7 +459,7 @@ describe('Upload Middleware', () => {
       const file = { originalname: 'script.py' };
       const ext = '.py';
       const allowedExtensions = ['.js', '.py'];
-      
+
       expect(allowedExtensions.includes(ext)).toBe(true);
     });
 
@@ -467,7 +467,7 @@ describe('Upload Middleware', () => {
       const file = { originalname: 'script.txt' };
       const ext = '.txt';
       const allowedExtensions = ['.js', '.py'];
-      
+
       expect(allowedExtensions.includes(ext)).toBe(false);
     });
   });
@@ -531,14 +531,14 @@ describe('Upload Middleware Integration', () => {
           return res.status(400).json({
             success: false,
             message: 'Script file is required',
-            code: 'MISSING_SCRIPT',
+            code: 'VALIDATION_ERROR',
           });
         }
         return next();
       }
 
       const content = req.file.buffer.toString('utf-8');
-      
+
       const dangerousPatterns = [
         /require\s*\(\s*['"]child_process['"]\s*\)/,
         /require\s*\(\s*['"]fs['"]\s*\)/,
@@ -568,7 +568,7 @@ describe('Upload Middleware Integration', () => {
     it('should handle LIMIT_FILE_SIZE error', () => {
       const err = new multer.MulterError('LIMIT_FILE_SIZE');
       simulateCallback(err, mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({ code: 'FILE_TOO_LARGE' })
@@ -578,7 +578,7 @@ describe('Upload Middleware Integration', () => {
     it('should handle LIMIT_UNEXPECTED_FILE error', () => {
       const err = new multer.MulterError('LIMIT_UNEXPECTED_FILE');
       simulateCallback(err, mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({ code: 'INVALID_UPLOAD' })
@@ -589,7 +589,7 @@ describe('Upload Middleware Integration', () => {
       const err = new multer.MulterError('LIMIT_FIELD_COUNT');
       err.message = 'Too many fields';
       simulateCallback(err, mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({ code: 'UPLOAD_ERROR' })
@@ -599,7 +599,7 @@ describe('Upload Middleware Integration', () => {
     it('should handle ValidationError', () => {
       const err = new ValidationError('Invalid file type');
       simulateCallback(err, mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({ code: 'VALIDATION_ERROR' })
@@ -609,7 +609,7 @@ describe('Upload Middleware Integration', () => {
     it('should handle generic error', () => {
       const err = new Error('Unknown error');
       simulateCallback(err, mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(500);
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({ code: 'UPLOAD_ERROR' })
@@ -619,24 +619,24 @@ describe('Upload Middleware Integration', () => {
     it('should return MISSING_SCRIPT when no file and script submission', () => {
       mockReq.body = { submissionType: 'script' };
       simulateCallback(null, mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith(
-        expect.objectContaining({ code: 'MISSING_SCRIPT' })
+        expect.objectContaining({ code: 'VALIDATION_ERROR' })
       );
     });
 
     it('should call next when no file but has scriptContent', () => {
       mockReq.body = { submissionType: 'script', scriptContent: 'test' };
       simulateCallback(null, mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
 
     it('should call next when no file and not script submission', () => {
       mockReq.body = { submissionType: 'query' };
       simulateCallback(null, mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
 
@@ -648,7 +648,7 @@ describe('Upload Middleware Integration', () => {
         mimetype: 'application/javascript',
       };
       simulateCallback(null, mockReq, mockRes, mockNext);
-      
+
       expect(mockReq.scriptInfo).toBeDefined();
       expect(mockReq.scriptInfo.warnings).toHaveLength(0);
       expect(mockNext).toHaveBeenCalled();
@@ -662,7 +662,7 @@ describe('Upload Middleware Integration', () => {
         mimetype: 'application/javascript',
       };
       simulateCallback(null, mockReq, mockRes, mockNext);
-      
+
       expect(mockReq.scriptInfo).toBeDefined();
       expect(mockReq.scriptInfo.warnings.length).toBeGreaterThan(0);
       expect(mockNext).toHaveBeenCalled();

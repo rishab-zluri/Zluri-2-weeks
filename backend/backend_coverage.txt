@@ -1,0 +1,219 @@
+
+> db-query-portal-backend@1.0.0 test:coverage
+> jest --coverage --coverageReporters=text --coverageReporters=lcov
+
+2026-01-18 01:06:52 [[31merror[39m]: Server error {"error":"Test error without statusCode","path":"/test","method":"GET","body":{}}
+Error: Test error without statusCode
+    at Object.<anonymous> (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/tests/errorHandlerMiddleware.test.ts:29:26)
+    at Promise.then.completed (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/testWorker.js:106:12)
+2026-01-18 01:06:52 [[31merror[39m]: Server error {"error":"Test error with statusCode 0","path":"/test","method":"GET","body":{}}
+Error: Test error with statusCode 0
+    at Object.<anonymous> (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/tests/errorHandlerMiddleware.test.ts:40:26)
+    at Promise.then.completed (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/testWorker.js:106:12)
+2026-01-18 01:06:52 [[33mwarn[39m]: Client error {"error":"Test error without code","path":"/test","method":"GET","statusCode":400}
+2026-01-18 01:06:52 [[33mwarn[39m]: Client error {"error":"Test error with empty code","path":"/test","method":"GET","statusCode":400}
+2026-01-18 01:06:52 [[31merror[39m]: Server error {"error":"Test error with no statusCode or code","path":"/test","method":"GET","body":{}}
+Error: Test error with no statusCode or code
+    at Object.<anonymous> (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/tests/errorHandlerMiddleware.test.ts:83:21)
+    at Promise.then.completed (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/testWorker.js:106:12)
+2026-01-18 01:06:53 [[33mwarn[39m]: Authorization denied {"userRole":"developer","requiredRoles":[["admin"]]}
+2026-01-18 01:06:53 [[33mwarn[39m]: Authorization denied {"userId":"1","requiredRoles":["admin"],"path":"/sync-all"}
+2026-01-18 01:06:53 [[32minfo[39m]: User logged in {"userId":"user-123","email":"test@example.com"}
+2026-01-18 01:06:53 [[33mwarn[39m]: Login failed: user not found {"email":"wrong@example.com"}
+2026-01-18 01:06:53 [[33mwarn[39m]: Login failed: user inactive {"email":"test@example.com"}
+2026-01-18 01:06:53 [[33mwarn[39m]: Login failed: invalid password {"email":"test@example.com"}
+2026-01-18 01:06:53 [[33mwarn[39m]: Login failed: no password hash {"email":"test@example.com"}
+2026-01-18 01:06:53 [[32minfo[39m]: User logged out {"userId":"user-123"}
+2026-01-18 01:06:53 [[33mwarn[39m]: Logout: token not found or already revoked
+2026-01-18 01:06:53 [[32minfo[39m]: User logged out from all devices {"userId":"user-123","sessionsRevoked":5}
+2026-01-18 01:06:53 [[32minfo[39m]: Access token refreshed {"userId":"user-123","familyId":"family-123"}
+2026-01-18 01:06:53 [[31merror[39m]: 🚨 SECURITY ALERT: Refresh Token Reuse Detected! {"userId":"user-123","familyId":"family-123","tokenId":1,"originalIp":"127.0.0.1","attemptIp":"unknown"}
+2026-01-18 01:06:53 [[33mwarn[39m]: Token refresh failed: Session terminated due to suspicious activity. Please login again.
+2026-01-18 01:06:53 [[33mwarn[39m]: Token refresh failed: Invalid or expired refresh token
+2026-01-18 01:06:53 [[33mwarn[39m]: Token refresh failed: Account is disabled
+2026-01-18 01:06:53 [[31merror[39m]: Token refresh error {"error":"DB Boom"}
+2026-01-18 01:06:53 [[33mwarn[39m]: IP address mismatch during token refresh {"userId":"user-123","familyId":"family-123","originalIp":"127.0.0.1","currentIp":"192.168.1.1"}
+2026-01-18 01:06:53 [[32minfo[39m]: Access token refreshed {"userId":"user-123","familyId":"family-123"}
+2026-01-18 01:06:54 [[32minfo[39m]: User registered {"userId":"2eba900c-2d95-4630-9c25-ca35c476891c","email":"test@example.com"}
+2026-01-18 01:06:55 [[32minfo[39m]: Test action {"userId":"user-123","action":"query_submit","resourceId":"req-456"}
+2026-01-18 01:06:55 [[32minfo[39m]: Query request submitted {"userId":"user-123"}
+2026-01-18 01:06:55 [[32minfo[39m]: Request approved {"requestId":1,"uuid":"uuid-123","approverId":"user-123"}
+2026-01-18 01:06:55 [[32minfo[39m]: AUDIT {"audit":true,"eventType":"REQUEST_APPROVED","actor":{"id":"user-123","email":"test@example.com","role":"admin"},"target":{"type":"request","id":"1","identifier":"uuid-123"},"ipAddress":"127.0.0.1","userAgent":"Jest Test Runner","metadata":{"submitterEmail":"req@test.com"}}
+2026-01-18 01:06:55 [[32minfo[39m]: Query executed successfully {"requestId":1,"uuid":"uuid-123"}
+2026-01-18 01:06:55 [[32minfo[39m]: Request approved {"requestId":1,"uuid":"uuid-123","approverId":"user-123"}
+2026-01-18 01:06:55 [[32minfo[39m]: AUDIT {"audit":true,"eventType":"REQUEST_APPROVED","actor":{"id":"user-123","email":"test@example.com","role":"admin"},"target":{"type":"request","id":"1","identifier":"uuid-123"},"ipAddress":"127.0.0.1","userAgent":"Jest Test Runner","metadata":{"submitterEmail":"test@example.com"}}
+2026-01-18 01:06:55 [[31merror[39m]: Query execution failed {"requestId":1,"uuid":"uuid-123","error":"Query failed"}
+2026-01-18 01:06:55 [[32minfo[39m]: Request rejected {"requestId":1,"uuid":"uuid-123","rejectorId":"user-123","reason":"Invalid query"}
+2026-01-18 01:06:55 [[32minfo[39m]: AUDIT {"audit":true,"eventType":"REQUEST_REJECTED","actor":{"id":"user-123","email":"test@example.com","role":"admin"},"target":{"type":"request","id":"1","identifier":"uuid-123"},"ipAddress":"127.0.0.1","userAgent":"Jest Test Runner","metadata":{"submitterEmail":"test@example.com","reason":"Invalid query"}}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack notification sent for new submission {"requestId":1}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack notification sent for new submission {"requestId":1}
+2026-01-18 01:06:55 [[31merror[39m]: Failed to send Slack notification {"error":"Slack error","requestId":1}
+2026-01-18 01:06:55 [[33mwarn[39m]: Could not send DM - no Slack user ID found {"requestId":1}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack approval success notification sent {"requestId":1}
+2026-01-18 01:06:55 [[32minfo[39m]: Sent DM to requester {"requestId":1,"slackUserId":"U123"}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack approval success notification sent {"requestId":1}
+2026-01-18 01:06:55 [[33mwarn[39m]: Could not send DM - no Slack user ID found {"requestId":1}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack approval success notification sent {"requestId":1}
+2026-01-18 01:06:55 [[33mwarn[39m]: Could not send DM - no Slack user ID found {"requestId":1}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack approval success notification sent {"requestId":1}
+2026-01-18 01:06:55 [[31merror[39m]: Failed to send Slack approval notification {"error":"Slack error"}
+2026-01-18 01:06:55 [[33mwarn[39m]: Could not send failure DM - no Slack user ID found {"requestId":1}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack failure notification sent {"requestId":1}
+2026-01-18 01:06:55 [[32minfo[39m]: Sent failure DM to requester {"requestId":1,"slackUserId":"U123"}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack failure notification sent {"requestId":1}
+2026-01-18 01:06:55 [[31merror[39m]: Failed to send Slack failure notification {"error":"Slack error"}
+2026-01-18 01:06:55 [[32minfo[39m]: Sent rejection DM to requester {"requestId":1,"slackUserId":"U123"}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack rejection notification sent {"requestId":1}
+2026-01-18 01:06:55 [[33mwarn[39m]: Could not send rejection DM - no Slack user ID found {"requestId":1}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack rejection notification sent {"requestId":1}
+2026-01-18 01:06:55 [[32minfo[39m]: Sent rejection DM to requester {"requestId":1,"slackUserId":"U123"}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack rejection notification sent {"requestId":1}
+2026-01-18 01:06:55 [[31merror[39m]: Failed to send DM {"error":"Slack error","userId":"U123"}
+2026-01-18 01:06:55 [[32minfo[39m]: Sent rejection DM to requester {"requestId":1,"slackUserId":"U123"}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack rejection notification sent {"requestId":1}
+2026-01-18 01:06:55 [[32minfo[39m]: Slack connection successful {"team":"Test Team"}
+2026-01-18 01:06:55 [[31merror[39m]: Slack connection failed {"error":"Auth failed"}
+----------------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+File                                    | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                                                                                                                 
+----------------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+All files                               |   59.27 |    55.88 |    46.2 |   59.35 |                                                                                                                                                                                   
+ src                                    |       0 |        0 |       0 |       0 |                                                                                                                                                                                   
+  app.ts                                |       0 |        0 |       0 |       0 | 8-275                                                                                                                                                                             
+ src/config                             |   91.17 |    66.66 |   90.47 |   90.16 |                                                                                                                                                                                   
+  database.ts                           |   92.85 |      100 |       0 |   92.85 | 158                                                                                                                                                                               
+  index.ts                              |     100 |    83.33 |     100 |     100 | 216                                                                                                                                                                               
+  staticData.ts                         |   97.36 |     61.9 |   94.44 |   96.77 | 220                                                                                                                                                                               
+  swagger.ts                            |       0 |      100 |     100 |       0 | 8-493                                                                                                                                                                             
+ src/constants                          |   58.33 |        0 |       0 |   63.63 |                                                                                                                                                                                   
+  auth.ts                               |   77.77 |        0 |       0 |   77.77 | 54,61                                                                                                                                                                             
+  index.ts                              |       0 |      100 |       0 |       0 | 6-7                                                                                                                                                                               
+ src/controllers                        |   45.61 |    24.02 |   40.74 |   43.75 |                                                                                                                                                                                   
+  authController.ts                     |   31.73 |    10.63 |      30 |   28.57 | 152-154,174,205-211,233-270,289-290,297-298,312-314,325-360,376-426,445-487,498-516,531-568,579-599                                                                               
+  databaseController.ts                 |   62.96 |    47.61 |    90.9 |   60.31 | 69-71,100-102,141-165,198-202,228-240,258-262,290-292,315-317,341-343,360-364,370-374,378-382,404-406,422-426,433-437,447-449                                                     
+  index.ts                              |       0 |      100 |     100 |       0 | 10-19                                                                                                                                                                             
+  queryController.ts                    |   39.71 |    23.91 |   14.81 |   38.69 | 80,86,114-119,160-162,186-187,199-204,210-212,222-223,231-264,274-277,300-301,306-307,345,395-418,439-440,445-446,483-485,496-564,577-681,690-737,748-757,767-777,790-809,825-845 
+  userController.ts                     |   76.28 |    31.57 |   83.33 |   78.31 | 61,74,107,112,124,144,160-171,185,191,200                                                                                                                                         
+ src/db                                 |       0 |        0 |       0 |       0 |                                                                                                                                                                                   
+  index.ts                              |       0 |        0 |       0 |       0 | 5-96                                                                                                                                                                              
+ src/entities                           |   33.95 |     25.8 |   14.75 |   32.71 |                                                                                                                                                                                   
+  AccessTokenBlacklist.ts               |       0 |      100 |       0 |       0 | 5-27                                                                                                                                                                              
+  AuditLog.ts                           |       0 |      100 |       0 |       0 | 5-36                                                                                                                                                                              
+  BaseEntity.ts                         |   85.71 |      100 |      50 |   81.81 | 12,15                                                                                                                                                                             
+  Database.ts                           |       0 |      100 |       0 |       0 | 5-30                                                                                                                                                                              
+  DatabaseBlacklist.ts                  |       0 |        0 |       0 |       0 | 5-28                                                                                                                                                                              
+  DatabaseInstance.ts                   |       0 |      100 |       0 |       0 | 5-51                                                                                                                                                                              
+  DatabaseSyncHistory.ts                |       0 |        0 |       0 |       0 | 5-51                                                                                                                                                                              
+  Pod.ts                                |    90.9 |      100 |       0 |     100 |                                                                                                                                                                                   
+  QueryRequest.ts                       |   60.81 |       75 |   22.22 |   57.97 | 40,49,53,65,87,92,121-187                                                                                                                                                         
+  RefreshToken.ts                       |   73.91 |        0 |   16.66 |   68.42 | 32,143-166                                                                                                                                                                        
+  SlackNotification.ts                  |       0 |        0 |       0 |       0 | 5-54                                                                                                                                                                              
+  User.ts                               |   80.64 |    33.33 |      50 |   81.81 | 32,63-65                                                                                                                                                                          
+  UserTokenInvalidation.ts              |       0 |      100 |       0 |       0 | 15-31                                                                                                                                                                             
+  index.ts                              |       0 |      100 |     100 |       0 | 1-12                                                                                                                                                                              
+ src/middleware                         |   71.57 |    76.13 |   46.53 |   71.02 |                                                                                                                                                                                   
+  auth.ts                               |   95.19 |    90.72 |   96.42 |   95.11 | 297,376-391,428-444,453-458,584                                                                                                                                                   
+  errorHandler.ts                       |     100 |     93.1 |     100 |     100 | 111,114                                                                                                                                                                           
+  index.ts                              |       0 |      100 |       0 |       0 | 18-79                                                                                                                                                                             
+  originValidation.ts                   |       0 |        0 |       0 |       0 | 19-163                                                                                                                                                                            
+  sanitize.ts                           |       0 |        0 |       0 |       0 | 47-116                                                                                                                                                                            
+  upload.ts                             |   87.34 |       95 |   66.66 |   86.84 | 81-87,217-222                                                                                                                                                                     
+ src/routes                             |   15.04 |        0 |       0 |   15.04 |                                                                                                                                                                                   
+  authRoutes.ts                         |       0 |      100 |     100 |       0 | 21-282                                                                                                                                                                            
+  databaseRoutes.ts                     |     100 |      100 |     100 |     100 |                                                                                                                                                                                   
+  index.ts                              |       0 |      100 |     100 |       0 | 12-23                                                                                                                                                                             
+  queryRoutes.ts                        |       0 |      100 |     100 |       0 | 19-880                                                                                                                                                                            
+  secretsRoutes.ts                      |       0 |        0 |       0 |       0 | 5-153                                                                                                                                                                             
+  userRoutes.ts                         |       0 |      100 |     100 |       0 | 21-394                                                                                                                                                                            
+ src/scripts                            |       0 |        0 |       0 |       0 |                                                                                                                                                                                   
+  debug_data.ts                         |       0 |      100 |       0 |       0 | 2-37                                                                                                                                                                              
+  resetMongoInstance.ts                 |       0 |        0 |       0 |       0 | 1-38                                                                                                                                                                              
+ src/seeders                            |       0 |        0 |       0 |       0 |                                                                                                                                                                                   
+  DatabaseSeeder.ts                     |       0 |        0 |       0 |       0 | 1-188                                                                                                                                                                             
+  runSeeder.ts                          |       0 |      100 |       0 |       0 | 8-38                                                                                                                                                                              
+ src/services                           |   77.42 |    91.48 |   37.38 |      77 |                                                                                                                                                                                   
+  authService.ts                        |   99.33 |    89.18 |     100 |   99.31 | 376                                                                                                                                                                               
+  databaseSyncService.ts                |     100 |    92.98 |     100 |     100 | 147-150,359                                                                                                                                                                       
+  index.ts                              |       0 |      100 |       0 |       0 | 20-208                                                                                                                                                                            
+ src/services/queryAnalysis             |     100 |       80 |      75 |     100 |                                                                                                                                                                                   
+  analyzer.factory.ts                   |     100 |      100 |     100 |     100 |                                                                                                                                                                                   
+  index.ts                              |     100 |       70 |   71.42 |     100 | 39-62                                                                                                                                                                             
+  interfaces.ts                         |     100 |      100 |     100 |     100 |                                                                                                                                                                                   
+ src/services/queryAnalysis/analyzers   |   89.43 |    82.67 |   68.96 |   91.71 |                                                                                                                                                                                   
+  MongoAnalyzer.ts                      |   95.26 |     87.5 |   81.81 |   96.73 | 714,723,790-792                                                                                                                                                                   
+  PostgresAnalyzer.ts                   |   91.41 |    79.78 |      80 |   92.81 | 556,559,564,567-570,674,738-740                                                                                                                                                   
+  Utils.ts                              |   54.05 |    66.66 |    37.5 |    62.5 | 35-55                                                                                                                                                                             
+ src/services/queryExecution            |   63.15 |    48.52 |   58.82 |   63.15 |                                                                                                                                                                                   
+  ConnectionPool.ts                     |   55.38 |       38 |   55.55 |   55.38 | 55,83-92,107-109,121-142,154-163                                                                                                                                                  
+  index.ts                              |      80 |    77.77 |    62.5 |      80 | 75-76,83-84,91,112                                                                                                                                                                
+ src/services/queryExecution/strategies |   64.86 |    48.38 |   68.42 |   65.25 |                                                                                                                                                                                   
+  MongoDriver.ts                        |   60.25 |     43.9 |      75 |   61.07 | 74-75,79,100-101,106-109,154,161,169,182-215,233,252-255,261-270,276-283,296-297,312,318,347,362,367-369,376-402,412-415                                                          
+  PostgresDriver.ts                     |   75.75 |    65.62 |   57.14 |      75 | 78,102-103,153,160,167,180-213                                                                                                                                                    
+ src/services/script                    |   68.67 |    59.55 |   60.97 |   69.19 |                                                                                                                                                                                   
+  ScriptExecutor.ts                     |   66.34 |    60.49 |      60 |   66.12 | 60-61,123,128-129,135,146-273,318-325,397-400,430-433                                                                                                                             
+  index.ts                              |   62.96 |        0 |      60 |      68 | 42-43,71-77                                                                                                                                                                       
+  security.ts                           |      90 |    66.66 |   66.66 |   89.65 | 268,296,321                                                                                                                                                                       
+ src/services/script/commands           |     100 |      100 |     100 |     100 |                                                                                                                                                                                   
+  ExecuteScriptCommand.ts               |     100 |      100 |     100 |     100 |                                                                                                                                                                                   
+ src/services/slack                     |   66.27 |    39.32 |      68 |   71.92 |                                                                                                                                                                                   
+  SlackMessageBuilder.ts                |   90.47 |       60 |     100 |   90.47 | 66,84                                                                                                                                                                             
+  index.ts                              |   81.35 |    59.32 |   69.23 |   85.18 | 57-58,64-66,95,113-133,215-216                                                                                                                                                    
+  utils.ts                              |   46.55 |     26.6 |      50 |   53.53 | 28-29,61-85,92,109-118,126-133,139-146,172-173,190-191,197                                                                                                                        
+ src/types                              |       0 |        0 |       0 |       0 |                                                                                                                                                                                   
+  express.d.ts                          |       0 |        0 |       0 |       0 |                                                                                                                                                                                   
+ src/utils                              |    77.1 |    63.06 |   67.74 |   78.29 |                                                                                                                                                                                   
+  auditLogger.ts                        |   80.48 |    45.45 |   53.84 |   80.48 | 106,121,219-311                                                                                                                                                                   
+  cookies.ts                            |   67.79 |    35.29 |   57.14 |   66.66 | 106,113-114,117,163,184,211-213,239,262-272,279                                                                                                                                   
+  errors.ts                             |   94.44 |       90 |   84.61 |   94.44 | 192,199                                                                                                                                                                           
+  logger.ts                             |   72.72 |    66.66 |       0 |   72.72 | 72-80,95                                                                                                                                                                          
+  pagination.ts                         |       0 |        0 |       0 |       0 | 52-171                                                                                                                                                                            
+  response.ts                           |     100 |    85.71 |     100 |     100 | 57,78                                                                                                                                                                             
+  validators.ts                         |   92.53 |    84.37 |     100 |   98.36 | 171                                                                                                                                                                               
+ src/validation                         |   72.41 |       40 |   43.33 |   72.28 |                                                                                                                                                                                   
+  authSchemas.ts                        |   69.23 |      100 |       0 |   69.23 | 55,79,146,176                                                                                                                                                                     
+  commonSchemas.ts                      |   52.94 |        0 |       0 |   52.94 | 72,178-184,207-220                                                                                                                                                                
+  databaseSchemas.ts                    |   69.23 |        0 |     100 |   69.23 | 104-108                                                                                                                                                                           
+  envSchema.ts                          |   60.86 |       75 |   83.33 |   59.09 | 237-249                                                                                                                                                                           
+  index.ts                              |     100 |      100 |   52.17 |     100 |                                                                                                                                                                                   
+  middleware.ts                         |   89.58 |       80 |      80 |   89.36 | 100,145,188,200,210                                                                                                                                                               
+  querySchemas.ts                       |   29.41 |        0 |       0 |   29.41 | 78-121,147-149                                                                                                                                                                    
+  userSchemas.ts                        |      50 |        0 |       0 |      60 | 59,136-138                                                                                                                                                                        
+----------------------------------------|---------|----------|---------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

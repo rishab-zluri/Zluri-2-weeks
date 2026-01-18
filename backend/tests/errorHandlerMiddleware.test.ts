@@ -385,5 +385,47 @@ describe('Error Handler Middleware', () => {
 
             expect(mockRes.status).toHaveBeenCalledWith(401);
         });
+
+        it('should default to INTERNAL_ERROR for operational error without code', () => {
+            const { AppError } = require('../src/utils/errors');
+            const error = new AppError('Op error', 400);
+            delete error.code; // Remove code to trigger default
+
+            errorHandler.errorHandler(error, mockReq, mockRes, mockNext);
+
+            expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+                code: 'INTERNAL_ERROR',
+                message: 'Op error'
+            }));
+        });
+
+        it('should default to 500 for operational error without statusCode', () => {
+            const { AppError } = require('../src/utils/errors');
+            const error = new AppError('Op error', undefined, 'OP_ERR');
+            // AppError constructor might set default statusCode, so explicitly unset it if possible or mock it
+            // However, errorHandler checks err.statusCode || 500. 
+            // Let's force it undefined.
+            const err: any = { isOperational: true, message: 'Op error' };
+
+            errorHandler.errorHandler(err, mockReq, mockRes, mockNext);
+
+            expect(mockRes.status).toHaveBeenCalledWith(500);
+        });
+
+        it('should handle empty validation errors object map', () => {
+            const { AppError } = require('../src/utils/errors');
+            const error: any = new AppError('Validation error', 400, 'VALIDATION');
+            error.name = 'ValidationError'; // Required to trigger handleValidationError
+            error.errors = { field: { noMessage: true } };
+            error.isOperational = true;
+
+            errorHandler.errorHandler(error, mockReq, mockRes, mockNext);
+
+            expect(mockRes.status).toHaveBeenCalledWith(400);
+            expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+                message: 'Invalid input data',
+                code: 'VALIDATION_ERROR'
+            }));
+        });
     });
 });

@@ -34,6 +34,7 @@ jest.mock('mongodb', () => ({
 jest.mock('../src/config/database', () => ({
   portalQuery: jest.fn(),
   getPortalPool: jest.fn(),
+  transaction: jest.fn((callback) => callback({ query: require('../src/config/database').portalQuery })),
 }));
 
 // Mock logger
@@ -60,7 +61,7 @@ describe('Database Sync Service', () => {
   describe('getSyncStatus', () => {
     it('should return sync status', () => {
       const status = databaseSyncService.getSyncStatus();
-      
+
       expect(status).toHaveProperty('isRunning');
       expect(status).toHaveProperty('intervalMinutes');
     });
@@ -84,7 +85,7 @@ describe('Database Sync Service', () => {
   describe('isBlacklisted', () => {
     it('should match exact pattern', () => {
       const blacklist = [{ pattern: 'system', pattern_type: 'exact' }];
-      
+
       expect(databaseSyncService.isBlacklisted('system', blacklist)).toBe(true);
       expect(databaseSyncService.isBlacklisted('SYSTEM', blacklist)).toBe(true);
       expect(databaseSyncService.isBlacklisted('system_db', blacklist)).toBe(false);
@@ -92,7 +93,7 @@ describe('Database Sync Service', () => {
 
     it('should match prefix pattern', () => {
       const blacklist = [{ pattern: 'test_', pattern_type: 'prefix' }];
-      
+
       expect(databaseSyncService.isBlacklisted('test_db', blacklist)).toBe(true);
       expect(databaseSyncService.isBlacklisted('TEST_DB', blacklist)).toBe(true);
       expect(databaseSyncService.isBlacklisted('production', blacklist)).toBe(false);
@@ -100,7 +101,7 @@ describe('Database Sync Service', () => {
 
     it('should match regex pattern', () => {
       const blacklist = [{ pattern: '^temp.*$', pattern_type: 'regex' }];
-      
+
       expect(databaseSyncService.isBlacklisted('temp_db', blacklist)).toBe(true);
       expect(databaseSyncService.isBlacklisted('temporary', blacklist)).toBe(true);
       expect(databaseSyncService.isBlacklisted('production', blacklist)).toBe(false);
@@ -108,7 +109,7 @@ describe('Database Sync Service', () => {
 
     it('should handle invalid regex pattern', () => {
       const blacklist = [{ pattern: '[invalid', pattern_type: 'regex' }];
-      
+
       // Should not throw, just return false
       expect(databaseSyncService.isBlacklisted('test', blacklist)).toBe(false);
     });
@@ -131,7 +132,7 @@ describe('Database Sync Service', () => {
     it('should sync PostgreSQL databases successfully', async () => {
       // Mock blacklist
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock pg query
       mockPoolQuery.mockResolvedValueOnce({
         rows: [{ name: 'db1' }, { name: 'db2' }],
@@ -141,13 +142,13 @@ describe('Database Sync Service', () => {
       // Mock upsert queries
       portalQuery.mockResolvedValueOnce({ rows: [{ is_insert: true }] });
       portalQuery.mockResolvedValueOnce({ rows: [{ is_insert: false }] });
-      
+
       // Mock deactivate query
       portalQuery.mockResolvedValueOnce({ rowCount: 0 });
-      
+
       // Mock update instance status
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock sync history insert
       portalQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -168,7 +169,7 @@ describe('Database Sync Service', () => {
 
       // Mock blacklist
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock MongoDB
       mockMongoConnect.mockResolvedValueOnce();
       mockMongoCommand.mockResolvedValueOnce({
@@ -179,13 +180,13 @@ describe('Database Sync Service', () => {
       // Mock upsert queries
       portalQuery.mockResolvedValueOnce({ rows: [{ is_insert: true }] });
       portalQuery.mockResolvedValueOnce({ rows: [{ is_insert: true }] });
-      
+
       // Mock deactivate query
       portalQuery.mockResolvedValueOnce({ rowCount: 0 });
-      
+
       // Mock update instance status
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock sync history insert
       portalQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -202,10 +203,10 @@ describe('Database Sync Service', () => {
 
       // Mock blacklist
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock update instance status (error)
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock sync history insert
       portalQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -217,10 +218,10 @@ describe('Database Sync Service', () => {
 
     it('should filter blacklisted databases', async () => {
       // Mock blacklist with prefix pattern
-      portalQuery.mockResolvedValueOnce({ 
-        rows: [{ pattern: 'test_', pattern_type: 'prefix' }] 
+      portalQuery.mockResolvedValueOnce({
+        rows: [{ pattern: 'test_', pattern_type: 'prefix' }]
       });
-      
+
       // Mock pg query
       mockPoolQuery.mockResolvedValueOnce({
         rows: [{ name: 'test_db' }, { name: 'production' }],
@@ -229,13 +230,13 @@ describe('Database Sync Service', () => {
 
       // Mock upsert for non-blacklisted db
       portalQuery.mockResolvedValueOnce({ rows: [{ is_insert: true }] });
-      
+
       // Mock deactivate query
       portalQuery.mockResolvedValueOnce({ rowCount: 0 });
-      
+
       // Mock update instance status
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock sync history insert
       portalQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -247,14 +248,14 @@ describe('Database Sync Service', () => {
     it('should handle sync error', async () => {
       // Mock blacklist
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock pg query to fail
       mockPoolQuery.mockRejectedValueOnce(new Error('Connection failed'));
       mockPoolEnd.mockResolvedValueOnce();
 
       // Mock update instance status (error)
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock sync history insert
       portalQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -276,20 +277,20 @@ describe('Database Sync Service', () => {
 
       // Mock blacklist
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock pg query
       mockPoolQuery.mockResolvedValueOnce({ rows: [{ name: 'db1' }] });
       mockPoolEnd.mockResolvedValueOnce();
 
       // Mock upsert
       portalQuery.mockResolvedValueOnce({ rows: [{ is_insert: true }] });
-      
+
       // Mock deactivate
       portalQuery.mockResolvedValueOnce({ rowCount: 0 });
-      
+
       // Mock update status
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock history
       portalQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -483,7 +484,7 @@ describe('Database Sync Service', () => {
 
     it('should start periodic sync', () => {
       databaseSyncService.startPeriodicSync();
-      
+
       const status = databaseSyncService.getSyncStatus();
       expect(status.isRunning).toBe(true);
     });
@@ -491,7 +492,7 @@ describe('Database Sync Service', () => {
     it('should not start if already running', () => {
       databaseSyncService.startPeriodicSync();
       databaseSyncService.startPeriodicSync(); // Should warn
-      
+
       const status = databaseSyncService.getSyncStatus();
       expect(status.isRunning).toBe(true);
     });
@@ -499,7 +500,7 @@ describe('Database Sync Service', () => {
     it('should stop periodic sync', () => {
       databaseSyncService.startPeriodicSync();
       databaseSyncService.stopPeriodicSync();
-      
+
       const status = databaseSyncService.getSyncStatus();
       expect(status.isRunning).toBe(false);
     });
@@ -530,13 +531,13 @@ describe('Database Sync Service - Error Handling Coverage', () => {
     it('should handle startup sync error gracefully', async () => {
       // Mock syncAllDatabases to fail
       const originalSyncAll = databaseSyncService.syncAllDatabases;
-      
+
       // Start periodic sync
       databaseSyncService.startPeriodicSync();
-      
+
       // Fast-forward past startup delay
       jest.advanceTimersByTime(35000);
-      
+
       // The error should be caught and logged, not thrown
       expect(databaseSyncService.getSyncStatus().isRunning).toBe(true);
     });
@@ -544,13 +545,13 @@ describe('Database Sync Service - Error Handling Coverage', () => {
     it('should handle scheduled sync error gracefully', async () => {
       // Start periodic sync
       databaseSyncService.startPeriodicSync();
-      
+
       // Fast-forward past startup delay
       jest.advanceTimersByTime(35000);
-      
+
       // Fast-forward to trigger scheduled sync (60 minutes)
       jest.advanceTimersByTime(60 * 60 * 1000);
-      
+
       // The error should be caught and logged, not thrown
       expect(databaseSyncService.getSyncStatus().isRunning).toBe(true);
     });
@@ -569,7 +570,7 @@ describe('Database Sync Service - Error Handling Coverage', () => {
 
       // Mock blacklist
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock MongoDB
       mockMongoConnect.mockResolvedValueOnce();
       mockMongoCommand.mockResolvedValueOnce({
@@ -579,13 +580,13 @@ describe('Database Sync Service - Error Handling Coverage', () => {
 
       // Mock upsert
       portalQuery.mockResolvedValueOnce({ rows: [{ is_insert: true }] });
-      
+
       // Mock deactivate
       portalQuery.mockResolvedValueOnce({ rowCount: 0 });
-      
+
       // Mock update status
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock history
       portalQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -606,14 +607,14 @@ describe('Database Sync Service - Error Handling Coverage', () => {
 
       // Mock blacklist
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock pg query - return empty
       mockPoolQuery.mockResolvedValueOnce({ rows: [] });
       mockPoolEnd.mockResolvedValueOnce();
 
       // Mock update instance status
       portalQuery.mockResolvedValueOnce({ rows: [] });
-      
+
       // Mock sync history insert
       portalQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -628,7 +629,7 @@ describe('Database Sync Service - Error Handling Coverage', () => {
     it('should close all sync pools', async () => {
       // closeSyncPools clears internal maps and closes connections
       await databaseSyncService.closeSyncPools();
-      
+
       // Should complete without error
       expect(true).toBe(true);
     });

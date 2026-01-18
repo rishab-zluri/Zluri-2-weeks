@@ -33,10 +33,16 @@ import {
 } from './security';
 
 export class ScriptExecutor {
-    private static readonly EXECUTION_CONFIG: ExecutionConfig = {
+    private static readonly DEFAULT_CONFIG: ExecutionConfig = {
         timeout: 30000,
         memoryLimit: 128,
     };
+
+    private config: ExecutionConfig;
+
+    constructor(config?: Partial<ExecutionConfig>) {
+        this.config = { ...ScriptExecutor.DEFAULT_CONFIG, ...config };
+    }
 
     /**
      * Validate script syntax and dangerous patterns
@@ -48,6 +54,14 @@ export class ScriptExecutor {
         const warnings: string[] = [];
         const errors: string[] = [];
 
+        // Check script size (max 1MB)
+        const MAX_SCRIPT_SIZE = 1024 * 1024;
+        if (scriptContent.length > MAX_SCRIPT_SIZE) {
+            errors.push('Script too large. Maximum size is 1MB.');
+            return { valid: false, warnings, errors };
+        }
+
+        // Check syntax first
         // Check syntax first
         const syntaxCheck = this.validateSyntax(scriptContent);
         if (!syntaxCheck.valid && syntaxCheck.error) {
@@ -134,6 +148,7 @@ export class ScriptExecutor {
 
         // Dangerous patterns for Python
         const dangerousPatterns = [
+            { pattern: /\bimport\s+os\b/gi, message: 'os module is blocked', isError: true },
             { pattern: /\bopen\s*\(/gi, message: 'open() is not available', isError: true },
             { pattern: /\bexec\s*\(/gi, message: 'exec() is blocked', isError: true },
             { pattern: /\beval\s*\(/gi, message: 'eval() is blocked', isError: true },
@@ -274,6 +289,21 @@ export class ScriptExecutor {
             timestamp: new Date().toISOString(),
         });
 
+        // Type check
+        if (typeof scriptContent !== 'string') {
+            return this.createErrorResult('ValidationError', 'Script content must be a string', output, startTime, request);
+        }
+
+        if (!scriptContent.trim()) {
+            return this.createErrorResult('ValidationError', 'Script content cannot be empty', output, startTime, request);
+        }
+
+        // Check script size (max 1MB)
+        const MAX_SCRIPT_SIZE = 1024 * 1024;
+        if (scriptContent.length > MAX_SCRIPT_SIZE) {
+            return this.createErrorResult('ValidationError', 'Script too large. Maximum size is 1MB.', output, startTime, request);
+        }
+
         try {
             // 1. Detect language FIRST (before any validation)
             const language = this.detectLanguage(request);
@@ -309,7 +339,7 @@ export class ScriptExecutor {
                 databaseType,
                 instance,
                 databaseName,
-                timeout: ScriptExecutor.EXECUTION_CONFIG.timeout,
+                timeout: this.config.timeout,
             };
 
             // 5. Run in appropriate Child Process
@@ -427,7 +457,7 @@ export class ScriptExecutor {
                     handleResult({
                         success: false,
                         error: {
-                            type: 'ProcessError',
+                            type: signal === 'SIGTERM' ? 'TimeoutError' : 'ProcessError',
                             message: errorMessage
                         }
                     });
@@ -445,9 +475,20 @@ export class ScriptExecutor {
             if (item.type === 'query') {
                 summary.totalQueries++;
                 if (item.rowCount) {
-                    // logical guess based on rowsReturned logic in original
-                    summary.rowsAffected += item.rowCount as number;
+                    if (item.queryType === 'SELECT') {
+                        summary.rowsReturned += item.rowCount as number;
+                    } else {
+                        summary.rowsAffected += item.rowCount as number;
+                    }
                 }
+            }
+            if (item.type === 'operation') {
+                summary.totalOperations++;
+                // Documents processed Logic (simplified sum of counts)
+                if (item.count) summary.documentsProcessed += item.count as number;
+                if (item.insertedCount) summary.documentsProcessed += item.insertedCount as number;
+                if (item.modifiedCount) summary.documentsProcessed += item.modifiedCount as number;
+                if (item.deletedCount) summary.documentsProcessed += item.deletedCount as number;
             }
             if (item.type === 'error') summary.errors++;
             if (item.type === 'warn') summary.warnings++;

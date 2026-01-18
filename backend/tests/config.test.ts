@@ -9,7 +9,8 @@ describe('Configuration', () => {
 
   beforeAll(() => {
     // Load config once - don't try to manipulate cache as dotenv has already loaded .env
-    config = require('../src/config/index');
+    const configModule = require('../src/config/index');
+    config = configModule.default || configModule;
   });
 
   describe('Server Configuration', () => {
@@ -116,7 +117,7 @@ describe('Configuration', () => {
       // Check that rateLimit has at least one numeric setting
       const rateLimitKeys = Object.keys(config.rateLimit);
       expect(rateLimitKeys.length).toBeGreaterThan(0);
-      
+
       // At least windowMs should be a number
       const hasNumericSetting = rateLimitKeys.some(
         key => typeof config.rateLimit[key] === 'number'
@@ -169,14 +170,17 @@ describe('Configuration', () => {
 
 describe('Configuration Module Exports', () => {
   it('should export a plain object', () => {
-    const config = require('../src/config/index');
+    const configModule = require('../src/config/index');
+    const config = configModule.default || configModule;
     expect(typeof config).toBe('object');
     expect(config).not.toBeNull();
   });
 
   it('should be importable multiple times without error', () => {
-    const config1 = require('../src/config/index');
-    const config2 = require('../src/config/index');
+    const config1Module = require('../src/config/index');
+    const config2Module = require('../src/config/index');
+    const config1 = config1Module.default || config1Module;
+    const config2 = config2Module.default || config2Module;
     expect(config1).toBe(config2); // Same cached instance
   });
 });

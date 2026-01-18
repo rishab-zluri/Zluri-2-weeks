@@ -51,8 +51,9 @@ const passwordSchema = z
  */
 const emailSchema = z
     .string()
+    .trim()
     .email('Invalid email format')
-    .transform((email) => email.toLowerCase().trim());
+    .toLowerCase();
 
 // =============================================================================
 // Registration Schema

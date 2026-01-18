@@ -123,11 +123,16 @@ export const JS_DANGEROUS_PATTERNS: DangerousPattern[] = [
     // Destructive Database Operations (Warnings)
     { pattern: /\.dropDatabase\s*\(/gi, message: '🔴 CRITICAL: dropDatabase() detected', isError: false, category: 'destructive' },
     { pattern: /\.drop\s*\(\s*\)/gi, message: '🔴 CRITICAL: drop() detected', isError: false, category: 'destructive' },
-    { pattern: /\.deleteMany\s*\(\s*\{\s*\}\s*\)/gi, message: '🔴 CRITICAL: deleteMany({}) - deletes ALL documents', isError: false, category: 'destructive' },
+    { pattern: /\.deleteMany\s*\(\s*\{\s*\}\s*/gi, message: '🔴 CRITICAL: deleteMany({}) - deletes ALL documents', isError: false, category: 'destructive' },
     { pattern: /DROP\s+TABLE/gi, message: '🔴 CRITICAL: DROP TABLE detected', isError: false, category: 'destructive' },
     { pattern: /DROP\s+DATABASE/gi, message: '🔴 CRITICAL: DROP DATABASE detected', isError: false, category: 'destructive' },
     { pattern: /TRUNCATE\s+TABLE/gi, message: '🔴 CRITICAL: TRUNCATE TABLE detected', isError: false, category: 'destructive' },
     { pattern: /DELETE\s+FROM\s+\w+\s*(;|$)/gi, message: '🔴 CRITICAL: DELETE without WHERE clause', isError: false, category: 'destructive' },
+    { pattern: /\.dropIndex(es)?\s*\(/gi, message: '🔴 CRITICAL: dropIndex() detected', isError: false, category: 'destructive' },
+    { pattern: /\.createIndex(es)?\s*\(/gi, message: '🟠 WARNING: createIndex() detected', isError: false, category: 'destructive' },
+    { pattern: /\.renameCollection\s*\(/gi, message: '🔴 CRITICAL: renameCollection() detected', isError: false, category: 'destructive' },
+    { pattern: /\.updateMany\s*\(\s*\{\s*\}\s*/gi, message: '🔴 CRITICAL: updateMany({}) - updates ALL documents', isError: false, category: 'destructive' },
+    { pattern: /\.remove\s*\(\s*\{\s*\}\s*/gi, message: '🔴 CRITICAL: remove({}) - deletes ALL documents', isError: false, category: 'destructive' },
 ];
 
 /**

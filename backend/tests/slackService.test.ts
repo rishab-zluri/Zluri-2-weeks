@@ -145,6 +145,24 @@ describe('Slack Service', () => {
       expect(mockPostMessage).toHaveBeenCalledTimes(2);
     });
 
+    it('should fallback to email lookup if slackUserId missing', async () => {
+      mockLookupByEmail.mockResolvedValueOnce({ user: { id: 'U_EMAIL_FOUND' } });
+      mockConversationsOpen.mockResolvedValueOnce({ ok: true, channel: { id: 'D123' } });
+
+      const request = {
+        id: 1,
+        approverEmail: 'approver@example.com',
+        userEmail: 'requester@example.com',
+        // slackUserId missing
+      };
+
+      await slackService.notifyApprovalSuccess(request as any, '{"rows": []}');
+
+      expect(mockLookupByEmail).toHaveBeenCalledWith({ email: 'requester@example.com' });
+      expect(mockConversationsOpen).toHaveBeenCalledWith({ users: 'U_EMAIL_FOUND' });
+    });
+
+
     it('should not send DM when slackUserId missing', async () => {
       const request = {
         id: 1,
@@ -170,10 +188,32 @@ describe('Slack Service', () => {
 
     it('should handle errors gracefully', async () => {
       mockPostMessage.mockRejectedValueOnce(new Error('Slack error'));
-
       const request = { id: 1, approverEmail: 'test@test.com' };
-
       await expect(slackService.notifyApprovalSuccess(request as any, '{}')).resolves.not.toThrow();
+    });
+
+    it('should handle execution failure result in approval success', async () => {
+      const request = {
+        id: 1,
+        approverEmail: 'approver@example.com'
+      };
+
+      const failureResult = JSON.stringify({
+        error: {
+          message: 'DB Error',
+          code: 'ERROR'
+        },
+        success: false,
+        duration: 123
+      });
+
+      await slackService.notifyApprovalSuccess(request as any, failureResult);
+
+      expect(mockPostMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining('execution failed')
+        })
+      );
     });
   });
 

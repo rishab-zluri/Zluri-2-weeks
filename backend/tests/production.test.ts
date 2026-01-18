@@ -32,13 +32,13 @@ describe('Production Integration Tests', () => {
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
-    
+
     managerToken = jwt.sign(
       { id: 'mgr-1', email: 'manager@test.com', role: 'manager' },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
-    
+
     adminToken = jwt.sign(
       { id: 'admin-1', email: 'admin@test.com', role: 'admin' },
       process.env.JWT_SECRET,
@@ -122,7 +122,7 @@ describe('Production Integration Tests', () => {
   describe('Error Handling', () => {
     it('should handle validation errors gracefully', () => {
       const { ValidationError } = require('../src/utils/errors');
-      
+
       const error = new ValidationError('Invalid input');
       expect(error.statusCode).toBe(400);
       expect(error.code).toBe('VALIDATION_ERROR');
@@ -131,7 +131,7 @@ describe('Production Integration Tests', () => {
 
     it('should handle not found errors', () => {
       const { NotFoundError } = require('../src/utils/errors');
-      
+
       const error = new NotFoundError('Resource not found');
       expect(error.statusCode).toBe(404);
       expect(error.code).toBe('NOT_FOUND');
@@ -139,7 +139,7 @@ describe('Production Integration Tests', () => {
 
     it('should handle authentication errors', () => {
       const { AuthenticationError } = require('../src/utils/errors');
-      
+
       const error = new AuthenticationError('Invalid credentials');
       expect(error.statusCode).toBe(401);
       expect(error.code).toBe('AUTHENTICATION_ERROR');
@@ -147,7 +147,7 @@ describe('Production Integration Tests', () => {
 
     it('should handle authorization errors', () => {
       const { AuthorizationError } = require('../src/utils/errors');
-      
+
       const error = new AuthorizationError('Access denied');
       expect(error.statusCode).toBe(403);
       expect(error.code).toBe('AUTHORIZATION_ERROR');
@@ -274,7 +274,7 @@ describe('Production Integration Tests', () => {
       // 1. Connection pooling
       // 2. Transaction isolation
       // 3. Race condition prevention
-      
+
       const promises = [
         Promise.resolve({ id: 1 }),
         Promise.resolve({ id: 2 }),
@@ -293,13 +293,13 @@ describe('Production Integration Tests', () => {
     it('should validate UUID format', () => {
       const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       const validUuid = '550e8400-e29b-41d4-a716-446655440000';
-      
+
       expect(validUuid).toMatch(uuidPattern);
     });
 
     it('should validate timestamp format', () => {
       const timestamp = new Date().toISOString();
-      
+
       expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     });
 
@@ -324,8 +324,9 @@ describe('Production Integration Tests', () => {
   // ===========================================
   describe('Logging and Audit Trail', () => {
     it('should log with proper structure', () => {
-      const logger = require('../src/utils/logger');
-      
+      const loggerModule = require('../src/utils/logger');
+      const logger = loggerModule.default || loggerModule;
+
       // Logger should support multiple levels
       expect(typeof logger.info).toBe('function');
       expect(typeof logger.error).toBe('function');
@@ -334,8 +335,9 @@ describe('Production Integration Tests', () => {
     });
 
     it('should include metadata in logs', () => {
-      const logger = require('../src/utils/logger');
-      
+      const loggerModule = require('../src/utils/logger');
+      const logger = loggerModule.default || loggerModule;
+
       // Should be able to pass metadata
       expect(() => {
         logger.info('Test action', {
@@ -353,8 +355,9 @@ describe('Production Integration Tests', () => {
   describe('Performance Considerations', () => {
     it('should use connection pooling', () => {
       const fs = require('fs');
-      const dbCode = fs.readFileSync('./src/config/database.js', 'utf8');
-      
+      // Changed to .ts as .js doesn't exist in src in this environment
+      const dbCode = fs.readFileSync('./src/config/database.ts', 'utf8');
+
       expect(dbCode).toContain('Pool');
     });
 
@@ -365,11 +368,10 @@ describe('Production Integration Tests', () => {
     });
 
     it('should timeout long-running queries', () => {
-      const fs = require('fs');
-      
       // Check config has timeout settings
-      const config = require('../src/config');
-      expect(config.queryExecution?.timeoutMs || 30000).toBeGreaterThan(0);
+      const configModule = require('../src/config');
+      const config = configModule.default || configModule;
+      expect(config.targetDb?.postgres?.queryTimeoutMs || 30000).toBeGreaterThan(0);
     });
   });
 
@@ -378,15 +380,17 @@ describe('Production Integration Tests', () => {
   // ===========================================
   describe('Environment Configuration', () => {
     it('should have required configuration defined', () => {
-      const config = require('../src/config');
-      
+      const configModule = require('../src/config');
+      const config = configModule.default || configModule;
+
       expect(config.server).toBeDefined();
       expect(config.server.port).toBeDefined();
     });
 
     it('should differentiate between environments', () => {
-      const config = require('../src/config');
-      
+      const configModule = require('../src/config');
+      const config = configModule.default || configModule;
+
       // Should have environment detection
       expect(typeof config.isDevelopment).toBe('boolean');
       expect(typeof config.isProduction).toBe('boolean');
@@ -404,7 +408,7 @@ describe('Load Testing Helpers', () => {
     // - Artillery
     // - k6
     // - Apache JMeter
-    
+
     // Example Artillery config:
     // config:
     //   target: 'http://localhost:3000'
@@ -415,7 +419,7 @@ describe('Load Testing Helpers', () => {
     //   - flow:
     //       - get:
     //           url: '/api/health'
-    
+
     expect(true).toBe(true);
   });
 });

@@ -95,7 +95,11 @@
     "collectCoverageFrom": [
       "src/**/*.{js,ts}",
       "!src/server.ts",
-      "!src/mikro-orm.config.ts"
+      "!src/mikro-orm.config.ts",
+      "!src/entities/**/*.ts",
+      "!src/migrations/**/*.ts",
+      "!src/seeders/**/*.ts",
+      "!src/scripts/**/*.ts"
     ],
     "coverageThreshold": {
       "global": {

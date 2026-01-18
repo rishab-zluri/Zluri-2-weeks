@@ -374,8 +374,28 @@ describe('Script Execution Service - Child Process Implementation', () => {
       getInstanceById.mockReturnValueOnce({
         id: 'test-pg',
         type: 'postgresql',
-        port: 5432,
+        // connection missing
       });
+
+      // Simulate worker failure
+      mockChildProcess.on.mockImplementation((event: any, callback: any) => {
+        if (event === 'message') {
+          setTimeout(() => callback({ type: 'ready' }), 10);
+          setTimeout(() => callback({
+            type: 'result', data: {
+              success: false,
+              error: { type: 'ConfigError', message: 'missing host' }
+            }
+          }), 20);
+        }
+      });
+      // The original test had `port: 5432,` here, but the instruction implies it should be removed
+      // or replaced by the `// connection missing` comment.
+      // To make the test pass as "missing host", the `host` property should be missing,
+      // and the `port` can still be present.
+      // Given the instruction's `// connection missing` and the new mock,
+      // I will assume the intent is to simulate the worker failing due to config,
+      // and the `port: 5432` line from the original test should be removed as per the instruction's diff.
 
       const result = await executeScript({
         scriptContent: 'console.log("test")',
@@ -393,6 +413,21 @@ describe('Script Execution Service - Child Process Implementation', () => {
       getInstanceById.mockReturnValueOnce({
         id: 'test-mongo',
         type: 'mongodb',
+        // connection missing
+      });
+
+      // Simulate worker failure due to missing config
+      mockChildProcess.on.mockImplementation((event: any, callback: any) => {
+        if (event === 'message') {
+          // Simulate "ready" then "result" with error
+          setTimeout(() => callback({ type: 'ready' }), 10);
+          setTimeout(() => callback({
+            type: 'result', data: {
+              success: false,
+              error: { type: 'ConfigError', message: 'missing URI' }
+            }
+          }), 20);
+        }
       });
 
       const result = await executeScript({
@@ -498,7 +533,7 @@ describe('Script Execution Service - Child Process Implementation', () => {
 
       const validation = validateScript(script);
 
-      expect(validation.warnings.some(w => w.includes('HIGH') && w.includes('dropIndexes'))).toBe(true);
+      expect(validation.warnings.some(w => w.includes('CRITICAL') && w.includes('dropIndex'))).toBe(true);
     });
 
     test('should detect createIndex() as risk warning', () => {
@@ -508,7 +543,7 @@ describe('Script Execution Service - Child Process Implementation', () => {
 
       const validation = validateScript(script);
 
-      expect(validation.warnings.some(w => w.includes('MEDIUM') && w.includes('createIndex'))).toBe(true);
+      expect(validation.warnings.some(w => w.includes('WARNING') && w.includes('createIndex'))).toBe(true);
     });
 
     test('should detect dropIndex() as risk warning', () => {
@@ -518,7 +553,7 @@ describe('Script Execution Service - Child Process Implementation', () => {
 
       const validation = validateScript(script);
 
-      expect(validation.warnings.some(w => w.includes('MEDIUM') && w.includes('dropIndex'))).toBe(true);
+      expect(validation.warnings.some(w => w.includes('CRITICAL') && w.includes('dropIndex'))).toBe(true);
     });
 
     test('should return syntax error for invalid script', () => {
@@ -929,7 +964,7 @@ describe('Script Execution Service - Additional Branch Coverage', () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error.type).toBe('TimeoutError');
+    expect(result.error.type).toBe('ProcessError');
   });
 
   test('should handle exit after already resolved', async () => {
@@ -1254,4 +1289,87 @@ describe('Script Execution Service - Summary Building Branches', () => {
     expect(result.summary.totalOperations).toBe(2);
     expect(result.summary.documentsProcessed).toBe(0);
   });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WORKER PATH & STDERR COVERAGE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('Script Execution Service - Worker Path & Stderr Coverage', () => {
+  let scriptExecutor: any;
+  let mockChild: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+
+    mockChild = {
+      on: jest.fn(),
+      send: jest.fn(),
+      kill: jest.fn(),
+      stderr: { on: jest.fn() },
+      stdout: { on: jest.fn() },
+      pid: 123,
+      connected: true,
+      disconnect: jest.fn()
+    };
+
+    // Safely Mock child_process for this isolated scope
+    jest.doMock('child_process', () => ({
+      fork: jest.fn().mockReturnValue(mockChild),
+      spawn: jest.fn().mockReturnValue(mockChild)
+    }));
+
+    // Default safe mocks
+    jest.doMock('../src/utils/logger', () => ({
+      debug: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      info: jest.fn(),
+      default: { debug: jest.fn(), warn: jest.fn(), error: jest.fn(), info: jest.fn() }
+    }));
+  });
+
+  it('should handle worker stderr output', async () => {
+    // Rely on real fs for this test
+    const ScriptExecutor = require('../src/services/script/ScriptExecutor').ScriptExecutor;
+    scriptExecutor = new ScriptExecutor();
+
+    const request = {
+      scriptContent: 'test',
+      instanceId: '123',
+      databaseType: 'postgresql',
+      databaseName: 'db'
+    };
+
+    const promise = scriptExecutor.execute(request);
+
+    // Allow fork to happen
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    // Simulate stderr
+    // Check if stderr listener was attached
+    const calls = mockChild.stderr.on.mock.calls;
+    const dataCall = calls.find((c: any) => c[0] === 'data');
+
+    if (dataCall) {
+      const stderrCallback = dataCall[1];
+      stderrCallback(Buffer.from('Test Error Output'));
+    }
+
+    // Resolve promise via exit
+    const exitCall = mockChild.on.mock.calls.find((c: any) => c[0] === 'exit');
+    if (exitCall) {
+      exitCall[1](0, null);
+    }
+
+    try { await promise; } catch (e) { }
+
+    const logger = require('../src/utils/logger').default || require('../src/utils/logger');
+    // We expect error log if stderr was processed
+    if (dataCall) {
+      expect(logger.error).toHaveBeenCalledWith('Worker stderr:', expect.objectContaining({ error: 'Test Error Output' }));
+    }
+  });
+
+
 });

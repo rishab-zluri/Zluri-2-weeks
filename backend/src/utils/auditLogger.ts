@@ -103,7 +103,7 @@ function getClientIP(req: Request): string {
         const ips = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
         return ips.split(',')[0].trim();
     }
-    return req.ip || req.socket.remoteAddress || 'unknown';
+    return req.ip || req.socket?.remoteAddress || 'unknown';
 }
 
 /**

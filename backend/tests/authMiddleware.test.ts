@@ -46,12 +46,14 @@ jest.mock('../src/config/database', () => ({
   },
 }));
 
-jest.mock('../src/models/User', () => ({
-  findById: (...args) => mockFindById(...args),
-  UserRoles: {
+jest.mock('../src/entities/User', () => ({
+  User: {
+    findOne: (...args) => mockFindOne(...args),
+  },
+  UserRole: {
     ADMIN: 'admin',
     MANAGER: 'manager',
-    DEVELOPER: 'developer',
+    USER: 'user',
   },
 }));
 
@@ -78,7 +80,7 @@ describe('Auth Middleware', () => {
     jest.clearAllMocks();
     jest.resetModules();
     auth = require('../src/middleware/auth');
-    
+
     mockReq = {
       headers: {},
       body: {},
@@ -95,7 +97,7 @@ describe('Auth Middleware', () => {
   describe('authenticate', () => {
     it('should fail with no authorization header', async () => {
       await auth.authenticate(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
       expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
         status: 'fail',
@@ -104,9 +106,9 @@ describe('Auth Middleware', () => {
 
     it('should fail with invalid header format', async () => {
       mockReq.headers.authorization = 'Basic token';
-      
+
       await auth.authenticate(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
 
@@ -117,26 +119,26 @@ describe('Auth Middleware', () => {
         { expiresIn: '-1s' }
       );
       mockReq.headers.authorization = `Bearer ${expiredToken}`;
-      
+
       await auth.authenticate(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
 
     it('should fail with malformed token', async () => {
       mockReq.headers.authorization = 'Bearer invalid.token.here';
-      
+
       await auth.authenticate(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
 
     it('should fail with token signed with wrong secret', async () => {
       const badToken = jwt.sign({ userId: '123' }, 'wrong-secret');
       mockReq.headers.authorization = `Bearer ${badToken}`;
-      
+
       await auth.authenticate(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
 
@@ -144,9 +146,9 @@ describe('Auth Middleware', () => {
       // Token without proper issuer/audience will fail verification
       const token = jwt.sign({ userId: '123' }, TEST_SECRET);
       mockReq.headers.authorization = `Bearer ${token}`;
-      
+
       await auth.authenticate(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
 
@@ -157,9 +159,9 @@ describe('Auth Middleware', () => {
         { expiresIn: '-1s', issuer: 'db-query-portal', audience: 'db-query-portal-users' }
       );
       mockReq.headers.authorization = `Bearer ${token}`;
-      
+
       await auth.authenticate(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
 
@@ -171,9 +173,9 @@ describe('Auth Middleware', () => {
         { issuer: 'db-query-portal', audience: 'db-query-portal-users' }
       );
       mockReq.headers.authorization = `Bearer ${token}`;
-      
+
       await auth.authenticate(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
       expect(mockReq.user.id).toBe('123');
       expect(mockReq.user.email).toBe('test@test.com');
@@ -182,9 +184,9 @@ describe('Auth Middleware', () => {
     it('should handle invalid token gracefully', async () => {
       const token = jwt.sign({ userId: '123' }, 'wrong-secret');
       mockReq.headers.authorization = `Bearer ${token}`;
-      
+
       await auth.authenticate(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
   });
@@ -192,16 +194,16 @@ describe('Auth Middleware', () => {
   describe('optionalAuth', () => {
     it('should pass without any authorization', async () => {
       await auth.optionalAuth(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
       expect(mockReq.user).toBeUndefined();
     });
 
     it('should pass without Bearer token', async () => {
       mockReq.headers.authorization = 'Basic token';
-      
+
       await auth.optionalAuth(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
       expect(mockReq.user).toBeUndefined();
     });
@@ -213,18 +215,18 @@ describe('Auth Middleware', () => {
         { issuer: 'db-query-portal', audience: 'db-query-portal-users' }
       );
       mockReq.headers.authorization = `Bearer ${token}`;
-      
+
       await auth.optionalAuth(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
       expect(mockReq.user.id).toBe('123');
     });
 
     it('should ignore invalid tokens silently', async () => {
       mockReq.headers.authorization = 'Bearer invalid-token';
-      
+
       await auth.optionalAuth(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
       expect(mockReq.user).toBeUndefined();
     });
@@ -232,9 +234,9 @@ describe('Auth Middleware', () => {
     it('should ignore tokens with wrong secret', async () => {
       const token = jwt.sign({ userId: '123' }, 'wrong-secret');
       mockReq.headers.authorization = `Bearer ${token}`;
-      
+
       await auth.optionalAuth(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
       expect(mockReq.user).toBeUndefined();
     });
@@ -246,9 +248,9 @@ describe('Auth Middleware', () => {
         { expiresIn: '-1s', issuer: 'db-query-portal', audience: 'db-query-portal-users' }
       );
       mockReq.headers.authorization = `Bearer ${token}`;
-      
+
       await auth.optionalAuth(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
       expect(mockReq.user).toBeUndefined();
     });
@@ -256,9 +258,9 @@ describe('Auth Middleware', () => {
     it('should handle outer try-catch errors', async () => {
       // Force an unexpected error in outer try
       mockReq.headers = null; // This will cause an error
-      
+
       await auth.optionalAuth(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
   });
@@ -266,36 +268,36 @@ describe('Auth Middleware', () => {
   describe('requireRole', () => {
     it('should fail without authenticated user', () => {
       const middleware = auth.requireRole('admin');
-      
+
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
 
     it('should fail when user role does not match', () => {
       mockReq.user = { id: '123', role: 'developer' };
       const middleware = auth.requireRole('admin');
-      
+
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(403);
     });
 
     it('should pass when user role matches', () => {
       mockReq.user = { id: '123', role: 'admin' };
       const middleware = auth.requireRole('admin');
-      
+
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
 
     it('should accept multiple roles', () => {
       mockReq.user = { id: '123', role: 'manager' };
       const middleware = auth.requireRole('admin', 'manager');
-      
+
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
 
@@ -303,9 +305,9 @@ describe('Auth Middleware', () => {
       mockReq.user = { id: '123', role: 'developer' };
       // Pass roles as separate arguments, not as an array
       const middleware = auth.requireRole('admin', 'developer');
-      
+
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
   });
@@ -314,85 +316,85 @@ describe('Auth Middleware', () => {
     it('should fail without authenticated user', () => {
       const middleware = auth.requireManagerOfPod();
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
 
     it('should pass for admin users', () => {
       mockReq.user = { id: '123', role: 'admin' };
-      
+
       const middleware = auth.requireManagerOfPod();
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
 
     it('should fail for developers', () => {
       mockReq.user = { id: '123', role: 'developer', podId: 'pod-1' };
       mockReq.body.podId = 'pod-2';
-      
+
       const middleware = auth.requireManagerOfPod();
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(403);
     });
 
     it('should pass for manager without podId in request', () => {
       mockReq.user = { id: '123', role: 'manager', email: 'manager@test.com' };
-      
+
       const middleware = auth.requireManagerOfPod();
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
 
     it('should pass for manager with matching pod in body', () => {
       mockReq.user = { id: '123', role: 'manager', email: 'manager@test.com', podId: 'pod-1' };
       mockReq.body.podId = 'pod-1';
-      
+
       const middleware = auth.requireManagerOfPod();
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
 
     it('should pass for manager with managed pod in params', () => {
       mockReq.user = { id: '123', role: 'manager', email: 'manager@test.com', podId: 'pod-1', managedPods: ['pod-1', 'pod-2'] };
       mockReq.params.podId = 'pod-2';
-      
+
       const middleware = auth.requireManagerOfPod();
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
 
     it('should pass for manager with managed pod in query', () => {
       mockReq.user = { id: '123', role: 'manager', email: 'manager@test.com', podId: 'pod-1', managedPods: ['pod-1', 'pod-3'] };
       mockReq.query.podId = 'pod-3';
-      
+
       const middleware = auth.requireManagerOfPod();
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
 
     it('should fail for manager with unmanaged pod', () => {
       mockReq.user = { id: '123', role: 'manager', email: 'manager@test.com', podId: 'pod-1', managedPods: ['pod-1'] };
       mockReq.body.podId = 'pod-5';
-      
+
       const middleware = auth.requireManagerOfPod();
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(403);
     });
 
     it('should pass when user belongs to requested pod', () => {
       mockReq.user = { id: '123', role: 'developer', podId: 'pod-1' };
       mockReq.body.podId = 'pod-1';
-      
+
       const middleware = auth.requireManagerOfPod();
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
   });
@@ -400,13 +402,13 @@ describe('Auth Middleware', () => {
   describe('generateTokens', () => {
     it('should generate access and refresh tokens', async () => {
       const user = { id: '123', email: 'test@test.com', role: 'developer' };
-      
+
       // Mock the database query for storing refresh token
       const { query } = require('../src/config/database');
       query.mockResolvedValueOnce({ rows: [] });
-      
+
       const tokens = await auth.generateTokens(user);
-      
+
       expect(tokens).toHaveProperty('accessToken');
       expect(tokens).toHaveProperty('refreshToken');
       expect(tokens).toHaveProperty('expiresIn');
@@ -414,13 +416,13 @@ describe('Auth Middleware', () => {
 
     it('should create valid JWT tokens', async () => {
       const user = { id: '123', email: 'test@test.com', role: 'admin' };
-      
+
       // Mock the database query for storing refresh token
       const { query } = require('../src/config/database');
       query.mockResolvedValueOnce({ rows: [] });
-      
+
       const tokens = await auth.generateTokens(user);
-      
+
       const decoded = jwt.verify(tokens.accessToken, TEST_SECRET);
       expect(decoded.userId).toBe('123');
       expect(decoded.email).toBe('test@test.com');
@@ -434,7 +436,7 @@ describe('Auth Middleware', () => {
         issuer: 'db-query-portal',
         audience: 'db-query-portal-users',
       });
-      
+
       // Mock the database query to return a valid token record
       const { query } = require('../src/config/database');
       query.mockResolvedValueOnce({
@@ -446,9 +448,9 @@ describe('Auth Middleware', () => {
           name: 'Test User',
         }],
       });
-      
+
       const decoded = await auth.verifyRefreshToken(token);
-      
+
       expect(decoded.userId).toBe('123');
     });
 
@@ -459,7 +461,7 @@ describe('Auth Middleware', () => {
 
     it('should throw error for token signed with wrong secret', async () => {
       const token = jwt.sign({ userId: '123' }, 'wrong-secret');
-      
+
       // Use expect().rejects.toThrow() for async functions
       await expect(auth.verifyRefreshToken(token)).rejects.toThrow();
     });
@@ -480,7 +482,7 @@ describe('Auth Middleware - Additional Coverage', () => {
     jest.clearAllMocks();
     jest.resetModules();
     auth = require('../src/middleware/auth');
-    
+
     mockReq = {
       headers: {},
       body: {},
@@ -499,7 +501,7 @@ describe('Auth Middleware - Additional Coverage', () => {
     it('should fail without authenticated user', () => {
       const middleware = auth.authorizeMinRole('manager');
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
     });
 
@@ -507,7 +509,7 @@ describe('Auth Middleware - Additional Coverage', () => {
       mockReq.user = { id: '123', role: 'developer' };
       const middleware = auth.authorizeMinRole('manager');
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(403);
     });
 
@@ -515,7 +517,7 @@ describe('Auth Middleware - Additional Coverage', () => {
       mockReq.user = { id: '123', role: 'admin' };
       const middleware = auth.authorizeMinRole('manager');
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
 
@@ -523,7 +525,7 @@ describe('Auth Middleware - Additional Coverage', () => {
       mockReq.user = { id: '123', role: 'manager' };
       const middleware = auth.authorizeMinRole('manager');
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockNext).toHaveBeenCalled();
     });
 
@@ -531,7 +533,7 @@ describe('Auth Middleware - Additional Coverage', () => {
       mockReq.user = { id: '123', role: 'unknown' };
       const middleware = auth.authorizeMinRole('developer');
       middleware(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(403);
     });
   });
@@ -569,9 +571,9 @@ describe('Auth Middleware - Additional Coverage', () => {
   describe('logout', () => {
     it('should logout successfully', async () => {
       const { query } = require('../src/config/database');
-      query.mockResolvedValueOnce({ 
-        rowCount: 1, 
-        rows: [{ user_id: '123' }] 
+      query.mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [{ user_id: '123' }]
       });
 
       const result = await auth.logout('valid-refresh-token');
@@ -763,7 +765,7 @@ describe('Auth Middleware - Error Handling Coverage', () => {
     jest.clearAllMocks();
     jest.resetModules();
     auth = require('../src/middleware/auth');
-    
+
     mockReq = {
       headers: {},
       body: {},
@@ -783,9 +785,9 @@ describe('Auth Middleware - Error Handling Coverage', () => {
       // The authenticate middleware catches errors and returns 401
       // For generic errors (not AuthenticationError), it returns 'Authentication failed'
       mockReq.headers.authorization = 'Bearer invalid-token';
-      
+
       await auth.authenticate(mockReq, mockRes, mockNext);
-      
+
       expect(mockRes.status).toHaveBeenCalledWith(401);
       expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
         status: 'fail',
@@ -894,7 +896,7 @@ describe('Auth Middleware - Token Blacklist Coverage', () => {
     jest.clearAllMocks();
     jest.resetModules();
     auth = require('../src/middleware/auth');
-    
+
     mockReq = {
       headers: {},
       body: {},
@@ -951,13 +953,13 @@ describe('Auth Middleware - Token Blacklist Coverage', () => {
     it('should blacklist a valid token', async () => {
       const { query } = require('../src/config/database');
       const jwt = require('jsonwebtoken');
-      
+
       const token = jwt.sign(
         { userId: '123', email: 'test@test.com' },
         TEST_SECRET,
         { expiresIn: '1h' }
       );
-      
+
       query.mockResolvedValueOnce({ rows: [] });
 
       await auth.blacklistAccessToken(token, '123');
@@ -968,10 +970,10 @@ describe('Auth Middleware - Token Blacklist Coverage', () => {
     it('should handle token without exp claim', async () => {
       const { query } = require('../src/config/database');
       const jwt = require('jsonwebtoken');
-      
+
       // Create token without expiration
       const token = jwt.sign({ userId: '123' }, TEST_SECRET, { noTimestamp: true });
-      
+
       await auth.blacklistAccessToken(token, '123');
 
       // Should not call query since token has no exp
@@ -986,13 +988,13 @@ describe('Auth Middleware - Token Blacklist Coverage', () => {
     it('should handle database error gracefully', async () => {
       const { query } = require('../src/config/database');
       const jwt = require('jsonwebtoken');
-      
+
       const token = jwt.sign(
         { userId: '123' },
         TEST_SECRET,
         { expiresIn: '1h' }
       );
-      
+
       query.mockRejectedValueOnce(new Error('Database error'));
 
       // Should not throw
@@ -1094,15 +1096,15 @@ describe('Auth Middleware - Token Blacklist Coverage', () => {
     it('should reject blacklisted token', async () => {
       const { query } = require('../src/config/database');
       const jwt = require('jsonwebtoken');
-      
+
       const token = jwt.sign(
         { userId: '123', email: 'test@test.com', role: 'developer', podId: 'pod-1' },
         TEST_SECRET,
         { issuer: 'db-query-portal', audience: 'db-query-portal-users' }
       );
-      
+
       mockReq.headers.authorization = `Bearer ${token}`;
-      
+
       // Mock blacklist check - token IS blacklisted
       query.mockResolvedValueOnce({ rows: [{ id: 1 }] });
 
@@ -1117,15 +1119,15 @@ describe('Auth Middleware - Token Blacklist Coverage', () => {
     it('should reject token when user tokens are invalidated', async () => {
       const { query } = require('../src/config/database');
       const jwt = require('jsonwebtoken');
-      
+
       const token = jwt.sign(
         { userId: '123', email: 'test@test.com', role: 'developer', podId: 'pod-1', iat: Math.floor(Date.now() / 1000) - 3600 },
         TEST_SECRET,
         { issuer: 'db-query-portal', audience: 'db-query-portal-users' }
       );
-      
+
       mockReq.headers.authorization = `Bearer ${token}`;
-      
+
       // Mock blacklist check - token is NOT blacklisted
       query.mockResolvedValueOnce({ rows: [] });
       // Mock user invalidation check - user tokens ARE invalidated
@@ -1142,15 +1144,15 @@ describe('Auth Middleware - Token Blacklist Coverage', () => {
     it('should pass when token is not blacklisted', async () => {
       const { query } = require('../src/config/database');
       const jwt = require('jsonwebtoken');
-      
+
       const token = jwt.sign(
         { userId: '123', email: 'test@test.com', role: 'developer', podId: 'pod-1' },
         TEST_SECRET,
         { issuer: 'db-query-portal', audience: 'db-query-portal-users' }
       );
-      
+
       mockReq.headers.authorization = `Bearer ${token}`;
-      
+
       // Mock blacklist check - token is NOT blacklisted
       query.mockResolvedValueOnce({ rows: [] });
       // Mock user invalidation check - user tokens are NOT invalidated
@@ -1168,13 +1170,13 @@ describe('Auth Middleware - Token Blacklist Coverage', () => {
     it('should blacklist access token on logout', async () => {
       const { query } = require('../src/config/database');
       const jwt = require('jsonwebtoken');
-      
+
       const accessToken = jwt.sign(
         { userId: '123' },
         TEST_SECRET,
         { expiresIn: '1h' }
       );
-      
+
       // Mock refresh token revocation
       query.mockResolvedValueOnce({ rowCount: 1, rows: [{ user_id: '123' }] });
       // Mock access token blacklist insert
@@ -1189,13 +1191,13 @@ describe('Auth Middleware - Token Blacklist Coverage', () => {
     it('should still succeed if only access token is provided', async () => {
       const { query } = require('../src/config/database');
       const jwt = require('jsonwebtoken');
-      
+
       const accessToken = jwt.sign(
         { userId: '123' },
         TEST_SECRET,
         { expiresIn: '1h' }
       );
-      
+
       // Mock refresh token revocation - not found
       query.mockResolvedValueOnce({ rowCount: 0, rows: [] });
       // Mock access token blacklist insert
