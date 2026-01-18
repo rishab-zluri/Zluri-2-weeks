@@ -1,0 +1,1775 @@
+
+> db-query-portal-backend@1.0.0 test
+> jest --detectOpenHandles --forceExit --coverage --no-cache
+
+PASS tests/scriptExecutionService.test.ts (7.626 s)
+  Script Execution Service - Child Process Implementation
+    Sandbox Implementation
+      ✓ should use child_process.fork for isolation (not VM2) (1 ms)
+      ✓ should have EXECUTION_CONFIG with timeout
+      ✓ should export EXECUTION_CONFIG (1 ms)
+    Script Execution
+      ✓ should fork a child process for script execution (32 ms)
+      ✓ should send script to child process after ready signal (73 ms)
+      ✓ should handle child process result (24 ms)
+    Error Handling
+      ✓ should handle child process error (12 ms)
+      ✓ should handle child process exit with non-zero code (13 ms)
+      ✓ should handle SIGTERM signal (timeout kill) (12 ms)
+      ✓ should handle script execution failure from child (23 ms)
+      ✓ should handle missing instanceId (1 ms)
+      ✓ should handle empty script
+      ✓ should handle null script
+      ✓ should handle undefined script content (2 ms)
+      ✓ should handle non-string script content (1 ms)
+      ✓ should reject script larger than 1MB (1 ms)
+      ✓ should catch script syntax errors (35 ms)
+    Instance Validation
+      ✓ should fail for PostgreSQL instance missing host (22 ms)
+      ✓ should fail for MongoDB instance missing URI (23 ms)
+    Script Validation
+      ✓ should detect dangerous patterns (2 ms)
+      ✓ should pass clean scripts (1 ms)
+      ✓ should detect fs module usage as error
+      ✓ should detect drop() usage as risk warning (1 ms)
+      ✓ should detect dropDatabase() usage as risk warning (1 ms)
+      ✓ should detect deleteMany({}) as risk warning
+      ✓ should detect updateMany({}, ...) as risk warning (1 ms)
+      ✓ should detect dropIndexes() as risk warning (1 ms)
+      ✓ should detect createIndex() as risk warning
+      ✓ should detect dropIndex() as risk warning (1 ms)
+      ✓ should return syntax error for invalid script (1 ms)
+      ✓ should detect require() as error (1 ms)
+      ✓ should detect process. as error
+      ✓ should detect eval() as error (1 ms)
+      ✓ should detect Function() as error (1 ms)
+    cleanupTempDirectory
+      ✓ should handle null tempDir (1 ms)
+      ✓ should handle undefined tempDir
+      ✓ should handle cleanup error gracefully (2 ms)
+    Database Type Handling
+      ✓ should handle PostgreSQL database type (23 ms)
+      ✓ should handle MongoDB database type (22 ms)
+    Output and Summary
+      ✓ should include execution metadata (22 ms)
+      ✓ should include duration (22 ms)
+      ✓ should build execution summary for queries (22 ms)
+  Child Process Isolation Benefits
+    ✓ should provide true OS-level isolation (separate process) (1 ms)
+    ✓ should be able to kill hung processes (13 ms)
+    ✓ should not block parent event loop (23 ms)
+    ✓ should use built-in Node.js module (no CVE-prone dependencies) (1 ms)
+  Script Execution Service - Additional Branch Coverage
+    ✓ should handle timeout when child process does not respond (5104 ms)
+    ✓ should handle already resolved state in handleResult (26 ms)
+    ✓ should cleanup timeout on successful result (24 ms)
+    ✓ should handle exit with SIGKILL signal (15 ms)
+    ✓ should handle exit after already resolved (24 ms)
+    ✓ should handle error after already resolved (25 ms)
+    ✓ should handle normal exit code 0 after resolved (25 ms)
+  Script Execution Service - Result Handling Branches
+    ✓ should handle result with no output array (26 ms)
+    ✓ should handle result with null output (24 ms)
+    ✓ should handle failed result with error object (25 ms)
+    ✓ should handle failed result with null error (24 ms)
+  Script Execution Service - Summary Building Branches
+    ✓ should handle query with zero rowCount (24 ms)
+    ✓ should handle query with undefined rowCount (25 ms)
+    ✓ should handle non-SELECT query with rowCount (24 ms)
+    ✓ should handle operation without count fields (25 ms)
+  Script Execution Service - Worker Path & Stderr Coverage
+    ✓ should handle worker stderr output (20 ms)
+
+PASS tests/authMiddleware.test.ts
+  Auth Middleware
+    authenticate
+      ✓ should fail with no authorization header (156 ms)
+      ✓ should fail with invalid header format (10 ms)
+      ✓ should fail with expired token (13 ms)
+      ✓ should fail with malformed token (12 ms)
+      ✓ should fail with token signed with wrong secret (11 ms)
+      ✓ should fail with token missing issuer (18 ms)
+      ✓ should fail with expired token (11 ms)
+      ✓ should pass with valid token and active user (11 ms)
+      ✓ should handle invalid token gracefully (10 ms)
+    optionalAuth
+      ✓ should pass without any authorization (10 ms)
+      ✓ should pass without Bearer token (9 ms)
+      ✓ should attach user with valid token (10 ms)
+      ✓ should ignore invalid tokens silently (10 ms)
+      ✓ should ignore tokens with wrong secret (10 ms)
+      ✓ should ignore expired tokens (10 ms)
+      ✓ should handle outer try-catch errors (10 ms)
+    requireRole
+      ✓ should fail without authenticated user (10 ms)
+      ✓ should fail when user role does not match (9 ms)
+      ✓ should pass when user role matches (9 ms)
+      ✓ should accept multiple roles (10 ms)
+      ✓ should handle array of roles (17 ms)
+    requireManagerOfPod
+      ✓ should fail without authenticated user (10 ms)
+      ✓ should pass for admin users (6 ms)
+      ✓ should fail for developers (6 ms)
+      ✓ should pass for manager without podId in request (6 ms)
+      ✓ should pass for manager with matching pod in body (10 ms)
+      ✓ should pass for manager with managed pod in params (14 ms)
+      ✓ should pass for manager with managed pod in query (19 ms)
+      ✓ should fail for manager with unmanaged pod (26 ms)
+      ✓ should pass when user belongs to requested pod (10 ms)
+    generateTokens
+      ✓ should generate access and refresh tokens (11 ms)
+      ✓ should create valid JWT tokens (10 ms)
+    verifyRefreshToken
+      ✓ should verify valid refresh token (11 ms)
+      ✓ should throw error for invalid refresh token (30 ms)
+      ✓ should throw error for token signed with wrong secret (10 ms)
+  Auth Middleware - Additional Coverage
+    authorizeMinRole
+      ✓ should fail without authenticated user (11 ms)
+      ✓ should fail when user role level is insufficient (10 ms)
+      ✓ should pass when user role level is sufficient (10 ms)
+      ✓ should pass when user role matches exactly (9 ms)
+      ✓ should handle unknown role (10 ms)
+    refreshTokens
+      ✓ should refresh tokens successfully (7 ms)
+    logout
+      ✓ should logout successfully (6 ms)
+      ✓ should fail when token not found (10 ms)
+      ✓ should handle null result (9 ms)
+    logoutAll
+      ✓ should logout from all devices (6 ms)
+      ✓ should handle null result (7 ms)
+    getActiveSessions
+      ✓ should get active sessions (7 ms)
+      ✓ should handle null result (6 ms)
+      ✓ should handle result with no rows (17 ms)
+    revokeSession
+      ✓ should revoke session successfully (9 ms)
+      ✓ should return false when session not found (6 ms)
+      ✓ should handle null result (7 ms)
+    cleanupExpiredTokens
+      ✓ should cleanup expired tokens (9 ms)
+      ✓ should handle null result (9 ms)
+      ✓ should handle zero deletions (6 ms)
+    verifyRefreshToken - additional cases
+      ✓ should throw for expired refresh token (6 ms)
+      ✓ should throw when token not found in database (7 ms)
+      ✓ should throw when result is null (6 ms)
+  Auth Middleware - Error Handling Coverage
+    authenticate - generic error handling (lines 179-184)
+      ✓ should handle generic errors that are not AuthenticationError (7 ms)
+    logout - error handling (lines 423-424)
+      ✓ should throw error when database query fails (6 ms)
+    logoutAll - error handling (lines 451-452)
+      ✓ should throw error when database query fails (7 ms)
+    extractTokenFromHeader edge cases
+      ✓ should return null for empty authorization header (6 ms)
+      ✓ should return null for single word header (6 ms)
+      ✓ should return null for three word header (15 ms)
+      ✓ should return null for non-bearer scheme (9 ms)
+      ✓ should return token for valid bearer header (8 ms)
+      ✓ should be case insensitive for bearer (6 ms)
+    hashToken
+      ✓ should hash token consistently (6 ms)
+      ✓ should produce different hashes for different tokens (7 ms)
+    ROLES and ROLE_HIERARCHY exports
+      ✓ should export ROLES (6 ms)
+      ✓ should export ROLE_HIERARCHY (6 ms)
+      ✓ should export JWT_CONFIG (6 ms)
+  Auth Middleware - Token Blacklist Coverage
+    isTokenBlacklisted
+      ✓ should return true when token is blacklisted (6 ms)
+      ✓ should return false when token is not blacklisted (7 ms)
+      ✓ should return false when result is null (6 ms)
+      ✓ should return false when rows is null (6 ms)
+    blacklistAccessToken
+      ✓ should blacklist a valid token (6 ms)
+      ✓ should handle token without exp claim (6 ms)
+      ✓ should handle invalid token gracefully (7 ms)
+      ✓ should handle database error gracefully (9 ms)
+    blacklistAllUserTokens
+      ✓ should invalidate all user tokens (9 ms)
+      ✓ should handle database error gracefully (17 ms)
+    areUserTokensInvalidated
+      ✓ should return true when tokens are invalidated (10 ms)
+      ✓ should return false when tokens are not invalidated (9 ms)
+      ✓ should return false on database error (6 ms)
+    cleanupBlacklist
+      ✓ should cleanup expired blacklist entries (6 ms)
+      ✓ should handle zero deletions (6 ms)
+      ✓ should handle database error gracefully (6 ms)
+      ✓ should handle null result (7 ms)
+    authenticate with blacklist check
+      ✓ should reject blacklisted token (8 ms)
+      ✓ should reject token when user tokens are invalidated (6 ms)
+      ✓ should pass when token is not blacklisted (6 ms)
+    logout with access token blacklisting
+      ✓ should blacklist access token on logout (10 ms)
+      ✓ should still succeed if only access token is provided (9 ms)
+
+2026-01-18 14:59:54 [[32minfo[39m]: Query request submitted {"userId":"user-123"}
+2026-01-18 14:59:54 [[32minfo[39m]: Query request submitted {"userId":"user-123"}
+2026-01-18 14:59:54 [[32minfo[39m]: Query request submitted {"userId":"user-123"}
+2026-01-18 14:59:54 [[31merror[39m]: Submit request error {"error":"fail"}
+2026-01-18 14:59:54 [[31merror[39m]: Get request error {"error":"fail"}
+2026-01-18 14:59:54 [[31merror[39m]: Get all requests error {"error":"undefined is not iterable (cannot read property Symbol(Symbol.iterator))"}
+2026-01-18 14:59:54 [[31merror[39m]: Get all requests error {"error":"undefined is not iterable (cannot read property Symbol(Symbol.iterator))"}
+2026-01-18 14:59:54 [[31merror[39m]: Get all requests error {"error":"fail"}
+2026-01-18 14:59:54 [[32minfo[39m]: Request approved {"requestId":1,"uuid":"u1","approverId":"user-123"}
+2026-01-18 14:59:54 [[32minfo[39m]: Query executed successfully {"requestId":1,"uuid":"u1"}
+2026-01-18 14:59:54 [[32minfo[39m]: Request approved {"requestId":1,"uuid":"u1","approverId":"user-123"}
+2026-01-18 14:59:54 [[32minfo[39m]: Query executed successfully {"requestId":1,"uuid":"u1"}
+2026-01-18 14:59:54 [[32minfo[39m]: Request approved {"requestId":1,"uuid":"u1","approverId":"user-123"}
+2026-01-18 14:59:54 [[31merror[39m]: Query execution failed {"requestId":1,"uuid":"u1","error":"Logic fail"}
+2026-01-18 14:59:54 [[32minfo[39m]: Request approved {"requestId":1,"uuid":"u1","approverId":"user-123"}
+2026-01-18 14:59:54 [[31merror[39m]: Query execution failed {"requestId":1,"uuid":"u1","error":"Crash"}
+2026-01-18 14:59:54 [[31merror[39m]: Approve request error {"error":"fail"}
+2026-01-18 14:59:54 [[32minfo[39m]: Request rejected {"requestId":1,"uuid":"u1","rejectorId":"user-123","reason":"No"}
+2026-01-18 14:59:54 [[31merror[39m]: Reject request error {"error":"fail"}
+2026-01-18 14:59:54 [[32minfo[39m]: Request cloned {"originalUuid":"u1","newUuid":"e9d3d00e-d68f-4268-bb1c-09052ce15a6a","userId":"user-123"}
+2026-01-18 14:59:54 [[31merror[39m]: Clone request error {"error":"fail"}
+2026-01-18 14:59:54 [[31merror[39m]: Get my status counts error {"error":"fail"}
+2026-01-18 14:59:54 [[31merror[39m]: Error fetching stats {"error":"fail"}
+2026-01-18 14:59:54 [[31merror[39m]: Get pods error {"error":"fail"}
+2026-01-18 14:59:54 [[31merror[39m]: Analyze query error {"error":"fail"}
+PASS tests/queryController.test.ts
+  Query Controller
+    submitRequest
+      ✓ should submit a query request successfully (4 ms)
+      ✓ should return 400 for invalid instance (1 ms)
+      ✓ should return 400 for invalid database in instance (5 ms)
+      ✓ should return 400 for invalid pod (1 ms)
+      ✓ should handle script submission with uploaded file (1 ms)
+      ✓ should handle script submission with content in body (1 ms)
+      ✓ should return 400 if script content missing
+      ✓ should return 500 on unexpected error (1 ms)
+    getRequest
+      ✓ should get request for owner (1 ms)
+      ✓ should return 404 if not found
+      ✓ should deny access for developer viewing others request (1 ms)
+      ✓ should allow manager to view request in managed pod
+      ✓ should deny manager viewing request in unmanaged pod (1 ms)
+      ✓ should return 500 on error (1 ms)
+    getAllRequests (and wrappers)
+      ✓ should get my requests (1 ms)
+      ✓ should get pending requests (1 ms)
+      ✓ should filter requests generically (admin) (1 ms)
+      ✓ should enforce manager pod restrictions when filtering
+      ✓ should exclude own requests if flag set (1 ms)
+      ✓ should handle comma separated filters for db type and submission type
+      ✓ should return 500 on error (1 ms)
+    approveRequest
+      ✓ should approve and execute query request (2 ms)
+      ✓ should execute script if type is SCRIPT (1 ms)
+      ✓ should handle execution logic failure (success: false return) (1 ms)
+      ✓ should handle exception during execution (1 ms)
+      ✓ should return 404 if request not found (1 ms)
+      ✓ should return 400 if request not pending
+      ✓ should enforce manager authorization (1 ms)
+      ✓ should return 500 on unexpected error
+    rejectRequest
+      ✓ should reject request successfully (1 ms)
+      ✓ should return 404 if not found
+      ✓ should return 400 if not pending (1 ms)
+      ✓ should enforce manager authorization
+      ✓ should return 500 on error (1 ms)
+    cloneRequest
+      ✓ should clone request successfully (1 ms)
+      ✓ should return 403 if cloning others request (1 ms)
+      ✓ should return 404 if not found
+      ✓ should return 500 on error (1 ms)
+    getMyStatusCounts
+      ✓ should return status counts
+      ✓ should return 500 on error (1 ms)
+    getStats
+      ✓ should return stats (1 ms)
+      ✓ should return 500 on error (1 ms)
+    Config getters
+      ✓ getInstances should return all instances
+      ✓ getInstances should filter by type (1 ms)
+      ✓ getDatabases should return dbs for instance
+      ✓ getDatabases should 404 if instance not found (1 ms)
+      ✓ getPods should return all active pods
+      ✓ getPods should return managed pods for approval view (1 ms)
+      ✓ getPods should return 500 on error (1 ms)
+    analyzeQueryContent
+      ✓ should analyze query successfully
+      ✓ should return 400 for missing fields (1 ms)
+      ✓ should return 500 on error (1 ms)
+
+PASS tests/securityPenetration.test.ts
+  Security & Penetration Testing Suite
+    SQL Injection Prevention
+      ✓ should reject SQL injection in query content (2 ms)
+      ✓ should sanitize user inputs
+    NoSQL Injection Prevention
+      ✓ should reject NoSQL injection attempts (1 ms)
+      ✓ should validate MongoDB query format
+    XSS Prevention
+      ✓ should escape HTML in user inputs
+      ✓ should sanitize comments field (1 ms)
+    Authentication Security
+      ✓ should reject invalid JWT tokens (1 ms)
+      ✓ should reject expired tokens (7 ms)
+      ✓ should reject tokens with wrong secret (1 ms)
+      ✓ should validate password strength (1 ms)
+      ✓ should hash passwords securely (150 ms)
+    Authorization Security
+      ✓ should enforce role-based access control (1 ms)
+      ✓ should validate pod membership for managers
+    Input Validation
+      ✓ should validate email format
+      ✓ should validate UUID format (1 ms)
+      ✓ should limit query length
+      ✓ should validate file extensions for scripts (1 ms)
+    Rate Limiting
+      ✓ should track request counts per user (2 ms)
+    File Upload Security
+      ✓ should validate file size limits (1 ms)
+      ✓ should validate MIME types
+      ✓ should detect malicious file content (1 ms)
+    Session Security
+      ✓ should generate secure session tokens (2 ms)
+      ✓ should validate session expiration (1 ms)
+    Security Headers
+      ✓ should define required security headers
+    Data Sanitization
+      ✓ should remove sensitive data from logs (1 ms)
+      ✓ should sanitize database connection strings
+    Query Execution Safety
+      ✓ should detect dangerous SQL commands (1 ms)
+      ✓ should limit query execution time (1 ms)
+    Environment Security
+      ✓ should not expose sensitive env variables in code
+      ✓ should validate production environment settings (1 ms)
+  Production Readiness Tests
+    Error Handling
+      ✓ should not expose stack traces in production
+    Logging
+      ✓ should have appropriate log levels (1 ms)
+    Database Connection
+      ✓ should implement connection pooling
+    Health Checks
+      ✓ should define health check endpoint response
+    Graceful Shutdown
+      ✓ should define shutdown procedure (1 ms)
+
+PASS tests/queryAnalysisService.test.ts
+  Query Analysis Service
+    analyzeQuery
+      ✓ should return error for null query (1 ms)
+      ✓ should return error for empty query
+      ✓ should return error for unsupported database type
+      ✓ should route to PostgreSQL analyzer (2 ms)
+      ✓ should route to MongoDB analyzer (1 ms)
+    PostgreSQL Analysis
+      DDL Operations
+        ✓ should classify DROP DATABASE as CRITICAL (1 ms)
+        ✓ should classify DROP TABLE as CRITICAL
+        ✓ should classify TRUNCATE as CRITICAL (1 ms)
+        ✓ should classify DROP SCHEMA CASCADE as CRITICAL
+        ✓ should classify ALTER TABLE DROP COLUMN as HIGH
+        ✓ should classify ALTER COLUMN TYPE as HIGH
+        ✓ should classify ALTER TABLE RENAME as MEDIUM
+        ✓ should classify CREATE INDEX as MEDIUM (1 ms)
+        ✓ should classify DROP INDEX as MEDIUM
+        ✓ should classify CREATE TABLE as LOW (1 ms)
+        ✓ should classify ALTER TABLE ADD COLUMN as LOW
+      DML Operations
+        ✓ should classify DELETE without WHERE as CRITICAL (1 ms)
+        ✓ should classify DELETE with WHERE as HIGH
+        ✓ should classify UPDATE without WHERE as CRITICAL
+        ✓ should classify UPDATE with WHERE as HIGH (1 ms)
+        ✓ should classify INSERT as MEDIUM
+        ✓ should classify UPSERT as MEDIUM (1 ms)
+      DQL Operations
+        ✓ should classify SELECT as SAFE
+        ✓ should classify SELECT FOR UPDATE as LOW (1 ms)
+        ✓ should classify EXPLAIN as SAFE
+      DCL Operations
+        ✓ should classify GRANT as HIGH (1 ms)
+        ✓ should classify REVOKE as HIGH
+      TCL Operations
+        ✓ should classify COMMIT as LOW
+        ✓ should classify ROLLBACK as LOW (1 ms)
+      Warnings
+        ✓ should warn about CASCADE
+        ✓ should warn about multiple statements (1 ms)
+        ✓ should warn about SELECT without LIMIT (only for multiple selects)
+      Unknown queries
+        ✓ should mark unrecognized queries as UNKNOWN with MEDIUM risk (1 ms)
+    MongoDB Analysis
+      Admin Operations
+        ✓ should classify dropDatabase as CRITICAL
+        ✓ should classify drop collection as CRITICAL (1 ms)
+        ✓ should classify renameCollection as MEDIUM
+      Write Operations
+        ✓ should classify deleteMany with empty filter as CRITICAL (1 ms)
+        ✓ should classify deleteMany with filter as HIGH
+        ✓ should classify deleteOne as MEDIUM (1 ms)
+        ✓ should classify updateMany with empty filter as CRITICAL
+        ✓ should classify updateMany with filter as HIGH (1 ms)
+        ✓ should classify updateOne as MEDIUM
+        ✓ should classify insertOne as LOW (1 ms)
+        ✓ should classify insertMany as MEDIUM
+        ✓ should classify bulkWrite as HIGH (1 ms)
+        ✓ should classify replaceOne as MEDIUM
+        ✓ should classify findOneAndDelete as MEDIUM
+        ✓ should classify findOneAndUpdate as MEDIUM (1 ms)
+        ✓ should classify findOneAndReplace as MEDIUM
+        ✓ should classify remove with empty filter as CRITICAL (1 ms)
+      Read Operations
+        ✓ should classify find as SAFE
+        ✓ should classify findOne as SAFE (1 ms)
+        ✓ should classify countDocuments as SAFE
+        ✓ should classify estimatedDocumentCount as SAFE
+        ✓ should classify distinct as SAFE (1 ms)
+      Index Operations
+        ✓ should classify createIndex as MEDIUM
+        ✓ should classify dropIndex as MEDIUM (1 ms)
+        ✓ should classify dropIndexes as HIGH
+        ✓ should classify reIndex as MEDIUM
+      Aggregation Operations
+        ✓ should classify aggregate as SAFE
+        ✓ should classify aggregate with $out as HIGH
+        ✓ should classify aggregate with $merge as HIGH (1 ms)
+      Warnings
+        ✓ should warn about empty filter in deleteMany
+        ✓ should warn about $out (1 ms)
+        ✓ should warn about find without limit (for multiple finds)
+        ✓ should warn about $where (1 ms)
+      Unknown queries
+        ✓ should mark unrecognized MongoDB queries as UNKNOWN with MEDIUM risk
+      Duplicate operation handling
+        ✓ should not add duplicate operations for queries matching multiple patterns (1 ms)
+    getRiskBadge
+      ✓ should return correct badge for CRITICAL
+      ✓ should return correct badge for HIGH (1 ms)
+      ✓ should return correct badge for MEDIUM
+      ✓ should return correct badge for LOW (1 ms)
+      ✓ should return correct badge for SAFE
+      ✓ should return UNKNOWN badge for unknown risk level
+    Recommendations
+      ✓ should recommend backup for CRITICAL operations (1 ms)
+      ✓ should recommend SELECT first for DELETE
+      ✓ should recommend notifying teams for DDL
+      ✓ should recommend scheduling for index operations
+    Summary Generation
+      ✓ should generate summary with risk level
+      ✓ should generate summary with operation name (1 ms)
+      ✓ should generate summary with impact
+      ✓ should handle empty operations array in generateSummary
+
+PASS tests/authController.test.ts
+  Auth Controller
+    register
+      ✓ should register a new user successfully (1 ms)
+      ✓ should fail if user already exists (1 ms)
+      ✓ should handle registration errors (1 ms)
+    login
+      ✓ should login successfully
+      ✓ should fail validation on missing fields (1 ms)
+      ✓ should handle failed login attempts
+      ✓ should handle unexpected errors (1 ms)
+    refreshToken
+      ✓ should refresh token successfully
+      ✓ should fail if no refresh token provided (1 ms)
+      ✓ should fail if invalid token
+      ✓ should handle service errors (1 ms)
+    getProfile
+      ✓ should return user profile
+      ✓ should fail if user not attached to request (1 ms)
+      ✓ should fail if user not found in DB
+      ✓ should handle DB errors (1 ms)
+    updateProfile
+      ✓ should update profile successfully
+      ✓ should fail if user not found (1 ms)
+      ✓ should handle auth error
+      ✓ should handle DB error (1 ms)
+    changePassword
+      ✓ should change password successfully
+      ✓ should fail validation (short password) (1 ms)
+      ✓ should fail if current password incorrect
+      ✓ should handle missing user (1 ms)
+      ✓ should handle missing fields
+      ✓ should handle DB missing user (1 ms)
+      ✓ should handle errors
+    logout
+      ✓ should logout successfully with token (1 ms)
+      ✓ should blacklist access token if present
+      ✓ should handle no refresh token (still clears cookies) (1 ms)
+      ✓ should handle logout errors gracefully
+    logoutAll
+      ✓ should logout all sessions (1 ms)
+      ✓ should fail if no user context
+      ✓ should handle errors
+    getSessions
+      ✓ should return sessions (1 ms)
+      ✓ should fail if no user
+      ✓ should handle errors (1 ms)
+    revokeSession
+      ✓ should revoke session
+      ✓ should fail if session not found (1 ms)
+      ✓ should fail if no user
+      ✓ should handle errors (1 ms)
+
+PASS tests/uploadMiddleware.test.ts
+  Upload Middleware
+    handleScriptUpload
+      error handling
+        ✓ should handle LIMIT_FILE_SIZE error (1 ms)
+        ✓ should handle LIMIT_UNEXPECTED_FILE error
+        ✓ should handle generic multer error (1 ms)
+        ✓ should handle ValidationError
+        ✓ should handle generic error (1 ms)
+      no file scenarios
+        ✓ should return error when submissionType is script but no file or content
+        ✓ should proceed when scriptContent exists in body (7 ms)
+        ✓ should proceed when submissionType is not script (1 ms)
+      file processing
+        ✓ should create scriptInfo from uploaded file
+        ✓ should detect dangerous patterns and add warnings (1 ms)
+        ✓ should handle Python files
+    validateScriptContent
+      ✓ should call next when no file and submissionType is not script (1 ms)
+      ✓ should return error when submissionType is script but no file
+      ✓ should create scriptInfo when file is present (1 ms)
+      ✓ should detect dangerous patterns
+    handleUpload (legacy)
+      ✓ should be a function (1 ms)
+    cleanupFile
+      ✓ should delete file if it exists
+      ✓ should not throw if file does not exist (1 ms)
+      ✓ should ignore errors during cleanup
+    file filter
+      ✓ should accept .js files (1 ms)
+      ✓ should accept .py files
+      ✓ should reject other file types
+  Upload Middleware Integration
+    handleScriptUpload callback simulation
+      ✓ should handle LIMIT_FILE_SIZE error (1 ms)
+      ✓ should handle LIMIT_UNEXPECTED_FILE error
+      ✓ should handle other multer errors (1 ms)
+      ✓ should handle ValidationError
+      ✓ should handle generic error (1 ms)
+      ✓ should return MISSING_SCRIPT when no file and script submission
+      ✓ should call next when no file but has scriptContent (1 ms)
+      ✓ should call next when no file and not script submission
+      ✓ should create scriptInfo with no warnings for safe script (1 ms)
+      ✓ should create scriptInfo with warnings for dangerous script
+
+PASS tests/databaseSyncService.test.ts
+  Database Sync Service
+    getSyncStatus
+      ✓ should return sync status (1 ms)
+    getBlacklist
+      ✓ should get blacklist patterns (1 ms)
+    isBlacklisted
+      ✓ should match exact pattern
+      ✓ should match prefix pattern (1 ms)
+      ✓ should match regex pattern
+      ✓ should handle invalid regex pattern (1 ms)
+      ✓ should return false for empty blacklist
+    syncInstanceDatabases
+      ✓ should sync PostgreSQL databases successfully (1 ms)
+      ✓ should sync MongoDB databases successfully (1 ms)
+      ✓ should handle unknown instance type
+      ✓ should filter blacklisted databases (1 ms)
+      ✓ should handle sync error
+    syncAllDatabases
+      ✓ should sync all active instances (1 ms)
+      ✓ should handle mixed success and failure
+    getInstances
+      ✓ should get all instances (1 ms)
+      ✓ should filter by type
+    getDatabasesForInstance
+      ✓ should get databases for instance (1 ms)
+    getInstanceById
+      ✓ should get instance by ID
+      ✓ should return null when not found (1 ms)
+    getSyncHistory
+      ✓ should get sync history
+      ✓ should respect limit parameter
+    Blacklist Management
+      addToBlacklist
+        ✓ should add pattern to blacklist (1 ms)
+      removeFromBlacklist
+        ✓ should remove pattern from blacklist
+        ✓ should return false when not found (1 ms)
+      getBlacklistEntries
+        ✓ should get all blacklist entries
+    Periodic Sync
+      ✓ should start periodic sync (2 ms)
+      ✓ should not start if already running
+      ✓ should stop periodic sync (1 ms)
+    SYNC_CONFIG
+      ✓ should export SYNC_CONFIG (1 ms)
+  Database Sync Service - Error Handling Coverage
+    startPeriodicSync - error handling in callbacks (lines 515-518, 524-527)
+      ✓ should handle startup sync error gracefully
+      ✓ should handle scheduled sync error gracefully (1 ms)
+    MongoDB connection string building
+      ✓ should build connection string without credentials (1 ms)
+    syncInstanceDatabases - deactivation edge cases
+      ✓ should skip deactivation when no databases found (1 ms)
+    closeSyncPools
+      ✓ should close all sync pools
+
+PASS tests/databaseController.test.ts
+  Database Controller
+    getInstances
+      ✓ should return all instances (1 ms)
+      ✓ should filter by type
+      ✓ should fail with invalid type (1 ms)
+      ✓ should call next on error
+    getInstanceById
+      ✓ should return instance
+      ✓ should return 404 if not found
+      ✓ should call next on error (1 ms)
+    getDatabases
+      ✓ should return databases from sync service if instance exists
+      ✓ should fallback to static config if instance not synced (1 ms)
+      ✓ should return 404 if not found in cache OR static
+      ✓ should call next on error (1 ms)
+    syncInstance
+      ✓ should sync successfully if admin
+      ✓ should fail if not admin (1 ms)
+      ✓ should return 404 if instance not found
+      ✓ should handle sync failures (1 ms)
+      ✓ should call next on error
+    syncAll
+      ✓ should sync all successfully if admin (1 ms)
+      ✓ should fail if not admin
+      ✓ should call next on error (1 ms)
+    getSyncHistory
+      ✓ should return history
+      ✓ should call next on error (1 ms)
+    blacklist
+      getBlacklist
+        ✓ should return blacklist
+        ✓ should call next on error
+      addToBlacklist
+        ✓ should add successfully if admin (1 ms)
+        ✓ should fail if not admin
+        ✓ should fail missing pattern (1 ms)
+        ✓ should fail invalid type
+        ✓ should call next on error (1 ms)
+      removeFromBlacklist
+        ✓ should remove successfully if admin (7 ms)
+        ✓ should fail if not admin
+        ✓ should fail if not found (1 ms)
+        ✓ should call next on error
+
+2026-01-18 14:59:56 [[31merror[39m]: Server error {"error":"Test error without statusCode","path":"/test","method":"GET","body":{}}
+Error: Test error without statusCode
+    at Object.<anonymous> (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/tests/errorHandlerMiddleware.test.ts:29:26)
+    at Promise.then.completed (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:444:34)
+2026-01-18 14:59:56 [[31merror[39m]: Server error {"error":"Test error with statusCode 0","path":"/test","method":"GET","body":{}}
+Error: Test error with statusCode 0
+    at Object.<anonymous> (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/tests/errorHandlerMiddleware.test.ts:40:26)
+    at Promise.then.completed (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:444:34)
+2026-01-18 14:59:56 [[33mwarn[39m]: Client error {"error":"Test error without code","path":"/test","method":"GET","statusCode":400}
+2026-01-18 14:59:56 [[33mwarn[39m]: Client error {"error":"Test error with empty code","path":"/test","method":"GET","statusCode":400}
+2026-01-18 14:59:56 [[31merror[39m]: Server error {"error":"Test error with no statusCode or code","path":"/test","method":"GET","body":{}}
+Error: Test error with no statusCode or code
+    at Object.<anonymous> (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/tests/errorHandlerMiddleware.test.ts:83:21)
+    at Promise.then.completed (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:316:40)
+    at _runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:121:9)
+    at run (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/Users/rishabacharjee/Downloads/database-query-portal-backend/backend/node_modules/jest-runner/build/runTest.js:444:34)
+PASS tests/errorHandlerMiddleware.test.ts
+  Error Handler Default Values Branch Coverage
+    ✓ should default to statusCode 500 when err.statusCode is undefined (57 ms)
+    ✓ should default to statusCode 500 when err.statusCode is 0 (16 ms)
+    ✓ should default to code INTERNAL_ERROR when err.code is undefined (15 ms)
+    ✓ should default to code INTERNAL_ERROR when err.code is empty string (14 ms)
+    ✓ should use both defaults when neither statusCode nor code is set (15 ms)
+  Error Handler Middleware
+    notFound
+      ✓ should return 404 with route info (13 ms)
+    asyncHandler
+      ✓ should pass result of async function (10 ms)
+      ✓ should catch async errors and pass to next (10 ms)
+      ✓ should handle sync functions that return promises (9 ms)
+    errorHandler - Development Mode
+      ✓ should return full error details in development (2 ms)
+      ✓ should use default status code 500 (1 ms)
+      ✓ should use default code INTERNAL_ERROR (1 ms)
+      ✓ should log server errors (status >= 500) (1 ms)
+      ✓ should log client errors (status < 500) as warnings (1 ms)
+    errorHandler - Production Mode
+      ✓ should return minimal error for operational errors (2 ms)
+      ✓ should include errors array for validation errors (1 ms)
+      ✓ should hide details for non-operational errors (1 ms)
+      ✓ should handle CastError (1 ms)
+      ✓ should handle duplicate key error (23505) (8 ms)
+      ✓ should handle duplicate key error without match (2 ms)
+      ✓ should handle ValidationError from mongoose (1 ms)
+      ✓ should handle JsonWebTokenError (1 ms)
+      ✓ should handle TokenExpiredError (2 ms)
+      ✓ should default to INTERNAL_ERROR for operational error without code (1 ms)
+      ✓ should default to 500 for operational error without statusCode (1 ms)
+      ✓ should handle empty validation errors object map (1 ms)
+
+PASS tests/Uploadintegration.test.ts
+  Upload Middleware Integration Tests
+    handleScriptUpload - Error Handling
+      Line 197: LIMIT_FILE_SIZE error
+        ✓ should reject files exceeding 1KB size limit (36 ms)
+        ✓ should accept files within size limit (6 ms)
+        ✓ should reject file exactly at boundary (5 ms)
+      Line 212: LIMIT_UNEXPECTED_FILE error
+        ✓ should handle wrong field name (6 ms)
+        ✓ should reject field name "file" instead of "scriptFile" (5 ms)
+        ✓ should reject field name "upload" (5 ms)
+      Line 217: ValidationError for invalid file type
+        ✓ should reject .txt files (9 ms)
+        ✓ should reject .exe files (5 ms)
+        ✓ should reject .sh files (6 ms)
+        ✓ should reject .php files (5 ms)
+        ✓ should reject files with no extension (5 ms)
+      Successful uploads
+        ✓ should process valid JavaScript file successfully (5 ms)
+        ✓ should process valid Python file successfully (6 ms)
+        ✓ should include file metadata in scriptInfo (6 ms)
+      Dangerous pattern detection
+        ✓ should detect child_process pattern and add warning (8 ms)
+        ✓ should detect fs pattern and add warning (5 ms)
+        ✓ should detect eval pattern and add warning (5 ms)
+        ✓ should detect process.exit pattern and add warning (6 ms)
+        ✓ should detect Function constructor pattern and add warning (5 ms)
+        ✓ should detect all dangerous patterns in one file (6 ms)
+        ✓ should not flag safe code (6 ms)
+      No file scenarios
+        ✓ should handle no file with script submission type (8 ms)
+        ✓ should allow no file when scriptContent is provided (5 ms)
+        ✓ should allow no file for query submission type (4 ms)
+        ✓ should allow empty request (4 ms)
+    validateScriptContent middleware
+      ✓ should call next when submissionType is query (11 ms)
+      ✓ should return error when script submission without file (4 ms)
+      ✓ should allow script submission with scriptContent (3 ms)
+      ✓ should pass when no submissionType provided (3 ms)
+    cleanupFile function
+      ✓ should handle cleanup of non-existent file without error (1 ms)
+      ✓ should be callable multiple times
+      ✓ should handle empty string path (1 ms)
+      ✓ should handle null path
+      ✓ should handle undefined path (1 ms)
+
+2026-01-18 14:59:57 [[32minfo[39m]: Test action {"userId":"user-123","action":"query_submit","resourceId":"req-456"}
+PASS tests/production.test.ts
+  Production Integration Tests
+    Query Submission Workflow
+      ✓ should validate complete query submission payload (2 ms)
+      ✓ should validate script submission payload
+    Approval Workflow
+      ✓ should validate approval request structure (1 ms)
+      ✓ should validate rejection with reason (1 ms)
+    Error Handling
+      ✓ should handle validation errors gracefully (1 ms)
+      ✓ should handle not found errors
+      ✓ should handle authentication errors (1 ms)
+      ✓ should handle authorization errors
+    Static Data Configuration
+      ✓ should return all instances (24 ms)
+      ✓ should return all pods (1 ms)
+      ✓ should return instance by ID (1 ms)
+      ✓ should return pod by ID (1 ms)
+      ✓ should return databases for instance (1 ms)
+    API Response Format
+      ✓ should format success response correctly (1 ms)
+      ✓ should format error response correctly (1 ms)
+      ✓ should format paginated response correctly
+    Concurrent Access Handling
+      ✓ should handle multiple simultaneous requests conceptually (1 ms)
+    Data Integrity
+      ✓ should validate UUID format
+      ✓ should validate timestamp format
+      ✓ should validate status transitions (1 ms)
+    Logging and Audit Trail
+      ✓ should log with proper structure (14 ms)
+      ✓ should include metadata in logs (2 ms)
+    Performance Considerations
+      ✓ should use connection pooling (1 ms)
+      ✓ should limit query results
+      ✓ should timeout long-running queries (1 ms)
+    Environment Configuration
+      ✓ should have required configuration defined
+      ✓ should differentiate between environments (1 ms)
+  Load Testing Helpers
+    ✓ should document load testing approach
+
+2026-01-18 14:59:57 [[32minfo[39m]: User logged in {"userId":"user-123","email":"test@example.com"}
+2026-01-18 14:59:57 [[33mwarn[39m]: Login failed: user not found {"email":"wrong@example.com"}
+2026-01-18 14:59:57 [[33mwarn[39m]: Login failed: user inactive {"email":"test@example.com"}
+2026-01-18 14:59:57 [[33mwarn[39m]: Login failed: invalid password {"email":"test@example.com"}
+2026-01-18 14:59:57 [[33mwarn[39m]: Login failed: no password hash {"email":"test@example.com"}
+2026-01-18 14:59:57 [[32minfo[39m]: User logged out {"userId":"user-123"}
+2026-01-18 14:59:57 [[33mwarn[39m]: Logout: token not found or already revoked
+2026-01-18 14:59:57 [[32minfo[39m]: User logged out from all devices {"userId":"user-123","sessionsRevoked":5}
+2026-01-18 14:59:57 [[32minfo[39m]: Access token refreshed {"userId":"user-123","familyId":"family-123"}
+2026-01-18 14:59:57 [[31merror[39m]: 🚨 SECURITY ALERT: Refresh Token Reuse Detected! {"userId":"user-123","familyId":"family-123","tokenId":1,"originalIp":"127.0.0.1","attemptIp":"unknown"}
+2026-01-18 14:59:57 [[33mwarn[39m]: Token refresh failed: Session terminated due to suspicious activity. Please login again.
+2026-01-18 14:59:57 [[33mwarn[39m]: Token refresh failed: Invalid or expired refresh token
+2026-01-18 14:59:57 [[33mwarn[39m]: Token refresh failed: Account is disabled
+2026-01-18 14:59:57 [[31merror[39m]: Token refresh error {"error":"DB Boom"}
+2026-01-18 14:59:57 [[33mwarn[39m]: IP address mismatch during token refresh {"userId":"user-123","familyId":"family-123","originalIp":"127.0.0.1","currentIp":"192.168.1.1"}
+2026-01-18 14:59:57 [[32minfo[39m]: Access token refreshed {"userId":"user-123","familyId":"family-123"}
+PASS tests/authService.test.ts
+  AuthService
+    findUserByEmail
+      ✓ should return user if found (1 ms)
+      ✓ should return null if not found
+    findUserById
+      ✓ should return user if found (1 ms)
+    verifyPassword
+      ✓ should return true if bcrypt matches
+      ✓ should return false if bcrypt fails (1 ms)
+    hashPassword
+      ✓ should return hashed password
+    login
+      ✓ should return success and tokens for valid login (2 ms)
+      ✓ should fail if user not found
+      ✓ should fail if user inactive (1 ms)
+      ✓ should fail if password mismatch (1 ms)
+      ✓ should fail if user has no password hash (1 ms)
+    logout
+      ✓ should revoke token if found
+      ✓ should fail if token missing (1 ms)
+      ✓ should fail if token not found in DB (1 ms)
+    logoutAll
+      ✓ should revoke all tokens for user
+    refreshAccessToken
+      ✓ should return new access token if valid (11 ms)
+      ✓ should detect reuse and revoke family (1 ms)
+      ✓ should fail if token not found (1 ms)
+      ✓ should fail if user inactive during refresh (1 ms)
+      ✓ should fail on exception (1 ms)
+      ✓ should warn on IP mismatch (1 ms)
+    verifyAccessToken
+      ✓ should return valid payload
+      ✓ should fail if wrong type (1 ms)
+      ✓ should fail if expired
+      ✓ should fail if other error (1 ms)
+    getActiveSessions
+      ✓ should return mapped sessions
+    revokeSession
+      ✓ should revoke if found (1 ms)
+      ✓ should return false if not found
+      ✓ should return false if invalid session id format
+    cleanupExpiredTokens
+      ✓ should call nativeDelete
+
+2026-01-18 14:59:57 [[33mwarn[39m]: Authorization denied {"userRole":"developer","requiredRoles":[["admin"]]}
+PASS tests/security.test.ts
+  Security and Penetration Tests
+    Authentication Security
+      ✓ should reject requests without authentication token (34 ms)
+      ✓ should reject requests with malformed token (23 ms)
+      ✓ should reject requests with expired token (23 ms)
+      ✓ should reject token signed with wrong secret (24 ms)
+    SQL Injection Prevention
+      ✓ should use ORM for database interactions (21 ms)
+    XSS Prevention
+      ✓ should return JSON responses with proper content type (1 ms)
+      ✓ should handle script content safely in JSON
+    Authorization Controls
+      ✓ should have requireRole middleware (19 ms)
+      ✓ should deny access when role not in allowed list (22 ms)
+      ✓ should allow access when role in allowed list (14 ms)
+    Input Validation
+      ✓ should validate email format (1 ms)
+      ✓ should validate password requirements (1 ms)
+      ✓ should validate submission type
+      ✓ should validate database type (1 ms)
+      ✓ should validate file extensions (1 ms)
+      ✓ should sanitize strings (1 ms)
+    Rate Limiting Considerations
+      ✓ should document rate limiting requirements
+    Password Security
+      ✓ should use bcrypt for password hashing (1 ms)
+      ✓ should have password validation (1 ms)
+    Sensitive Data Protection
+      ✓ should protect sensitive fields
+    File Upload Security
+      ✓ should have file upload middleware (8 ms)
+      ✓ should validate file extensions (1 ms)
+    CSRF Protection
+      ✓ should document CSRF protection requirements
+    Error Handling Security
+      ✓ should have different error handlers for dev and prod (9 ms)
+      ✓ should not expose internals in errors (1 ms)
+
+PASS tests/productionSecurity.test.ts
+  Production Security Testing Suite
+    SQL Injection Prevention
+      ✓ should handle SQL injection payload 1 (1 ms)
+      ✓ should handle SQL injection payload 2
+      ✓ should handle SQL injection payload 3
+      ✓ should handle SQL injection payload 4
+      ✓ should handle SQL injection payload 5 (1 ms)
+    NoSQL Injection Prevention
+      ✓ should handle NoSQL injection payload 1
+      ✓ should handle NoSQL injection payload 2
+      ✓ should handle NoSQL injection payload 3 (1 ms)
+    XSS Prevention
+      ✓ should sanitize XSS payload 1
+      ✓ should sanitize XSS payload 2
+      ✓ should sanitize XSS payload 3 (1 ms)
+    Authentication Security
+      ✓ should reject expired JWT tokens (5 ms)
+      ✓ should reject tokens with invalid signatures (1 ms)
+      ✓ should reject malformed tokens (1 ms)
+    Authorization Security
+      ✓ should prevent horizontal privilege escalation
+      ✓ should enforce role hierarchy
+    Input Validation
+      ✓ should validate email format (1 ms)
+      ✓ should validate password strength
+      ✓ should handle oversized inputs (1 ms)
+    Path Traversal Prevention
+      ✓ should block path traversal attempt 1
+      ✓ should block path traversal attempt 2 (1 ms)
+      ✓ should block path traversal attempt 3
+    Command Injection Prevention
+      ✓ should sanitize command injection payload 1
+      ✓ should sanitize command injection payload 2 (1 ms)
+      ✓ should sanitize command injection payload 3
+      ✓ should sanitize command injection payload 4
+    Rate Limiting Behavior
+      ✓ should have rate limiting configured (5 ms)
+    Security Headers
+      ✓ should set proper security headers (7 ms)
+    Secrets Management
+      ✓ should not expose sensitive data in responses
+      ✓ should use secure password hashing (208 ms)
+    Secure Error Handling
+      ✓ should not expose stack traces in production errors
+    DoS Prevention
+      ✓ should validate query length limits (1 ms)
+  Load Testing Patterns
+    ✓ should handle concurrent requests (100 ms)
+
+PASS tests/queryExecutionService.test.ts
+  Query Execution Service
+    executePostgresQuery
+      ✓ should execute SELECT query successfully (2 ms)
+      ✓ should throw for null instance (9 ms)
+      ✓ should throw for non-PostgreSQL instance
+      ✓ should throw QueryExecutionError on query failure (1 ms)
+      ✓ should handle read-only mode (1 ms)
+    executeMongoQuery
+      ✓ should execute find query successfully (1 ms)
+      ✓ should execute aggregate query (1 ms)
+      ✓ should throw for null instance (4 ms)
+      ✓ should throw for missing URI (1 ms)
+      ✓ should throw for invalid query format (7 ms)
+      ✓ should execute countDocuments (1 ms)
+      ✓ should execute insertOne (1 ms)
+      ✓ should execute deleteMany (1 ms)
+      ✓ should throw for unsupported method
+
+PASS tests/ConnectionPool.test.ts
+  ConnectionPool
+    Singleton Pattern
+      ✓ should return the same instance (1 ms)
+    getPgPool
+      ✓ should create a new pool if one does not exist (1 ms)
+      ✓ should reuse existing pool for same key
+      ✓ should create different pools for different databases on same instance (1 ms)
+      ✓ should handle idle client errors
+      ✓ should use environment variables for credentials if not provided (6 ms)
+    getMongoClient
+      ✓ should create a new client with URI if provided
+      ✓ should construct URI from host/port if URI not provided (1 ms)
+      ✓ should reuse existing client
+      ✓ should throw error if config invalid (10 ms)
+      ✓ should handle connection failure (1 ms)
+      ✓ should use env vars for auth if constructing URI (1 ms)
+    getStats
+      ✓ should return stats for active pools
+    disconnect
+      ✓ should disconnect all if no key provided (1 ms)
+      ✓ should disconnect specific pg pool (1 ms)
+      ✓ should disconnect specific mongo client
+      ✓ should do nothing if key not found (1 ms)
+
+2026-01-18 14:59:59 [[32minfo[39m]: Slack notification sent for new submission {"requestId":1}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack notification sent for new submission {"requestId":1}
+2026-01-18 14:59:59 [[31merror[39m]: Failed to send Slack notification {"error":"Slack error","requestId":1}
+2026-01-18 14:59:59 [[33mwarn[39m]: Could not send DM - no Slack user ID found {"requestId":1}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack approval success notification sent {"requestId":1}
+2026-01-18 14:59:59 [[32minfo[39m]: Sent DM to requester {"requestId":1,"slackUserId":"U123"}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack approval success notification sent {"requestId":1}
+2026-01-18 14:59:59 [[32minfo[39m]: Sent DM to requester {"requestId":1,"slackUserId":"U_EMAIL_FOUND"}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack approval success notification sent {"requestId":1}
+2026-01-18 14:59:59 [[33mwarn[39m]: Could not send DM - no Slack user ID found {"requestId":1}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack approval success notification sent {"requestId":1}
+2026-01-18 14:59:59 [[33mwarn[39m]: Could not send DM - no Slack user ID found {"requestId":1}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack approval success notification sent {"requestId":1}
+2026-01-18 14:59:59 [[31merror[39m]: Failed to send Slack approval notification {"error":"Slack error"}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack execution failure notification sent {"requestId":1}
+2026-01-18 14:59:59 [[33mwarn[39m]: Could not send failure DM - no Slack user ID found {"requestId":1}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack failure notification sent {"requestId":1}
+2026-01-18 14:59:59 [[32minfo[39m]: Sent failure DM to requester {"requestId":1,"slackUserId":"U123"}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack failure notification sent {"requestId":1}
+2026-01-18 14:59:59 [[31merror[39m]: Failed to send Slack failure notification {"error":"Slack error"}
+2026-01-18 14:59:59 [[32minfo[39m]: Sent rejection DM to requester {"requestId":1,"slackUserId":"U123"}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack rejection notification sent {"requestId":1}
+2026-01-18 14:59:59 [[33mwarn[39m]: Could not send rejection DM - no Slack user ID found {"requestId":1}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack rejection notification sent {"requestId":1}
+2026-01-18 14:59:59 [[32minfo[39m]: Sent rejection DM to requester {"requestId":1,"slackUserId":"U123"}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack rejection notification sent {"requestId":1}
+2026-01-18 14:59:59 [[31merror[39m]: Failed to send DM {"error":"Slack error","userId":"U123"}
+2026-01-18 14:59:59 [[32minfo[39m]: Sent rejection DM to requester {"requestId":1,"slackUserId":"U123"}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack rejection notification sent {"requestId":1}
+2026-01-18 14:59:59 [[32minfo[39m]: Slack connection successful {"team":"Test Team"}
+2026-01-18 14:59:59 [[31merror[39m]: Slack connection failed {"error":"Auth failed"}
+PASS tests/slackService.test.ts
+  Slack Service
+    isConfigured
+      ✓ should return true when Slack is configured (1 ms)
+    notifyNewSubmission
+      ✓ should send notification for new query submission (1 ms)
+      ✓ should send notification for new script submission
+      ✓ should handle errors gracefully (1 ms)
+    notifyApprovalSuccess
+      ✓ should send success notification to channel (2 ms)
+      ✓ should send DM to requester when slackUserId exists (1 ms)
+      ✓ should fallback to email lookup if slackUserId missing (1 ms)
+      ✓ should not send DM when slackUserId missing (2 ms)
+      ✓ should truncate large results (1 ms)
+      ✓ should handle errors gracefully (1 ms)
+      ✓ should handle execution failure result in approval success (1 ms)
+    notifyApprovalFailure
+      ✓ should send failure notification to channel (1 ms)
+      ✓ should send DM to requester (2 ms)
+      ✓ should handle errors gracefully
+    notifyRejection
+      ✓ should send rejection DM to requester (1 ms)
+      ✓ should not send when slackUserId missing (1 ms)
+      ✓ should include rejection reason when provided (1 ms)
+      ✓ should handle errors gracefully (1 ms)
+    sendDirectMessage
+      ✓ should send DM successfully (1 ms)
+      ✓ should handle failed channel open
+    lookupUserByEmail
+      ✓ should return user ID when found
+      ✓ should return null when user not found (1 ms)
+    testConnection
+      ✓ should return true on successful connection (1 ms)
+      ✓ should return false on connection failure
+
+PASS tests/MongoDriver.test.ts
+  MongoDriver
+    Query Parsing
+      ✓ should parse simple find query (6 ms)
+      ✓ should parse collection with bracket notation (double quotes) (1 ms)
+      ✓ should parse collection with bracket notation (single quotes) (1 ms)
+      ✓ should parse valid JSON command (1 ms)
+      ✓ should throw on invalid format (9 ms)
+      ✓ should throw on invalid arguments JSON (1 ms)
+    Method Mapping
+      ✓ should execute findOne
+      ✓ should execute estimatedDocumentCount (1 ms)
+      ✓ should execute distinct (1 ms)
+      ✓ should execute insertOne
+      ✓ should execute insertMany (1 ms)
+      ✓ should execute updateOne
+      ✓ should execute updateMany (1 ms)
+      ✓ should execute deleteOne (1 ms)
+      ✓ should execute deleteMany
+      ✓ should execute findOneAndUpdate (1 ms)
+      ✓ should execute findOneAndDelete
+    Validation
+      ✓ should warn on dangerous operations (1 ms)
+      ✓ should fail if query too long (2 ms)
+      ✓ should fail if query empty (1 ms)
+    Execution Results
+      ✓ should detect truncation (1 ms)
+      ✓ should handle insertOne result count
+    Connection Test
+      ✓ should return success on valid connection (1 ms)
+      ✓ should return failure on error (1 ms)
+
+2026-01-18 14:59:59 [[33mwarn[39m]: Invalid origin detected {"origin":"https://evil.com","path":"/api/sensitive","method":"POST","ip":"127.0.0.1"}
+2026-01-18 14:59:59 [[33mwarn[39m]: Invalid origin detected {"origin":"https://evil.com","path":"/api/sensitive","method":"POST","ip":"127.0.0.1"}
+2026-01-18 14:59:59 [[33mwarn[39m]: Request without origin header on sensitive endpoint {"path":"/api/sensitive","method":"POST","ip":"127.0.0.1"}
+2026-01-18 14:59:59 [[33mwarn[39m]: Request without origin header on sensitive endpoint {"path":"/api/sensitive","method":"POST","ip":"127.0.0.1"}
+2026-01-18 14:59:59 [[33mwarn[39m]: Invalid origin detected {"origin":"https://evil.com","path":"/api/sensitive","method":"POST","ip":"127.0.0.1"}
+2026-01-18 14:59:59 [[33mwarn[39m]: Request without origin header on sensitive endpoint {"path":"/api/sensitive","method":"POST","ip":"127.0.0.1"}
+2026-01-18 14:59:59 [[33mwarn[39m]: Invalid origin detected {"origin":"https://evil.com","path":"/api/sensitive","method":"POST","ip":"127.0.0.1"}
+PASS tests/middleware/securityMiddleware.test.ts
+  Security Middleware
+    Origin Validation
+      ✓ should allow ALL when config origin is *
+      getClientIP
+        ✓ should return x-forwarded-for IP (1 ms)
+        ✓ should return array x-forwarded-for IP (1 ms)
+        ✓ should return req.ip
+        ✓ should fallback to remoteAddress
+        ✓ should fallback to unknown
+      validateOrigin Middleware
+        ✓ should skip non-mutation methods
+        ✓ should allow valid origin
+        ✓ should block invalid origin (3 ms)
+        ✓ should fallback to referer if origin missing
+        ✓ should block invalid referer (1 ms)
+        ✓ should handle malformed referer (2 ms)
+        ✓ should block missing origin when allowNoOrigin is false (1 ms)
+        ✓ should allow missing origin when allowNoOrigin is true (1 ms)
+        ✓ should allow invalid origin if strictMode is false (1 ms)
+        ✓ should allow missing origin if strictMode is false (1 ms)
+        ✓ should check for sensitiveEndpointsOriginCheck defaults (2 ms)
+    Input Sanitization
+      ✓ should sanitize body strings (1 ms)
+      ✓ should sanitize nested objects
+      ✓ should sanitize arrays (1 ms)
+      ✓ should skip whitelisted fields
+      ✓ should sanitize query params (1 ms)
+      ✓ should sanitize route params
+      ✓ should handle missing body/query/params
+
+PASS tests/database.test.ts
+  Database Configuration
+    Pool Event Handlers
+      ✓ should log on connect event
+      ✓ should log on error event (1 ms)
+    query function
+      ✓ should execute query successfully (1 ms)
+      ✓ should execute query with default empty params
+      ✓ should truncate long query text in logs (1 ms)
+      ✓ should handle query errors (4 ms)
+    getClient function
+      ✓ should get a client from pool (1 ms)
+      ✓ should log warning after 5 seconds checkout (2 ms)
+      ✓ should clear timeout on release
+      ✓ should wrap query function (1 ms)
+    transaction function
+      ✓ should execute transaction successfully (1 ms)
+      ✓ should rollback on error (1 ms)
+      ✓ should release client in finally block
+      ✓ should release client even on error (1 ms)
+    testConnection function
+      ✓ should return true on successful connection (1 ms)
+      ✓ should return false on connection failure
+    closePool function
+      ✓ should close the pool (1 ms)
+    exports
+      ✓ should export pool and functions
+
+2026-01-18 15:00:00 [[33mwarn[39m]: Authorization denied {"userId":"1","requiredRoles":["admin"],"path":"/sync-all"}
+PASS tests/databaseRoutes.test.ts
+  Database Routes
+    Instance Routes
+      GET /api/databases/instances
+        ✓ should get all instances (8 ms)
+        ✓ should pass query params to controller (9 ms)
+      GET /api/databases/instances/:instanceId
+        ✓ should get instance by ID (4 ms)
+      GET /api/databases/instances/:instanceId/databases
+        ✓ should get databases for instance (4 ms)
+    Sync Routes
+      POST /api/databases/instances/:instanceId/sync
+        ✓ should require admin role (3 ms)
+        ✓ should allow admin to sync instance (4 ms)
+      GET /api/databases/instances/:instanceId/sync-history
+        ✓ should get sync history (4 ms)
+      POST /api/databases/sync-all
+        ✓ should require admin role (3 ms)
+        ✓ should allow admin to sync all (4 ms)
+    Blacklist Routes
+      GET /api/databases/blacklist
+        ✓ should get blacklist (4 ms)
+      POST /api/databases/blacklist
+        ✓ should require admin role (6 ms)
+        ✓ should allow admin to add to blacklist (8 ms)
+      DELETE /api/databases/blacklist/:id
+        ✓ should require admin role (4 ms)
+        ✓ should allow admin to remove from blacklist (4 ms)
+    Authentication Middleware
+      ✓ should attach default user when no user present (4 ms)
+    requireAdmin Middleware
+      ✓ should reject non-admin users (4 ms)
+      ✓ should reject when user role is undefined (5 ms)
+
+PASS tests/validators.test.ts
+  Validators Utility
+    sanitizeString
+      ✓ should trim whitespace (1 ms)
+      ✓ should remove angle brackets
+      ✓ should return empty string for non-string input
+    isValidEmail
+      ✓ should validate correct email formats (1 ms)
+      ✓ should reject invalid email formats
+    validatePassword
+      ✓ should validate strong passwords (1 ms)
+      ✓ should reject weak passwords
+      ✓ should require minimum length (1 ms)
+      ✓ should require uppercase letter
+      ✓ should require lowercase letter
+      ✓ should require number (1 ms)
+    isValidUUID
+      ✓ should validate correct UUIDs
+      ✓ should reject invalid UUIDs
+    isValidDatabaseType
+      ✓ should validate postgresql
+      ✓ should validate mongodb
+      ✓ should reject invalid types (1 ms)
+    isValidSubmissionType
+      ✓ should validate query type
+      ✓ should validate script type
+      ✓ should reject invalid types (1 ms)
+    isValidStatus
+      ✓ should validate all status values
+      ✓ should be case insensitive
+      ✓ should reject invalid status (5 ms)
+    sanitizeQuery
+      ✓ should remove SQL comments
+      ✓ should trim whitespace (1 ms)
+      ✓ should return empty string for non-string input
+    checkQuerySafety
+      ✓ should detect DROP statements (1 ms)
+      ✓ should detect TRUNCATE statements
+      ✓ should detect DELETE without WHERE (1 ms)
+      ✓ should detect UPDATE without WHERE
+      ✓ should not flag safe DELETE with WHERE
+      ✓ should not flag safe UPDATE with WHERE (1 ms)
+      ✓ should pass safe SELECT queries
+    isValidFileExtension
+      ✓ should validate .js files
+      ✓ should validate .py files (1 ms)
+      ✓ should reject invalid extensions
+      ✓ should use custom allowed extensions
+    parsePagination
+      ✓ should return default pagination (1 ms)
+      ✓ should parse page and limit
+      ✓ should enforce minimum page of 1
+      ✓ should enforce maximum limit of 100 (1 ms)
+      ✓ should enforce minimum limit of 1
+
+PASS tests/scriptExecutionPython.test.ts (5.28 s)
+  Script Executor - Python Support
+    Language Detection
+      ✓ should detect python from extension (1 ms)
+      ✓ should detect python from explicit language (1 ms)
+      ✓ should detect python from content heuristic
+      ✓ should default to javascript (1 ms)
+    Python Validation
+      ✓ should pass safe python code (1 ms)
+      ✓ should detect import os (1 ms)
+      ✓ should detect open()
+      ✓ should detect subprocess (1 ms)
+      ✓ should warn on drop()
+    Python Execution
+      ✓ should spawn python3 process (13 ms)
+      ✓ should handle worker not found (1 ms)
+      ✓ should handle execution error from worker (12 ms)
+      ✓ should handle malformed output (12 ms)
+      ✓ should handle process error event (13 ms)
+      ✓ should handle timeout (5104 ms)
+
+PASS tests/utils/auditLogger.test.ts
+  AuditLogger
+    Helper Functions Integration
+      ✓ should extract IP from x-forwarded-for string (1 ms)
+      ✓ should extract IP from x-forwarded-for array (1 ms)
+      ✓ should fallback to req.socket.remoteAddress (1 ms)
+      ✓ should extract actor from req.user
+      ✓ should handle missing actor (unauthenticated) (1 ms)
+      ✓ should handle missing user agent
+      ✓ should handle missing ip and socket (1 ms)
+      ✓ should use req.ip if present and no headers/socket (1 ms)
+    Specific Logging Methods
+      ✓ logApproval should log correctly (2 ms)
+      ✓ logRejection should log correctly (1 ms)
+      ✓ logSubmission should log correctly
+      ✓ logLoginSuccess should log correctly
+      ✓ logLoginFailure should log correctly (1 ms)
+      ✓ logRoleChange should log correctly (1 ms)
+      ✓ logUnauthorizedAccess should log correctly (1 ms)
+      ✓ logForbiddenAccess should log correctly (1 ms)
+
+PASS tests/staticData.test.ts
+  Static Data Configuration
+    Data Structures
+      ✓ should have pods array with required fields (2 ms)
+      ✓ should have databaseInstances array with required fields (1 ms)
+    getAllPods
+      ✓ should return copy of all pods
+    getPodById
+      ✓ should return pod for valid ID (1 ms)
+      ✓ should return null for invalid ID
+      ✓ should return null for empty ID
+      ✓ should return null for undefined ID (1 ms)
+    getPodsByManager
+      ✓ should return pods for valid manager email
+      ✓ should return empty array for unknown manager
+      ✓ should return empty array for empty email (1 ms)
+    getAllInstances
+      ✓ should return all instances without connection details or databases
+    getInstancesByType
+      ✓ should return PostgreSQL instances without databases (1 ms)
+      ✓ should return MongoDB instances without databases
+      ✓ should be case insensitive (1 ms)
+      ✓ should return empty array for invalid type
+    getInstanceById
+      ✓ should return instance with connection details for valid ID (1 ms)
+      ✓ should return null for invalid ID
+      ✓ should return MongoDB connection string (1 ms)
+    getDatabasesForInstance
+      ✓ should return databases for valid instance
+      ✓ should return empty array for invalid instance (1 ms)
+    validateInstanceDatabase
+      ✓ should return true for valid combination
+      ✓ should return false for invalid database
+      ✓ should return false for invalid instance (1 ms)
+      ✓ should return false for empty inputs
+
+PASS tests/validationSchemasCoverage.test.ts
+  Validation Schemas Coverage
+    RegisterSchema
+      ✓ should pass valid user (1 ms)
+      ✓ should fail invalid email (1 ms)
+      ✓ should fail weak password (min length)
+      ✓ should fail weak password (no uppercase) (1 ms)
+      ✓ should fail weak password (no lowercase)
+      ✓ should fail weak password (no number)
+      ✓ should normalize email and name (1 ms)
+    UpdateProfileSchema
+      ✓ should pass with valid optional fields
+      ✓ should pass with empty object (all optional)
+      ✓ should fail invalid slack ID
+      ✓ should allow null slack ID
+      ✓ should fail empty name (1 ms)
+    ChangePasswordSchema
+      ✓ should fail if new password is same as old
+      ✓ should pass if new password is different
+    RejectRequestSchema
+      ✓ should fail empty reason (1 ms)
+      ✓ should fail huge reason
+    RequestQuerySchema
+      ✓ should coerce query params (1 ms)
+      ✓ should pass valid date (1 ms)
+    SubmitRequestSchema
+      ✓ should pass valid query
+      ✓ should pass valid script (1 ms)
+      ✓ should fail query without content
+      ✓ should fail script without content (if not handled by file upload logic path which allows empty if optional)
+      ✓ should fail invalid script extension (1 ms)
+      ✓ should fail huge query content
+      ✓ should fail empty comments
+
+PASS tests/scriptExecutionCoverage.test.ts
+  Script Executor Coverage - Edge Cases
+    Worker Path Resolution (runWorker)
+      ✓ should use typescript worker in dev mode if it exists (13 ms)
+      ✓ should use javascript worker if typescript worker missing (11 ms)
+      ✓ should fall back to dist path if local workers missing (12 ms)
+    Python Worker Edge Cases
+      ✓ should handle Python worker file missing (1 ms)
+      ✓ should handle JSON parse error from Python output (12 ms)
+      ✓ should capture stderr when processes crashes (12 ms)
+    Cleanup Edge Cases
+      ✓ should ignore errors during cleanup (1 ms)
+
+PASS tests/slackUtilsCoverage.test.ts
+  Slack Utils Coverage
+    truncate
+      ✓ should return empty string for null/undefined/empty input (1 ms)
+      ✓ should return original string if length <= maxLength (1 ms)
+      ✓ should truncate and add ellipsis
+      ✓ should use default maxLength of 200
+    formatExecutionResult
+      ✓ should handle invalid JSON (1 ms)
+      ✓ should handle explicitly failed execution
+      ✓ should handle nested executionResult failure (1 ms)
+      ✓ should build summary with rows fetched
+      ✓ should build summary with rows affected
+      ✓ should parse output array for query stats (1 ms)
+      ✓ should parse output array for data items limit fetch
+      ✓ should parse output array for operations
+      ✓ should generate preview from simple rows (1 ms)
+      ✓ should generate preview from nested result.rows
+      ✓ should truncate long row strings in preview (1 ms)
+      ✓ should fallback to rowCount processing
+    formatErrorMessage
+      ✓ should parse JSON error message
+      ✓ should handle non-JSON string (1 ms)
+      ✓ should detect SyntaxError type
+      ✓ should extract line number from format
+      ✓ should extract line number from colon format
+    formatQueryPreview
+      ✓ should format query submission
+      ✓ should truncate long query submission (1 ms)
+      ✓ should format script submission with filename
+      ✓ should format script submission without filename
+
+PASS tests/middleware.test.ts
+  Middleware Tests
+    Auth Middleware
+      generateAccessToken
+        ✓ should generate token (1 ms)
+      authenticate
+        ✓ should authenticate valid token
+        ✓ should fail with no token (1 ms)
+        ✓ should fail with invalid token
+        ✓ should fail if token is blacklisted (1 ms)
+      authorize
+        ✓ should allow valid role
+        ✓ should deny invalid role
+        ✓ should fail if no user
+      authorizeMinRole
+        ✓ should allow higher role (1 ms)
+        ✓ should deny lower role
+      authorizePodAccess
+        ✓ should allow matching podId
+        ✓ should allow admin
+        ✓ should deny mismatch (1 ms)
+    Upload Middleware
+      validateScriptContent
+        ✓ should skip if no file and optional
+        ✓ should process file (1 ms)
+        ✓ should detect dangerous patterns (1 ms)
+
+PASS tests/queryExecutionCoverage.test.ts
+  Query Execution Coverage
+    ConnectionPool
+      ✓ should use env vars for PG config if provided (1 ms)
+      ✓ should construct Mongo URI from host/port (1 ms)
+      ✓ should return stats (1 ms)
+      ✓ should disconnect specific key
+      ✓ should disconnect mongo key (1 ms)
+    MongoDriver Extra Operations
+      ✓ should handle distinct (1 ms)
+      ✓ should handle updateOne (1 ms)
+      ✓ should parse bracket syntax
+      ✓ should test connection success (1 ms)
+      ✓ should test connection failure (1 ms)
+    PostgresDriver Extra Operations
+      ✓ should test connection success
+      ✓ should throw validation error for empty query (7 ms)
+
+PASS tests/errors.test.ts
+  Custom Errors
+    AppError
+      ✓ should create error with default values (1 ms)
+      ✓ should create error with custom status code
+      ✓ should set status based on status code
+      ✓ should be an instance of Error
+    ValidationError
+      ✓ should create with default message (1 ms)
+      ✓ should store validation errors
+    AuthenticationError
+      ✓ should create with default message (1 ms)
+      ✓ should allow custom message
+    AuthorizationError
+      ✓ should create with default message
+    NotFoundError
+      ✓ should create with default message (1 ms)
+      ✓ should allow custom resource message
+    ConflictError
+      ✓ should create with default message
+    RateLimitError
+      ✓ should create with default message (1 ms)
+    DatabaseError
+      ✓ should create with default message
+    ExternalServiceError
+      ✓ should create with default values (1 ms)
+      ✓ should store service name (5 ms)
+    QueryExecutionError
+      ✓ should create with default message
+      ✓ should store execution details (1 ms)
+    ScriptExecutionError
+      ✓ should create with default message
+      ✓ should store execution details
+    Error inheritance
+      ✓ all errors should be instances of AppError (1 ms)
+      ✓ all errors should have stack trace (4 ms)
+
+PASS tests/response.test.ts
+  Response Utility
+    success
+      ✓ should return 200 status by default
+      ✓ should allow custom status code
+      ✓ should not include data key when null
+      ✓ should allow custom message (1 ms)
+    created
+      ✓ should return 201 status
+      ✓ should use default message (1 ms)
+      ✓ should allow custom message
+    noContent
+      ✓ should return 204 status
+    error
+      ✓ should return 500 status by default (1 ms)
+      ✓ should allow custom status code and code
+      ✓ should include validation errors when provided
+    paginated
+      ✓ should return paginated response
+      ✓ should calculate hasNext correctly
+      ✓ should calculate hasPrev correctly (1 ms)
+      ✓ should allow custom message
+
+PASS tests/utils/cookies.test.ts
+  Cookie Utilities
+    Cookie Options
+      ✓ should return correct access token options
+      ✓ should return correct refresh token options
+      ✓ should return correct CSRF options (1 ms)
+    Cookie Setters
+      ✓ should set access token cookie
+      ✓ should set refresh token cookie (1 ms)
+      ✓ should set CSRF token cookie
+      ✓ should set all auth cookies (1 ms)
+      ✓ should set auth cookies without csrf
+    Cookie Clearing
+      ✓ should clear all auth cookies (1 ms)
+    Extractors
+      extractAccessToken
+        ✓ should prioritize cookie
+        ✓ should fallback to header
+        ✓ should return null if neither present (1 ms)
+        ✓ should ignore non-Bearer header
+      extractRefreshToken
+        ✓ should prioritize cookie (1 ms)
+        ✓ should fallback to body (7 ms)
+        ✓ should return null if neither present (1 ms)
+      isUsingCookieAuth
+        ✓ should return true if access token cookie exists
+        ✓ should return false if cookie missing (1 ms)
+  Production Config
+    ✓ should return secure options in production (1 ms)
+
+PASS tests/config.test.ts
+  Configuration
+    Server Configuration
+      ✓ should have server configuration
+      ✓ should have a valid port number
+    Database Configuration
+      ✓ should have portalDb configuration
+      ✓ should have required database fields (1 ms)
+      ✓ should have valid database port
+    JWT Configuration
+      ✓ should have jwt configuration (1 ms)
+      ✓ should have required JWT fields
+      ✓ should have non-empty JWT secret
+      ✓ should have valid expiresIn format (1 ms)
+    Slack Configuration
+      ✓ should have slack configuration
+      ✓ should have enabled flag
+      ✓ should have botToken field (1 ms)
+      ✓ should have approvalChannel field
+    Upload Configuration
+      ✓ should have upload configuration (1 ms)
+      ✓ should have maxFileSize as a number
+      ✓ should have uploadDir
+    Rate Limit Configuration
+      ✓ should have rate limit configuration (1 ms)
+      ✓ should have windowMs
+      ✓ should have rate limit settings
+    isProduction flag
+      ✓ should have isProduction defined (1 ms)
+      ✓ should match NODE_ENV
+    Configuration Integrity
+      ✓ should not expose sensitive data in plain text logs
+      ✓ should have all required top-level keys (1 ms)
+    Environment-based behavior
+      ✓ should have consistent configuration structure
+      ✓ should handle missing optional environment variables gracefully
+  Configuration Module Exports
+    ✓ should export a plain object (1 ms)
+    ✓ should be importable multiple times without error
+
+PASS tests/userController.test.ts
+  User Controller
+    getUsers
+      ✓ should return paginated users
+      ✓ should filter users
+    getUserById
+      ✓ should return user by id (1 ms)
+      ✓ should handle not found
+    updateUser
+      ✓ should update user fields (1 ms)
+    deleteUser
+      ✓ should soft delete user
+      ✓ should prevent self-deletion (1 ms)
+    resetPassword
+      ✓ should reset password
+
+PASS tests/SlackMessageBuilder.test.ts
+  SlackMessageBuilder
+    buildNewSubmissionMessage
+      ✓ should build basic submission message (1 ms)
+      ✓ should include manager slack ID if present
+      ✓ should fallback to manager email if slack ID missing
+    buildApprovalSuccessMessage
+      ✓ should build success message with summary
+      ✓ should include preview if present
+    buildApprovalFailureMessage
+      ✓ should build failure message with error (1 ms)
+      ✓ should include line number if present
+      ✓ should include duration if provided (1 ms)
+    buildRejectionMessage
+      ✓ should build basic rejection message
+      ✓ should include reason if provided
+
+PASS tests/validationMiddleware.test.ts
+  Validation Middleware
+    validate (Body)
+      ✓ should pass valid body (1 ms)
+      ✓ should fail invalid body (1 ms)
+      ✓ should fail with unexpected type
+    validateQuery
+      ✓ should pass valid query and coerce types (1 ms)
+      ✓ should fail invalid query
+    validateParams
+      ✓ should pass valid params (1 ms)
+      ✓ should fail invalid params (1 ms)
+    Schema Exports
+      ✓ should export all required schemas
+
+PASS tests/utils/pagination.test.ts
+  Pagination Utilities
+    generatePaginationMeta
+      ✓ should calculate total pages correctly
+      ✓ should handle partial pages (1 ms)
+      ✓ should handle zero total
+    generatePaginationLinks
+      ✓ should generate accurate links for first page (1 ms)
+      ✓ should generate accurate links for middle page
+      ✓ should generate accurate links for last page
+      ✓ should preserve query parameters
+      ✓ should ignore empty query parameters (1 ms)
+    createPaginatedResponse
+      ✓ should structure response correctly without links
+      ✓ should include links when baseUrl provided (1 ms)
+
+PASS tests/app.integration.test.ts
+  App Integration
+    ✓ should respond to health check (9 ms)
+    ✓ should serve swagger docs (8 ms)
+    ✓ should handle 404 for unknown routes (8 ms)
+    ✓ should have security headers (10 ms)
+    ✓ should handle CORS (preflight) (4 ms)
+
+----------------------------------------|---------|----------|---------|---------|-------------------------------------------
+File                                    | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                         
+----------------------------------------|---------|----------|---------|---------|-------------------------------------------
+All files                               |   90.79 |    81.48 |   68.36 |   91.38 |                                           
+ src                                    |   85.89 |       35 |      70 |   85.71 |                                           
+  app.ts                                |   85.89 |       35 |      70 |   85.71 | 83,149,161,173,194-195,217-242            
+ src/config                             |   97.05 |    66.66 |   90.47 |   96.72 |                                           
+  database.ts                           |   92.85 |      100 |       0 |   92.85 | 158                                       
+  index.ts                              |     100 |    83.33 |     100 |     100 | 216                                       
+  staticData.ts                         |   97.36 |     61.9 |   94.44 |   96.77 | 220                                       
+  swagger.ts                            |     100 |      100 |     100 |     100 |                                           
+ src/constants                          |   58.33 |        0 |       0 |   63.63 |                                           
+  auth.ts                               |   77.77 |        0 |       0 |   77.77 | 54,61                                     
+  index.ts                              |       0 |      100 |       0 |       0 | 6-7                                       
+ src/controllers                        |   95.48 |    79.32 |   94.44 |   95.78 |                                           
+  authController.ts                     |   99.03 |    80.85 |     100 |   98.97 | 456,473                                   
+  databaseController.ts                 |   99.25 |      100 |    90.9 |    99.2 | 280                                       
+  index.ts                              |       0 |      100 |     100 |       0 | 10-19                                     
+  queryController.ts                    |   99.42 |    83.69 |   96.29 |   99.38 | 670-671                                   
+  userController.ts                     |   76.28 |    31.57 |   83.33 |   78.31 | 61,74,107,112,124,144,160-171,185,191,200 
+ src/db                                 |       0 |        0 |       0 |       0 |                                           
+  index.ts                              |       0 |        0 |       0 |       0 | 5-96                                      
+ src/middleware                         |   85.68 |     90.9 |   53.46 |    85.4 |                                           
+  auth.ts                               |   95.63 |    90.72 |   96.42 |   95.55 | 376-391,428-444,453-458,584               
+  errorHandler.ts                       |     100 |     93.1 |     100 |     100 | 111,114                                   
+  index.ts                              |       0 |      100 |       0 |       0 | 18-79                                     
+  originValidation.ts                   |   97.82 |       80 |     100 |   97.82 | 70                                        
+  sanitize.ts                           |   95.45 |      100 |     100 |   95.23 | 75                                        
+  upload.ts                             |   87.34 |       95 |   66.66 |   86.84 | 81-87,217-222                             
+ src/routes                             |   80.53 |        0 |      20 |   80.53 |                                           
+  authRoutes.ts                         |     100 |      100 |     100 |     100 |                                           
+  databaseRoutes.ts                     |     100 |      100 |     100 |     100 |                                           
+  index.ts                              |     100 |      100 |     100 |     100 |                                           
+  queryRoutes.ts                        |     100 |      100 |     100 |     100 |                                           
+  secretsRoutes.ts                      |   29.03 |        0 |      20 |   29.03 | 42-53,67-97,111-145                       
+  userRoutes.ts                         |     100 |      100 |     100 |     100 |                                           
+ src/services                           |   99.73 |    91.48 |   37.38 |   99.73 |                                           
+  authService.ts                        |   99.33 |    89.18 |     100 |   99.31 | 376                                       
+  databaseSyncService.ts                |     100 |    92.98 |     100 |     100 | 147-150,359                               
+  index.ts                              |     100 |      100 |       0 |     100 |                                           
+ src/services/queryAnalysis             |     100 |       80 |      75 |     100 |                                           
+  analyzer.factory.ts                   |     100 |      100 |     100 |     100 |                                           
+  index.ts                              |     100 |       70 |   71.42 |     100 | 39-62                                     
+  interfaces.ts                         |     100 |      100 |     100 |     100 |                                           
+ src/services/queryAnalysis/analyzers   |   89.43 |    82.67 |   68.96 |   91.71 |                                           
+  MongoAnalyzer.ts                      |   95.26 |     87.5 |   81.81 |   96.73 | 714,723,790-792                           
+  PostgresAnalyzer.ts                   |   91.41 |    79.78 |      80 |   92.81 | 556,559,564,567-570,674,738-740           
+  Utils.ts                              |   54.05 |    66.66 |    37.5 |    62.5 | 35-55                                     
+ src/services/queryExecution            |   93.68 |     89.7 |   82.35 |   93.68 |                                           
+  ConnectionPool.ts                     |     100 |       94 |     100 |     100 | 48-50                                     
+  index.ts                              |      80 |    77.77 |    62.5 |      80 | 75-76,83-84,91,112                        
+ src/services/queryExecution/strategies |   91.89 |    76.77 |   78.94 |   92.01 |                                           
+  MongoDriver.ts                        |   94.23 |    78.86 |   83.33 |   94.63 | 79,211-215,347,362,384,393,398            
+  PostgresDriver.ts                     |   86.36 |    68.75 |   71.42 |   85.93 | 78,102-103,153,167,198-213                
+ src/services/script                    |   90.56 |    84.26 |   85.36 |   91.98 |                                           
+  ScriptExecutor.ts                     |   94.23 |    87.65 |   93.33 |   95.62 | 60-61,129,323,326,432-434                 
+  index.ts                              |   62.96 |        0 |      60 |      68 | 42-43,71-77                               
+  security.ts                           |      90 |    66.66 |   66.66 |   89.65 | 268,296,321                               
+ src/services/script/commands           |     100 |      100 |     100 |     100 |                                           
+  ExecuteScriptCommand.ts               |     100 |      100 |     100 |     100 |                                           
+ src/services/slack                     |   92.54 |    78.65 |      84 |   95.61 |                                           
+  SlackMessageBuilder.ts                |     100 |      100 |     100 |     100 |                                           
+  index.ts                              |   88.13 |     66.1 |   69.23 |   92.59 | 57-58,64-66,129,215-216                   
+  utils.ts                              |   95.68 |    83.48 |     100 |   97.97 | 78,146                                    
+ src/types                              |       0 |        0 |       0 |       0 |                                           
+  express.d.ts                          |       0 |        0 |       0 |       0 |                                           
+ src/utils                              |   95.18 |    87.38 |   95.16 |   96.59 |                                           
+  auditLogger.ts                        |     100 |      100 |     100 |     100 |                                           
+  cookies.ts                            |   93.22 |    76.47 |     100 |   92.15 | 106,113,115,117                           
+  errors.ts                             |   94.44 |       90 |   84.61 |   94.44 | 192,199                                   
+  logger.ts                             |    90.9 |      100 |       0 |    90.9 | 95                                        
+  pagination.ts                         |     100 |    92.85 |     100 |     100 | 121                                       
+  response.ts                           |     100 |    85.71 |     100 |     100 | 57,78                                     
+  validators.ts                         |   92.53 |    84.37 |     100 |   98.36 | 171                                       
+ src/validation                         |    81.5 |       64 |   76.27 |   81.81 |                                           
+  authSchemas.ts                        |     100 |      100 |     100 |     100 |                                           
+  commonSchemas.ts                      |   52.94 |        0 |       0 |   52.94 | 72,178-184,207-220                        
+  databaseSchemas.ts                    |   69.23 |        0 |     100 |   69.23 | 104-108                                   
+  envSchema.ts                          |   60.86 |       75 |   83.33 |   59.09 | 237-249                                   
+  index.ts                              |     100 |      100 |   86.95 |     100 |                                           
+  middleware.ts                         |   89.58 |       80 |      80 |   89.36 | 100,145,188,200,210                       
+  querySchemas.ts                       |     100 |      100 |     100 |     100 |                                           
+  userSchemas.ts                        |      50 |        0 |       0 |      60 | 59,136-138                                
+----------------------------------------|---------|----------|---------|---------|-------------------------------------------
+Jest: "global" coverage threshold for functions (70%) not met: 68.36%
+Test Suites: 40 passed, 40 total
+Tests:       1082 passed, 1082 total
+Snapshots:   0 total
+Time:        31.284 s
+Ran all test suites.

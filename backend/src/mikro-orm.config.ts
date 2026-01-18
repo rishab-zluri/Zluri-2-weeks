@@ -8,11 +8,25 @@ const config: Options = {
     driver: PostgreSqlDriver,
 
     // Connection settings from environment
-    host: process.env.PORTAL_DB_HOST || 'localhost',
-    port: parseInt(process.env.PORTAL_DB_PORT || '5432', 10),
-    user: process.env.PORTAL_DB_USER || 'postgres',
-    password: process.env.PORTAL_DB_PASSWORD || '',
-    dbName: process.env.PORTAL_DB_NAME || 'db_portal',
+    // Connection settings: Prefer URL if available (Production/Neon)
+    clientUrl: process.env.PORTAL_DB_URL,
+
+    // Fallback to individual params if URL not present
+    host: !process.env.PORTAL_DB_URL ? (process.env.PORTAL_DB_HOST || 'localhost') : undefined,
+    port: !process.env.PORTAL_DB_URL ? parseInt(process.env.PORTAL_DB_PORT || '5432', 10) : undefined,
+    // Do not set user/password/dbName if clientUrl is present to avoid conflicts
+    user: !process.env.PORTAL_DB_URL ? (process.env.PORTAL_DB_USER || 'postgres') : undefined,
+    password: !process.env.PORTAL_DB_URL ? (process.env.PORTAL_DB_PASSWORD || '') : undefined,
+    dbName: !process.env.PORTAL_DB_URL ? (process.env.PORTAL_DB_NAME || 'db_portal') : undefined,
+
+    // SSL for Production (Supabase/Neon)
+    driverOptions: {
+        connection: {
+            ssl: (process.env.PORTAL_DB_SSL === 'true' || process.env.PORTAL_DB_SSL === '1' || (process.env.PORTAL_DB_URL && process.env.PORTAL_DB_URL.includes('sslmode=require')))
+                ? { rejectUnauthorized: false }
+                : false
+        }
+    },
 
     // Entity discovery
     entities: ['./dist/entities/**/*.js'],

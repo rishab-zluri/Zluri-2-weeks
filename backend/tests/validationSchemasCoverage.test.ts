@@ -1,7 +1,7 @@
 
 import { describe, it, expect } from '@jest/globals';
-import { RegisterSchema } from '../src/validation/authSchemas';
-import { SubmitRequestSchema } from '../src/validation/querySchemas';
+import { RegisterSchema, UpdateProfileSchema, ChangePasswordSchema } from '../src/validation/authSchemas';
+import { SubmitRequestSchema, RejectRequestSchema, RequestQuerySchema } from '../src/validation/querySchemas';
 import { ZodError } from 'zod';
 
 describe('Validation Schemas Coverage', () => {
@@ -52,6 +52,81 @@ describe('Validation Schemas Coverage', () => {
             });
             expect(result.email).toBe('test@example.com');
             expect(result.name).toBe('Test User');
+        });
+    });
+
+    describe('UpdateProfileSchema', () => {
+        it('should pass with valid optional fields', () => {
+            const result = UpdateProfileSchema.safeParse({ name: 'New Name', slackUserId: 'U12345678' });
+            expect(result.success).toBe(true);
+        });
+
+        it('should pass with empty object (all optional)', () => {
+            const result = UpdateProfileSchema.safeParse({});
+            expect(result.success).toBe(true);
+        });
+
+        it('should fail invalid slack ID', () => {
+            const result = UpdateProfileSchema.safeParse({ slackUserId: 'invalid' });
+            expect(result.success).toBe(false);
+        });
+
+        it('should allow null slack ID', () => {
+            const result = UpdateProfileSchema.safeParse({ slackUserId: null });
+            expect(result.success).toBe(true);
+        });
+
+        it('should fail empty name', () => {
+            const result = UpdateProfileSchema.safeParse({ name: '' });
+            expect(result.success).toBe(false);
+        });
+    });
+
+    describe('ChangePasswordSchema', () => {
+        it('should fail if new password is same as old', () => {
+            const result = ChangePasswordSchema.safeParse({
+                currentPassword: 'Password123!',
+                newPassword: 'Password123!'
+            });
+            expect(result.success).toBe(false);
+            if (!result.success) {
+                expect(result.error.issues[0].message).toContain('must be different');
+            }
+        });
+
+        it('should pass if new password is different', () => {
+            const result = ChangePasswordSchema.safeParse({
+                currentPassword: 'Password123!',
+                newPassword: 'NewPassword123!'
+            });
+            expect(result.success).toBe(true);
+        });
+    });
+
+    describe('RejectRequestSchema', () => {
+        it('should fail empty reason', () => {
+            const result = RejectRequestSchema.safeParse({ reason: '' });
+            expect(result.success).toBe(false);
+        });
+
+        it('should fail huge reason', () => {
+            const result = RejectRequestSchema.safeParse({ reason: 'a'.repeat(501) });
+            expect(result.success).toBe(false);
+        });
+    });
+
+    describe('RequestQuerySchema', () => {
+        it('should coerce query params', () => {
+            // Note: schema uses string() or string().datetime() mostly, coercion is implicit in express but Zod manual parsing checks types.
+            // Actually RequestQuerySchema uses z.string() mostly.
+            // Let's check date validation.
+            const result = RequestQuerySchema.safeParse({ startDate: 'invalid-date' });
+            expect(result.success).toBe(false);
+        });
+
+        it('should pass valid date', () => {
+            const result = RequestQuerySchema.safeParse({ startDate: new Date().toISOString() });
+            expect(result.success).toBe(true);
         });
     });
 

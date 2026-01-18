@@ -94,22 +94,43 @@ export class DatabaseSeeder extends Seeder {
         const instances = [
             {
                 id: 'database-1',
-                name: 'Database-1',
+                name: 'Database-1 (Local)',
                 type: DatabaseType.POSTGRESQL,
                 host: 'localhost',
                 port: 5432,
                 credentialsEnvPrefix: 'PG_INSTANCE_1',
-                description: 'Primary PostgreSQL Instance'
+                description: 'Local PostgreSQL Instance'
             },
+            // Production Target DB (Registered if ENV var present)
+            ...(process.env.TARGET_DB_HOST ? [{
+                id: 'prod-target-aws',
+                name: 'Production Target DB (Neon)',
+                type: DatabaseType.POSTGRESQL,
+                host: process.env.TARGET_DB_HOST,
+                port: parseInt(process.env.TARGET_DB_PORT || '5432'),
+                credentialsEnvPrefix: 'TARGET_DB', // Will look for TARGET_DB_USER, TARGET_DB_PASSWORD
+                description: 'Neon Cloud Database (AWS)'
+            }] : []),
             {
                 id: 'mongo-zluri-1',
-                name: 'mongo-zluri-1',
+                name: 'mongo-zluri-1 (Local)',
                 type: DatabaseType.MONGODB,
                 host: 'localhost',
                 port: 27017,
                 credentialsEnvPrefix: 'MONGO_INSTANCE_1',
-                description: 'Primary MongoDB Instance'
+                description: 'Local MongoDB Instance'
             },
+            // Production MongoDB (Registered if ENV var present)
+            ...(process.env.TARGET_MONGO_URI ? [{
+                id: 'prod-mongo-atlas',
+                name: 'Production MongoDB (Atlas)',
+                type: DatabaseType.MONGODB,
+                host: process.env.TARGET_MONGO_HOST || 'cluster0.mongodb.net', // Fallback for display
+                port: 27017, // Standard Mongo port, though SRV ignores it
+                credentialsEnvPrefix: 'TARGET_MONGO',
+                connectionStringEnv: 'TARGET_MONGO_URI', // Special field for full URI
+                description: 'MongoDB Atlas Cluster'
+            }] : []),
         ];
 
         for (const instData of instances) {
@@ -142,6 +163,8 @@ export class DatabaseSeeder extends Seeder {
         const databasesMap: Record<string, string[]> = {
             'database-1': ['db_query_portal', 'postgres'],
             'mongo-zluri-1': ['test', 'local'],
+            'prod-target-aws': ['target_db'], // The DB name created in Neon
+            'prod-mongo-atlas': ['sample_mflix', 'admin'], // Common Atlas sample DBs
         };
 
         const databases = databasesMap[instance.id] || [];

@@ -133,6 +133,21 @@ describe('Slack Utils Coverage', () => {
             const result = formatExecutionResult(json);
             expect(result.summary).toContain('99 row(s) fetched');
         });
+
+        it('should count rowsAffected from result type items', () => {
+            const json = JSON.stringify({
+                output: [{ type: 'result', rowsAffected: 10 }]
+            });
+            const result = formatExecutionResult(json);
+            expect(result.summary).toContain('10 row(s) affected');
+        });
+
+        it('should truncate preview for nested result.rows (>3)', () => {
+            const rows = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+            const json = JSON.stringify({ result: { rows } });
+            const result = formatExecutionResult(json);
+            expect(result.preview).toContain('1 more row(s)');
+        });
     });
 
     describe('formatErrorMessage', () => {
