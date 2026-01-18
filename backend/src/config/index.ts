@@ -74,10 +74,63 @@ export interface AwsConfig {
 export interface RateLimitConfig {
     readonly windowMs: number;
     readonly maxRequests: number;
+    readonly authMaxRequests: number;
     readonly message: string;
     readonly skipSuccessfulRequests: boolean;
     readonly standardHeaders: boolean;
     readonly legacyHeaders: boolean;
+}
+
+export interface LoggingConfig {
+    readonly level: string;
+    readonly format: string;
+    readonly enableConsole: boolean;
+    readonly enableFile: boolean;
+    readonly filePath: string;
+}
+
+export interface UploadConfig {
+    readonly maxFileSize: number;
+    readonly uploadDir: string;
+    readonly allowedExtensions: readonly string[];
+    readonly cleanupIntervalMs: number;
+}
+
+export interface ScriptExecutionConfig {
+    readonly timeoutMs: number;
+    readonly memoryLimitMb: number;
+    readonly maxConcurrent: number;
+    readonly sandboxEnabled: boolean;
+}
+
+export interface CorsConfig {
+    readonly origin: string | readonly string[];
+    readonly credentials: boolean;
+    readonly methods: readonly string[];
+    readonly allowedHeaders: readonly string[];
+    readonly exposedHeaders: readonly string[];
+    readonly maxAge: number;
+}
+
+export interface SecurityConfig {
+    readonly bcryptSaltRounds: number;
+    readonly sessionSecret: string;
+    readonly cookieSecure: boolean;
+    readonly cookieHttpOnly: boolean;
+    readonly cookieSameSite: string;
+    readonly helmetEnabled: boolean;
+}
+
+export interface FrontendConfig {
+    readonly url: string;
+    readonly resetPasswordPath: string;
+    readonly verifyEmailPath: string;
+}
+
+export interface HealthCheckConfig {
+    readonly enabled: boolean;
+    readonly path: string;
+    readonly includeDetails: boolean;
 }
 
 export interface LoggingConfig {
@@ -328,6 +381,7 @@ const config: AppConfig = {
     rateLimit: {
         windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '', 10) || 15 * 60 * 1000,
         maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '', 10) || 100,
+        authMaxRequests: parseInt(process.env.RATE_LIMIT_AUTH_MAX || '', 10) || 10,
         message: 'Too many requests, please try again later.',
         skipSuccessfulRequests: parseBoolean(process.env.RATE_LIMIT_SKIP_SUCCESS, false),
         standardHeaders: true,

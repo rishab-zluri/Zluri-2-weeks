@@ -115,7 +115,7 @@ const generalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 10, // 10 attempts per 15 minutes
+    limit: config.rateLimit.authMaxRequests,
     message: {
         success: false,
         error: {
