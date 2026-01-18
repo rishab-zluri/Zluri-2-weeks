@@ -13,12 +13,15 @@ vi.mock('@/context/AuthContext', () => ({
     useAuth: () => mockUseAuth(),
 }));
 
-// Mock useLocation
+const { mockUseLocation } = vi.hoisted(() => {
+    return { mockUseLocation: vi.fn() };
+});
+
 vi.mock('react-router-dom', async () => {
-    const actual = await vi.importActual('react-router-dom');
+    const actual = await vi.importActual('react-router-dom') as any;
     return {
         ...actual,
-        useLocation: () => ({ pathname: '/dashboard' }),
+        useLocation: () => mockUseLocation(),
     };
 });
 
@@ -38,11 +41,19 @@ describe('Sidebar Component', () => {
     describe('Rendering - Standard User', () => {
         beforeEach(() => {
             mockUseAuth.mockReturnValue({ isManager: false, isAdmin: false });
+            mockUseLocation.mockReturnValue({ pathname: '/dashboard' });
         });
 
         it('renders logo and branding', () => {
             renderSidebar();
             expect(screen.getByText('Zluri SRE')).toBeInTheDocument();
+        });
+
+        it('highlights dashboard link when on root path', () => {
+            mockUseLocation.mockReturnValue({ pathname: '/' });
+            renderSidebar();
+            const dashboardLink = screen.getByText('Submit Request').closest('a');
+            expect(dashboardLink).toHaveClass('active');
         });
 
         it('renders submit request link', () => {

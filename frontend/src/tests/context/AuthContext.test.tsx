@@ -103,6 +103,21 @@ describe('AuthContext', () => {
                 expect(authService.clearAuth).toHaveBeenCalled();
             });
         });
+
+        it('should handle initialization exception (console.error)', async () => {
+            const spy = vi.spyOn(console, 'error').mockImplementation(() => { });
+            (authService.getStoredUser as any).mockImplementation(() => { throw new Error('Storage Error'); });
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => expect(screen.getByTestId('is-auth')).toBeInTheDocument());
+            expect(spy).toHaveBeenCalledWith('Auth initialization error:', expect.any(Error));
+            spy.mockRestore();
+        });
     });
 
     describe('Login', () => {
