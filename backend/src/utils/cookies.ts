@@ -59,7 +59,7 @@ export const COOKIE_NAMES = {
 const getBaseCookieOptions = (): CookieOptions => ({
     httpOnly: true,                     // JavaScript cannot access
     secure: config.isProduction,        // HTTPS only in production
-    sameSite: 'strict',                 // Prevents CSRF
+    sameSite: config.security.cookieSameSite as 'strict' | 'lax' | 'none', // Configurable via ENV
     path: '/',                          // Available to all routes
     // Domain is intentionally NOT set for __Host- prefix compatibility
 });
