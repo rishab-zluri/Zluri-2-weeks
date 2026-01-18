@@ -214,13 +214,19 @@ function getMaxFileSize(): number {
 
 /* istanbul ignore if */
 if (process.env.NODE_ENV === 'production' && !process.env.JEST_WORKER_ID) {
-    validateEnvVars([
-        'JWT_SECRET',
-        'PORTAL_DB_HOST',
-        'PORTAL_DB_NAME',
-        'PORTAL_DB_USER',
-        'PORTAL_DB_PASSWORD',
-    ]);
+    const requiredVars = ['JWT_SECRET'];
+
+    // If a full connection string is provided, specific DB params are optional
+    if (!process.env.PORTAL_DB_URL) {
+        requiredVars.push(
+            'PORTAL_DB_HOST',
+            'PORTAL_DB_NAME',
+            'PORTAL_DB_USER',
+            'PORTAL_DB_PASSWORD'
+        );
+    }
+
+    validateEnvVars(requiredVars);
 }
 
 // ============================================================================
