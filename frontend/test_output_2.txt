@@ -1,0 +1,157 @@
+
+> zluri-sre-portal@1.0.0 test
+> vitest src/tests/pages/QuerySubmissionPage.test.tsx --run
+
+
+ RUN  v0.34.6 /Users/rishabacharjee/Downloads/database-query-portal-backend/frontend
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > renders the page title
+Clone Effect. Data: [1mnull[22m
+
+stderr | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > renders the page title
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > renders submission type toggles
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > switches between query and script modes
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > validates form before submission (Query Mode)
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > submits query successfully
+Clone Effect. Data: [1mnull[22m
+handleSubmit called
+State: {
+  instanceId: [32m'inst-1'[39m,
+  databaseName: [32m'users_db'[39m,
+  podId: [32m'pod-1'[39m,
+  comments: [32m'Test query'[39m,
+  query: [32m'SELECT * F'[39m,
+  selectedFile: [90mundefined[39m
+}
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > shows loading state when data is fetching
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > validates file extension
+Clone Effect. Data: [1mnull[22m
+handleFileInput triggered. Files: [33m1[39m
+Validating file: data.txt Size: [33m6[39m
+Detected extension: .txt
+Extension invalid. calling toast.error
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > validates file size
+Clone Effect. Data: [1mnull[22m
+handleFileInput triggered. Files: [33m1[39m
+Validating file: bloat.js Size: [33m17825792[39m
+Detected extension: .js
+Size invalid. calling toast.error
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > handles strict submission validation
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > submits valid script file
+Clone Effect. Data: [1mnull[22m
+handleFileInput triggered. Files: [33m1[39m
+Validating file: test.py Size: [33m11[39m
+Detected extension: .py
+File valid. Setting selectedFile
+handleSubmit called
+State: {
+  instanceId: [32m'inst-1'[39m,
+  databaseName: [32m'users_db'[39m,
+  podId: [32m'pod-1'[39m,
+  comments: [32m'Run script'[39m,
+  query: [32m''[39m,
+  selectedFile: [32m'test.py'[39m
+}
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > removes selected file
+Clone Effect. Data: [1mnull[22m
+handleFileInput triggered. Files: [33m1[39m
+Validating file: test.py Size: [33m0[39m
+Detected extension: .py
+File valid. Setting selectedFile
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Features > pre-fills form from cloned session data
+Clone Effect. Data: {"instanceId":"inst-1","podId":"pod-1","databaseName":"users_db","submissionType":"query","queryContent":"SELECT 1","comments":"Cloned request"}
+Parsed Clone Data {
+  instanceId: [32m'inst-1'[39m,
+  podId: [32m'pod-1'[39m,
+  databaseName: [32m'users_db'[39m,
+  submissionType: [32m'query'[39m,
+  queryContent: [32m'SELECT 1'[39m,
+  comments: [32m'Cloned request'[39m
+}
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Features > resets form state
+Clone Effect. Data: [1mnull[22m
+
+ ❯ src/tests/pages/QuerySubmissionPage.test.tsx  (13 tests | 2 failed) 345ms
+   ❯ src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > validates form before submission (Query Mode)
+     → expected "spy" to be called with arguments: [ Array(1) ]
+
+Received: 
+
+
+
+Number of calls: 0
+
+   ❯ src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > handles strict submission validation
+     → expected "spy" to be called with arguments: [ 'Please upload a script file' ]
+
+Received: 
+
+
+
+Number of calls: 0
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > validates form before submission (Query Mode)
+AssertionError: expected "spy" to be called with arguments: [ Array(1) ]
+
+Received: 
+
+
+
+Number of calls: 0
+
+ ❯ src/tests/pages/QuerySubmissionPage.test.tsx:133:29
+    131| 
+    132|         // Toast error should be called
+    133|         expect(toast.error).toHaveBeenCalledWith('Please fill in all r…
+       |                             ^
+    134|         expect(mockMutateAsync).not.toHaveBeenCalled();
+    135|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > handles strict submission validation
+AssertionError: expected "spy" to be called with arguments: [ 'Please upload a script file' ]
+
+Received: 
+
+
+
+Number of calls: 0
+
+ ❯ src/tests/pages/QuerySubmissionPage.test.tsx:233:33
+    231|             fireEvent.click(submitBtn);
+    232|             // Should fail because no file
+    233|             expect(toast.error).toHaveBeenCalledWith('Please upload a …
+       |                                 ^
+    234|         });
+    235| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 11 passed (13)
+   Start at  13:59:21
+   Duration  1.17s (transform 51ms, setup 51ms, collect 177ms, tests 345ms, environment 319ms, prepare 47ms)
+

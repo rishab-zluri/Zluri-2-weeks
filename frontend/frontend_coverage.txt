@@ -1,0 +1,64 @@
+
+> zluri-sre-portal@1.0.0 test:coverage
+> vitest --coverage
+
+
+ DEV  v0.34.6 /Users/rishabacharjee/Downloads/database-query-portal-backend/frontend
+      Coverage enabled with v8
+
+ ✓ src/tests/components/query/DatabaseSelector.test.tsx  (9 tests) 306ms
+ ✓ src/tests/pages/LoginPage.test.tsx  (18 tests) 503ms
+ ✓ src/tests/pages/SecretsManagerPage.test.tsx  (6 tests) 597ms
+ ✓ src/tests/pages/MyQueriesPage.test.tsx  (11 tests) 351ms
+ ✓ src/tests/pages/QuerySubmissionPage.test.tsx  (6 tests) 322ms
+ ✓ src/tests/CriticalFlows.test.tsx  (2 tests) 221ms
+ ✓ src/tests/components/common/ErrorBoundary.test.tsx  (11 tests) 272ms
+ ✓ src/tests/components/common/EmptyState.test.tsx  (13 tests) 274ms
+ ✓ src/tests/components/common/Modal.test.tsx  (15 tests) 67ms
+ ✓ src/tests/pages/ApprovalDashboardPage.test.tsx  (4 tests) 98ms
+ ✓ src/tests/components/layout/Header.test.tsx  (15 tests) 109ms
+ ✓ src/tests/components/layout/Sidebar.test.tsx  (8 tests) 65ms
+ ✓ src/tests/components/query/QueryForm.test.tsx  (4 tests) 33ms
+ ✓ src/tests/components/query/ScriptDocs.test.tsx  (6 tests) 46ms
+ ✓ src/tests/components/common/StatusBadge.test.tsx  (16 tests) 57ms
+ ✓ src/tests/components/common/Loading.test.tsx  (9 tests) 39ms
+ ✓ src/tests/App.test.tsx  (1 test) 18ms
+
+ Test Files  17 passed (17)
+      Tests  154 passed (154)
+   Start at  01:06:22
+   Duration  5.72s (transform 305ms, setup 1.42s, collect 3.64s, tests 3.38s, environment 7.27s, prepare 1.30s)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   73.81 |    70.03 |   44.54 |   73.81 |                   
+ components/common |     100 |      100 |     100 |     100 |                   
+  EmptyState.tsx   |     100 |      100 |     100 |     100 |                   
+  ...rBoundary.tsx |     100 |      100 |     100 |     100 |                   
+  Loading.tsx      |     100 |      100 |     100 |     100 |                   
+  Modal.tsx        |     100 |      100 |     100 |     100 |                   
+  StatusBadge.tsx  |     100 |      100 |     100 |     100 |                   
+  index.ts         |     100 |      100 |     100 |     100 |                   
+ components/layout |   97.87 |     82.6 |   66.66 |   97.87 |                   
+  Header.tsx       |      96 |    72.72 |      60 |      96 | 17-20             
+  Sidebar.tsx      |     100 |    91.66 |     100 |     100 | 61                
+ components/query  |     100 |      100 |     100 |     100 |                   
+  ...eSelector.tsx |     100 |      100 |     100 |     100 |                   
+  QueryForm.tsx    |     100 |      100 |     100 |     100 |                   
+  ScriptDocs.tsx   |     100 |      100 |     100 |     100 |                   
+ context           |   79.83 |    76.19 |     100 |   79.83 |                   
+  AuthContext.tsx  |   79.83 |    76.19 |     100 |   79.83 | ...,94-96,100-101 
+ pages             |   64.36 |    60.09 |   28.04 |   64.36 |                   
+  ...boardPage.tsx |   50.18 |    55.81 |    12.5 |   50.18 | ...26-430,444-728 
+  LoginPage.tsx    |   98.73 |    85.71 |     100 |   98.73 | 52-53             
+  ...eriesPage.tsx |   57.86 |    39.43 |   14.81 |   57.86 | ...46-552,596-701 
+  ...ssionPage.tsx |   74.07 |    71.11 |   46.66 |   74.07 | ...18-335,370-373 
+  ...nagerPage.tsx |   96.65 |    82.85 |     100 |   96.65 | 36-37,77-79,86-87 
+ types             |     100 |      100 |     100 |     100 |                   
+  index.ts         |     100 |      100 |     100 |     100 |                   
+-------------------|---------|----------|---------|---------|-------------------
+
+ PASS  Waiting for file changes...
+       press h to show help, press q to quit

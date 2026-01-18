@@ -1,0 +1,692 @@
+
+> zluri-sre-portal@1.0.0 test
+> vitest src/tests/pages/QuerySubmissionPage.test.tsx --run
+
+
+ RUN  v0.34.6 /Users/rishabacharjee/Downloads/database-query-portal-backend/frontend
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > renders the page title
+Clone Effect. Data: [1mnull[22m
+
+stderr | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > renders the page title
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > renders submission type toggles
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > switches between query and script modes
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > validates form before submission (Query Mode)
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > submits query successfully
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > shows loading state when data is fetching
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > validates file extension
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > validates file size
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > handles strict submission validation
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > submits valid script file
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > removes selected file
+Clone Effect. Data: [1mnull[22m
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Features > pre-fills form from cloned session data
+Clone Effect. Data: {"instanceId":"inst-1","podId":"pod-1","databaseName":"users_db","submissionType":"query","queryContent":"SELECT 1","comments":"Cloned request"}
+Parsed Clone Data {
+  instanceId: [32m'inst-1'[39m,
+  podId: [32m'pod-1'[39m,
+  databaseName: [32m'users_db'[39m,
+  submissionType: [32m'query'[39m,
+  queryContent: [32m'SELECT 1'[39m,
+  comments: [32m'Cloned request'[39m
+}
+
+stdout | src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Features > resets form state
+Clone Effect. Data: [1mnull[22m
+
+ ❯ src/tests/pages/QuerySubmissionPage.test.tsx  (13 tests | 7 failed) 1325ms
+   ❯ src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > validates form before submission (Query Mode)
+     → expected "spy" to be called with arguments: [ Array(1) ]
+
+Received: 
+
+
+
+Number of calls: 0
+
+   ❯ src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > validates file extension
+     → Cannot redefine property: files
+   ❯ src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > validates file size
+     → Cannot redefine property: files
+   ❯ src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > handles strict submission validation
+     → expected "spy" to be called with arguments: [ 'Please upload a script file' ]
+
+Received: 
+
+
+
+Number of calls: 0
+
+   ❯ src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > submits valid script file
+     → Cannot redefine property: files
+   ❯ src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > removes selected file
+     → Cannot redefine property: files
+   ❯ src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Features > pre-fills form from cloned session data
+     → expected "spy" to be called with arguments: [ /request cloned/i ]
+
+Received: 
+
+  1st spy call:
+
+  Array [
+-   /request cloned/i,
++   "Request cloned - review and submit",
+  ]
+
+
+Number of calls: 1
+
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"max-w-6xl mx-auto"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center justify-between mb-6"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-2xl font-bold text-gray-900"[39m
+            [36m>[39m
+              [0mDatabase Request Portal[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-gray-500 mt-1"[39m
+            [36m>[39m
+              [0mSubmit queries or scripts for approval and execution[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"grid grid-cols-1  gap-6"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m""[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"card"[39m
+            [36m>[39m
+              [36m<form[39m
+                [33mclass[39m=[32m"space-y-6"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mdata-testid[39m=[32m"database-selector"[39m
+                [36m>[39m
+                  [36m<button>[39m
+                    [0mSelect Instance[0m
+                  [36m</button>[39m
+                  [36m<button>[39m
+                    [0mSelect Database[0m
+                  [36m</button>[39m
+                  [36m<button>[39m
+                    [0mSelect Pod[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+                [36m<div>[39m
+                  [36m<label[39m
+                    [33mclass[39m=[32m"block text-sm font-medium text-gray-700 mb-2"[39m
+                  [36m>[39m
+                    [0mComments [0m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"text-red-500"[39m
+                    [36m>[39m
+                      [0m*[0m
+                    [36m</span>[39m
+                  [36m</label>[39m
+                  [36m<textarea[39m
+                    [33mclass[39m=[32m"textarea-field"[39m
+                    [33mplaceholder[39m=[32m"Describe the purpose of this request..."[39m
+                    [33mrequired[39m=[32m""[39m
+                    [33mrows[39m=[32m"3"[39m
+                  [36m>[39m
+                    [0mCloned request[0m
+                  [36m</textarea>[39m
+                [36m</div>[39m
+                [36m<div>[39m
+                  [36m<label[39m
+                    [33mclass[39m=[32m"block text-sm font-medium text-gray-700 mb-2"[39m
+                  [36m>[39m
+                    [0mRequest Type [0m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"text-red-500"[39m
+                    [36m>[39m
+                      [0m*[0m
+                    [36m</span>[39m
+                  [36m</label>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"inline-flex rounded-lg border border-gray-200 bg-gray-100 p-1"[39m
+                  [36m>[39m
+                    [36m<button[39m
+                      [33mclass[39m=[32m"flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all bg-white text-purple-700 shadow-sm"[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [36m<svg[39m
+                        [33mclass[39m=[32m"lucide lucide-code w-4 h-4"[39m
+                        [33mfill[39m=[32m"none"[39m
+                        [33mheight[39m=[32m"24"[39m
+                        [33mstroke[39m=[32m"currentColor"[39m
+                        [33mstroke-linecap[39m=[32m"round"[39m
+                        [33mstroke-linejoin[39m=[32m"round"[39m
+                        [33mstroke-width[39m=[32m"2"[39m
+                        [33mviewBox[39m=[32m"0 0 24 24"[39m
+                        [33mwidth[39m=[32m"24"[39m
+                        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                      [36m>[39m
+                        [36m<polyline[39m
+                          [33mpoints[39m=[32m"16 18 22 12 16 6"[39m
+                        [36m/>[39m
+                        [36m<polyline[39m
+                          [33mpoints[39m=[32m"8 6 2 12 8 18"[39m
+                        [36m/>[39m
+                      [36m</svg>[39m
+                      [0mQuery[0m
+                    [36m</button>[39m
+                    [36m<button[39m
+                      [33mclass[39m=[32m"flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900"[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [36m<svg[39m
+                        [33mclass[39m=[32m"lucide lucide-file-up w-4 h-4"[39m
+                        [33mfill[39m=[32m"none"[39m
+                        [33mheight[39m=[32m"24"[39m
+                        [33mstroke[39m=[32m"currentColor"[39m
+                        [33mstroke-linecap[39m=[32m"round"[39m
+                        [33mstroke-linejoin[39m=[32m"round"[39m
+                        [33mstroke-width[39m=[32m"2"[39m
+                        [33mviewBox[39m=[32m"0 0 24 24"[39m
+                        [33mwidth[39m=[32m"24"[39m
+                        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                      [36m>[39m
+                        [36m<path[39m
+                          [33md[39m=[32m"M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"[39m
+                        [36m/>[39m
+                        [36m<polyline[39m
+                          [33mpoints[39m=[32m"14 2 14 8 20 8"[39m
+                        [36m/>[39m
+                        [36m<path[39m
+                          [33md[39m=[32m"M12 12v6"[39m
+                        [36m/>[39m
+                        [36m<path[39m
+                          [33md[39m=[32m"m15 15-3-3-3 3"[39m
+                        [36m/>[39m
+                      [36m</svg>[39m
+                      [0mScript File[0m
+                    [36m</button>[39m
+                  [36m</div>[39m
+                [36m</div>[39m
+                [36m<div>[39m
+                  [36m<label[39m
+                    [33mclass[39m=[32m"block text-sm font-medium text-gray-700 mb-2"[39m
+                  [36m>[39m
+                    [0mDatabase Query [0m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"text-red-500"[39m
+                    [36m>[39m
+                      [0m*[0m
+                    [36m</span>[39m
+                  [36m</label>[39m
+                  [36m<textarea[39m
+                    [33mclass[39m=[32m"textarea-field font-mono text-sm"[39m
+                    [33mplaceholder[39m=[32m"Enter your SQL or MongoDB query here..."[39m
+                    [33mrequired[39m=[32m""[39m
+                    [33mrows[39m=[32m"8"[39m
+                  [36m>[39m
+                    [0mSELECT 1[0m
+                  [36m</textarea>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex items-center gap-4 pt-4"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"btn-primary flex items-center gap-2"[39m
+                    [33mtype[39m=[32m"submit"[39m
+                  [36m>[39m
+                    [36m<svg[39m
+                      [33mclass[39m=[32m"lucide lucide-send w-4 h-4"[39m
+                      [33mfill[39m=[32m"none"[39m
+                      [33mheight[39m=[32m"24"[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-linejoin[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"2"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                      [33mwidth[39m=[32m"24"[39m
+                      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"m22 2-7 20-4-9-9-4Z"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M22 2 11 13"[39m
+                      [36m/>[39m
+                    [36m</svg>[39m
+                    [0mSubmit [0m
+                    [0mQuery[0m
+                  [36m</button>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"btn-secondary flex items-center gap-2"[39m
+                    [33mtype[39m=[32m"button"[39m
+                  [36m>[39m
+                    [36m<svg[39m
+                      [33mclass[39m=[32m"lucide lucide-rotate-ccw w-4 h-4"[39m
+                      [33mfill[39m=[32m"none"[39m
+                      [33mheight[39m=[32m"24"[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-linejoin[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"2"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                      [33mwidth[39m=[32m"24"[39m
+                      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M3 3v5h5"[39m
+                      [36m/>[39m
+                    [36m</svg>[39m
+                    [0mReset[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</form>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > validates form before submission (Query Mode)
+AssertionError: expected "spy" to be called with arguments: [ Array(1) ]
+
+Received: 
+
+
+
+Number of calls: 0
+
+ ❯ src/tests/pages/QuerySubmissionPage.test.tsx:133:29
+    131| 
+    132|         // Toast error should be called
+    133|         expect(toast.error).toHaveBeenCalledWith('Please select an ins…
+       |                             ^
+    134|         expect(mockMutateAsync).not.toHaveBeenCalled();
+    135|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > validates file extension
+TypeError: Cannot redefine property: files
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:47:12
+ ❯ createEvent.<computed> [as change] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ fireEvent.<computed> [as change] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ fireEvent.<computed> [as change] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ uploadFile src/tests/pages/QuerySubmissionPage.test.tsx:213:23
+    211|                 writable: false
+    212|             });
+    213|             fireEvent.change(hiddenInput, { target: { files: [file] } …
+       |                       ^
+    214|         };
+    215| 
+ ❯ src/tests/pages/QuerySubmissionPage.test.tsx:218:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > validates file size
+TypeError: Cannot redefine property: files
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:47:12
+ ❯ createEvent.<computed> [as change] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ fireEvent.<computed> [as change] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ fireEvent.<computed> [as change] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ uploadFile src/tests/pages/QuerySubmissionPage.test.tsx:213:23
+    211|                 writable: false
+    212|             });
+    213|             fireEvent.change(hiddenInput, { target: { files: [file] } …
+       |                       ^
+    214|         };
+    215| 
+ ❯ src/tests/pages/QuerySubmissionPage.test.tsx:227:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > handles strict submission validation
+AssertionError: expected "spy" to be called with arguments: [ 'Please upload a script file' ]
+
+Received: 
+
+
+
+Number of calls: 0
+
+ ❯ src/tests/pages/QuerySubmissionPage.test.tsx:238:33
+    236|             fireEvent.click(submitBtn);
+    237|             // Should fail because no file
+    238|             expect(toast.error).toHaveBeenCalledWith('Please upload a …
+       |                                 ^
+    239|         });
+    240| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > submits valid script file
+TypeError: Cannot redefine property: files
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:47:12
+ ❯ createEvent.<computed> [as change] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ fireEvent.<computed> [as change] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ fireEvent.<computed> [as change] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ uploadFile src/tests/pages/QuerySubmissionPage.test.tsx:213:23
+    211|                 writable: false
+    212|             });
+    213|             fireEvent.change(hiddenInput, { target: { files: [file] } …
+       |                       ^
+    214|         };
+    215| 
+ ❯ src/tests/pages/QuerySubmissionPage.test.tsx:244:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Script Mode & File Upload > removes selected file
+TypeError: Cannot redefine property: files
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:47:12
+ ❯ createEvent.<computed> [as change] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ fireEvent.<computed> [as change] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ fireEvent.<computed> [as change] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ uploadFile src/tests/pages/QuerySubmissionPage.test.tsx:213:23
+    211|                 writable: false
+    212|             });
+    213|             fireEvent.change(hiddenInput, { target: { files: [file] } …
+       |                       ^
+    214|         };
+    215| 
+ ❯ src/tests/pages/QuerySubmissionPage.test.tsx:270:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  src/tests/pages/QuerySubmissionPage.test.tsx > QuerySubmissionPage > Features > pre-fills form from cloned session data
+AssertionError: expected "spy" to be called with arguments: [ /request cloned/i ]
+
+Received: 
+
+  1st spy call:
+
+  Array [
+-   /request cloned/i,
++   "Request cloned - review and submit",
+  ]
+
+
+Number of calls: 1
+
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"max-w-6xl mx-auto"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center justify-between mb-6"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-2xl font-bold text-gray-900"[39m
+            [36m>[39m
+              [0mDatabase Request Portal[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-gray-500 mt-1"[39m
+            [36m>[39m
+              [0mSubmit queries or scripts for approval and execution[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"grid grid-cols-1  gap-6"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m""[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"card"[39m
+            [36m>[39m
+              [36m<form[39m
+                [33mclass[39m=[32m"space-y-6"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mdata-testid[39m=[32m"database-selector"[39m
+                [36m>[39m
+                  [36m<button>[39m
+                    [0mSelect Instance[0m
+                  [36m</button>[39m
+                  [36m<button>[39m
+                    [0mSelect Database[0m
+                  [36m</button>[39m
+                  [36m<button>[39m
+                    [0mSelect Pod[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+                [36m<div>[39m
+                  [36m<label[39m
+                    [33mclass[39m=[32m"block text-sm font-medium text-gray-700 mb-2"[39m
+                  [36m>[39m
+                    [0mComments [0m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"text-red-500"[39m
+                    [36m>[39m
+                      [0m*[0m
+                    [36m</span>[39m
+                  [36m</label>[39m
+                  [36m<textarea[39m
+                    [33mclass[39m=[32m"textarea-field"[39m
+                    [33mplaceholder[39m=[32m"Describe the purpose of this request..."[39m
+                    [33mrequired[39m=[32m""[39m
+                    [33mrows[39m=[32m"3"[39m
+                  [36m>[39m
+                    [0mCloned request[0m
+                  [36m</textarea>[39m
+                [36m</div>[39m
+                [36m<div>[39m
+                  [36m<label[39m
+                    [33mclass[39m=[32m"block text-sm font-medium text-gray-700 mb-2"[39m
+                  [36m>[39m
+                    [0mRequest Type [0m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"text-red-500"[39m
+                    [36m>[39m
+                      [0m*[0m
+                    [36m</span>[39m
+                  [36m</label>[39m
+                  [36m<div[39m
+                    [33mclass[39m=[32m"inline-flex rounded-lg border border-gray-200 bg-gray-100 p-1"[39m
+                  [36m>[39m
+                    [36m<button[39m
+                      [33mclass[39m=[32m"flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all bg-white text-purple-700 shadow-sm"[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [36m<svg[39m
+                        [33mclass[39m=[32m"lucide lucide-code w-4 h-4"[39m
+                        [33mfill[39m=[32m"none"[39m
+                        [33mheight[39m=[32m"24"[39m
+                        [33mstroke[39m=[32m"currentColor"[39m
+                        [33mstroke-linecap[39m=[32m"round"[39m
+                        [33mstroke-linejoin[39m=[32m"round"[39m
+                        [33mstroke-width[39m=[32m"2"[39m
+                        [33mviewBox[39m=[32m"0 0 24 24"[39m
+                        [33mwidth[39m=[32m"24"[39m
+                        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                      [36m>[39m
+                        [36m<polyline[39m
+                          [33mpoints[39m=[32m"16 18 22 12 16 6"[39m
+                        [36m/>[39m
+                        [36m<polyline[39m
+                          [33mpoints[39m=[32m"8 6 2 12 8 18"[39m
+                        [36m/>[39m
+                      [36m</svg>[39m
+                      [0mQuery[0m
+                    [36m</button>[39m
+                    [36m<button[39m
+                      [33mclass[39m=[32m"flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all text-gray-600 hover:text-gray-900"[39m
+                      [33mtype[39m=[32m"button"[39m
+                    [36m>[39m
+                      [36m<svg[39m
+                        [33mclass[39m=[32m"lucide lucide-file-up w-4 h-4"[39m
+                        [33mfill[39m=[32m"none"[39m
+                        [33mheight[39m=[32m"24"[39m
+                        [33mstroke[39m=[32m"currentColor"[39m
+                        [33mstroke-linecap[39m=[32m"round"[39m
+                        [33mstroke-linejoin[39m=[32m"round"[39m
+                        [33mstroke-width[39m=[32m"2"[39m
+                        [33mviewBox[39m=[32m"0 0 24 24"[39m
+                        [33mwidth[39m=[32m"24"[39m
+                        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                      [36m>[39m
+                        [36m<path[39m
+                          [33md[39m=[32m"M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"[39m
+                        [36m/>[39m
+                        [36m<polyline[39m
+                          [33mpoints[39m=[32m"14 2 14 8 20 8"[39m
+                        [36m/>[39m
+                        [36m<path[39m
+                          [33md[39m=[32m"M12 12v6"[39m
+                        [36m/>[39m
+                        [36m<path[39m
+                          [33md[39m=[32m"m15 15-3-3-3 3"[39m
+                        [36m/>[39m
+                      [36m</svg>[39m
+                      [0mScript File[0m
+                    [36m</button>[39m
+                  [36m</div>[39m
+                [36m</div>[39m
+                [36m<div>[39m
+                  [36m<label[39m
+                    [33mclass[39m=[32m"block text-sm font-medium text-gray-700 mb-2"[39m
+                  [36m>[39m
+                    [0mDatabase Query [0m
+                    [36m<span[39m
+                      [33mclass[39m=[32m"text-red-500"[39m
+                    [36m>[39m
+                      [0m*[0m
+                    [36m</span>[39m
+                  [36m</label>[39m
+                  [36m<textarea[39m
+                    [33mclass[39m=[32m"textarea-field font-mono text-sm"[39m
+                    [33mplaceholder[39m=[32m"Enter your SQL or MongoDB query here..."[39m
+                    [33mrequired[39m=[32m""[39m
+                    [33mrows[39m=[32m"8"[39m
+                  [36m>[39m
+                    [0mSELECT 1[0m
+                  [36m</textarea>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex items-center gap-4 pt-4"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"btn-primary flex items-center gap-2"[39m
+                    [33mtype[39m=[32m"submit"[39m
+                  [36m>[39m
+                    [36m<svg[39m
+                      [33mclass[39m=[32m"lucide lucide-send w-4 h-4"[39m
+                      [33mfill[39m=[32m"none"[39m
+                      [33mheight[39m=[32m"24"[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-linejoin[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"2"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                      [33mwidth[39m=[32m"24"[39m
+                      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"m22 2-7 20-4-9-9-4Z"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M22 2 11 13"[39m
+                      [36m/>[39m
+                    [36m</svg>[39m
+                    [0mSubmit [0m
+                    [0mQuery[0m
+                  [36m</button>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"btn-secondary flex items-center gap-2"[39m
+                    [33mtype[39m=[32m"button"[39m
+                  [36m>[39m
+                    [36m<svg[39m
+                      [33mclass[39m=[32m"lucide lucide-rotate-ccw w-4 h-4"[39m
+                      [33mfill[39m=[32m"none"[39m
+                      [33mheight[39m=[32m"24"[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-linejoin[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"2"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                      [33mwidth[39m=[32m"24"[39m
+                      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M3 3v5h5"[39m
+                      [36m/>[39m
+                    [36m</svg>[39m
+                    [0mReset[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</form>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ src/tests/pages/QuerySubmissionPage.test.tsx:300:39
+    298|             // Should show toast
+    299|             await waitFor(() => {
+    300|                 expect(toast.success).toHaveBeenCalledWith(/request cl…
+       |                                       ^
+    301|             });
+    302| 
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 6 passed (13)
+   Start at  13:56:57
+   Duration  2.32s (transform 50ms, setup 58ms, collect 209ms, tests 1.32s, environment 445ms, prepare 60ms)
+

@@ -435,7 +435,7 @@ const ApprovalDashboardPage: React.FC = () => {
 
       {/* Detail Modal */}
       <Modal
-        isOpen={!!selectedUuid && !showRejectModal}
+        isOpen={!!selectedUuid && !showRejectModal && !showApproveModal}
         onClose={() => setSelectedUuid(null)}
         title="Request Details"
         size="lg"

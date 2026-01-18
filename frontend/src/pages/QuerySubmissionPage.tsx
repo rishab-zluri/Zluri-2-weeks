@@ -59,10 +59,10 @@ const QuerySubmissionPage: React.FC = () => {
 
   // Check for clone data from sessionStorage (from MyQueriesPage)
   useEffect(() => {
-    const cloneDataStr = sessionStorage.getItem('cloneRequestData');
-    if (cloneDataStr) {
+    const cloneDataString = sessionStorage.getItem('cloneRequestData');
+    if (cloneDataString) {
       try {
-        const cloneData = JSON.parse(cloneDataStr);
+        const cloneData = JSON.parse(cloneDataString);
         // Pre-fill form with clone data
         if (cloneData.instanceId) setInstanceId(cloneData.instanceId);
         if (cloneData.podId) setPodId(cloneData.podId);
