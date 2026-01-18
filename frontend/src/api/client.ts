@@ -50,13 +50,18 @@ client.interceptors.response.use(
                 return client(originalRequest);
             } catch (refreshError) {
                 // Refresh failed - User must log in again
-                // We let the auth context/hook handle the redirect via state, 
-                // or simpler: window.location
+                // Prevent infinite loops by checking the URL and avoiding recursive calls
                 if (!window.location.pathname.includes('/login')) {
+                    // dispatched event to clear context if needed, but hard redirect is safest
                     window.location.href = '/login';
                 }
                 return Promise.reject(refreshError);
             }
+        }
+
+        // Loop Prevention: If we are already failing on the refresh endpoint itself, do NOT retry
+        if (error.config?.url?.includes('/refresh') && error.response?.status === 401) {
+            return Promise.reject(error);
         }
 
         // Handle 403 Forbidden - Access Denied
