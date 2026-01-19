@@ -1,0 +1,2069 @@
+openapi: 3.0.3
+info:
+  title: Database Query Portal API
+  version: 1.1.6
+  description: |
+    # Database Query Portal API
+    
+    A comprehensive API for managing database query submissions, approvals, and execution across PostgreSQL and MongoDB instances.
+    
+    ## Features
+    
+    - **Multi-Database Support**: PostgreSQL and MongoDB query execution
+    - **Approval Workflow**: Manager/Admin approval for high-risk queries
+    - **Risk Analysis**: Automatic query risk assessment (safe, low, medium, high, critical)
+    - **Role-Based Access Control**: Developer, Manager, and Admin roles
+    - **POD-Based Organization**: Team-based query routing and approval
+    - **Script Execution**: Support for SQL script file uploads
+    - **Audit Trail**: Complete history of query submissions and executions
+    - **Real-time Notifications**: Slack integration for approvals
+    
+    ## Authentication
+    
+    This API uses **JWT Bearer tokens** and **HttpOnly cookies** for authentication:
+    
+    - **Access Token**: Short-lived (15 minutes), used for API requests
+    - **Refresh Token**: Long-lived (7 days), used to obtain new access tokens
+    - **Cookie-based Auth**: Tokens automatically sent via HttpOnly cookies
+    
+    ### Authentication Flow
+    
+    1. **Login**: POST `/api/v1/auth/login` with email/password
+    2. **Receive Tokens**: Access token in response body + HttpOnly cookies set
+    3. **Make Requests**: Include `Authorization: Bearer <token>` header OR rely on cookies
+    4. **Refresh**: POST `/api/v1/auth/refresh` when access token expires
+    
+    ## Rate Limiting
+    
+    - **General API**: 100 requests per 15 minutes per IP
+    - **Authentication**: 20 requests per 15 minutes per IP
+    - **Headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+    
+    ## Pagination
+    
+    List endpoints support pagination with query parameters:
+    
+    - `page`: Page number (default: 1)
+    - `limit`: Items per page (default: 10, max: 100)
+    
+    Response includes:
+    - `pagination`: Metadata (total, page, limit, totalPages)
+    - `links`: HATEOAS navigation links (self, next, prev, first, last)
+    
+    ## Error Handling
+    
+    All errors follow a consistent format:
+    
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "ERROR_CODE",
+        "message": "Human-readable error message",
+        "details": {}
+      }
+    }
+    ```
+    
+  contact:
+    name: SRE Team
+    email: sre@company.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://database-query-portal-production.up.railway.app/api/v1
+    description: Production Server (Railway)
+  - url: http://localhost:5001/api/v1
+    description: Development Server
+
+tags:
+  - name: Authentication
+    description: User authentication, registration, and session management
+  - name: Queries
+    description: Query submission, approval, and execution
+  - name: Query Analysis
+    description: Query risk analysis and validation
+  - name: Queries - Approval
+    description: Manager/Admin approval workflows
+  - name: Database Management
+    description: Database instance and metadata management
+  - name: User Management
+    description: User administration (Admin only)
+  - name: Metadata
+    description: System metadata (instances, databases, PODs)
+  - name: Admin
+    description: Administrative operations and statistics
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []
+
+paths:
+  # =============================================================================
+  # AUTHENTICATION ENDPOINTS
+  # =============================================================================
+  
+  /auth/login:
+    post:
+      summary: Login user
+      description: |
+        Authenticate user with email and password. Returns access and refresh tokens.
+        Tokens are also set as HttpOnly cookies for browser-based clients.
+        
+        **Rate Limited**: 20 requests per 15 minutes per IP
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: developer@company.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: SecurePass123!
+            examples:
+              developer:
+                summary: Developer login
+                value:
+                  email: developer@company.com
+                  password: SecurePass123!
+              manager:
+                summary: Manager login
+                value:
+                  email: manager@company.com
+                  password: ManagerPass456!
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              description: HttpOnly cookies with access and refresh tokens
+              schema:
+                type: string
+                example: accessToken=eyJhbGc...; HttpOnly; Secure; SameSite=Strict
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required:
+                      - user
+                      - accessToken
+                      - refreshToken
+                      - expiresIn
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      accessToken:
+                        type: string
+                        description: JWT access token (15 min expiry)
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      refreshToken:
+                        type: string
+                        description: JWT refresh token (7 day expiry)
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      expiresIn:
+                        type: string
+                        description: Access token expiration time
+                        example: 15m
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      description: |
+        Obtain a new access token using a valid refresh token.
+        Refresh token can be provided in request body or HttpOnly cookie.
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Refresh token (optional if sent via cookie)
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      expiresIn:
+                        type: string
+                        example: 15m
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/logout:
+    post:
+      summary: Logout user
+      description: |
+        Invalidate the current session. Refresh token can be provided in body or cookie.
+        Users can logout even with expired access tokens.
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Refresh token to invalidate (optional if sent via cookie)
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Logged out successfully
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/logout-all:
+    post:
+      summary: Logout from all devices
+      description: Invalidate all refresh tokens for the authenticated user
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: All sessions terminated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Logged out from all devices
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/profile:
+    get:
+      summary: Get current user profile
+      description: Retrieve the authenticated user's profile information
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    
+    put:
+      summary: Update current user profile
+      description: Update the authenticated user's profile (name, slackUserId)
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: John Doe
+                slackUserId:
+                  type: string
+                  pattern: '^U[A-Z0-9]+$'
+                  example: U01234ABCDE
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/password:
+    put:
+      summary: Change password
+      description: Change the authenticated user's password
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                  example: OldPass123!
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 8
+                  pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$'
+                  description: Must contain uppercase, lowercase, and number
+                  example: NewSecurePass456!
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Password changed successfully
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/sessions:
+    get:
+      summary: Get active sessions
+      description: List all active sessions (refresh tokens) for the authenticated user
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: List of active sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: 550e8400-e29b-41d4-a716-446655440000
+                        createdAt:
+                          type: string
+                          format: date-time
+                        lastUsedAt:
+                          type: string
+                          format: date-time
+                        expiresAt:
+                          type: string
+                          format: date-time
+                        userAgent:
+                          type: string
+                          example: Mozilla/5.0...
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/sessions/{sessionId}:
+    delete:
+      summary: Revoke a specific session
+      description: Invalidate a specific refresh token/session
+      tags:
+        - Authentication
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Session revoked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Session revoked successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/register:
+    post:
+      summary: Register new user (Admin only)
+      description: |
+        Create a new user account. Requires Admin role.
+        
+        **RBAC**: Admin only
+        **Rate Limited**: 20 requests per 15 minutes per IP
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
+                - podId
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: newuser@company.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$'
+                  example: SecurePass123!
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: Jane Smith
+                role:
+                  $ref: '#/components/schemas/UserRole'
+                podId:
+                  type: string
+                  example: pod-engineering
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # QUERY ENDPOINTS
+  # =============================================================================
+  
+  /queries/submit:
+    post:
+      summary: Submit a database query request
+      description: |
+        Submit a query for approval and execution. All queries are analyzed for risk level.
+        HIGH and CRITICAL risk queries require manager approval before execution.
+        
+        **Security**: Queries are sanitized for XSS and analyzed for dangerous patterns
+        **Idempotency**: Include `Idempotency-Key` header to prevent duplicate submissions
+      tags:
+        - Queries
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitQueryRequest'
+            examples:
+              safeQuery:
+                summary: Safe SELECT query (low risk)
+                value:
+                  instanceId: postgres-prod-1
+                  databaseName: analytics_db
+                  submissionType: query
+                  queryContent: SELECT id, name, email FROM users WHERE active = true LIMIT 100
+                  comments: Weekly active users export
+                  podId: pod-analytics
+              dangerousQuery:
+                summary: Dangerous DELETE query (high risk)
+                value:
+                  instanceId: postgres-prod-1
+                  databaseName: users_db
+                  submissionType: query
+                  queryContent: DELETE FROM inactive_accounts WHERE last_login < NOW() - INTERVAL '90 days'
+                  comments: Quarterly cleanup - approved by PM
+                  podId: pod-operations
+      responses:
+        '201':
+          description: Query submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/QueryRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/submit-script:
+    post:
+      summary: Submit a script execution request
+      description: |
+        Submit a SQL/MongoDB script file for approval and execution.
+        Maximum file size: 16MB
+        
+        **Supported formats**: .sql, .js, .txt
+      tags:
+        - Queries
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - instanceId
+                - databaseName
+                - podId
+                - scriptFile
+              properties:
+                instanceId:
+                  type: string
+                  example: postgres-prod-1
+                databaseName:
+                  type: string
+                  example: analytics_db
+                podId:
+                  type: string
+                  example: pod-data-engineering
+                comments:
+                  type: string
+                  maxLength: 1000
+                  example: Monthly data migration script
+                scriptFile:
+                  type: string
+                  format: binary
+                  description: Script file (.sql, .js, .txt)
+      responses:
+        '201':
+          description: Script submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/QueryRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/analyze:
+    post:
+      summary: Analyze a query for risk level
+      description: |
+        Analyzes a SQL or MongoDB query to determine its risk level and potential impact.
+        Returns detailed operation analysis, warnings, and recommendations.
+        
+        **Risk Levels**: safe, low, medium, high, critical
+      tags:
+        - Query Analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+                - databaseType
+              properties:
+                query:
+                  type: string
+                  description: The query to analyze
+                  example: DELETE FROM users WHERE id = 1
+                databaseType:
+                  $ref: '#/components/schemas/DatabaseType'
+      responses:
+        '200':
+          description: Query analysis result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      overallRisk:
+                        $ref: '#/components/schemas/RiskLevel'
+                      riskColor:
+                        type: string
+                        example: '#ff4444'
+                      operations:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            operation:
+                              type: string
+                              example: DELETE
+                            type:
+                              type: string
+                              example: DML
+                            risk:
+                              type: string
+                              example: high
+                            description:
+                              type: string
+                              example: Deletes data from users table
+                      warnings:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - No WHERE clause detected - affects all rows
+                          - DELETE operation requires manager approval
+                      recommendations:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - Add WHERE clause to limit scope
+                          - Test on staging environment first
+                      summary:
+                        type: string
+                        example: High-risk DELETE operation detected
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/my-requests:
+    get:
+      summary: Get current user's query requests
+      description: |
+        Retrieve paginated list of query requests submitted by the authenticated user.
+        Supports filtering by status and includes HATEOAS pagination links.
+      tags:
+        - Queries
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          description: Filter by request status
+          schema:
+            $ref: '#/components/schemas/RequestStatus'
+          example: pending
+      responses:
+        '200':
+          description: Paginated list of requests with HATEOAS links
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedQueryRequests'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/my-status-counts:
+    get:
+      summary: Get status counts for user requests
+      description: Get count of requests grouped by status for the authenticated user
+      tags:
+        - Queries
+      responses:
+        '200':
+          description: Status counts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                    example:
+                      pending: 5
+                      approved: 12
+                      rejected: 2
+                      completed: 45
+                      failed: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/requests/{uuid}:
+    get:
+      summary: Get details of a specific request
+      description: |
+        Retrieve detailed information about a query request by UUID.
+        Users can only view their own requests unless they are Manager/Admin.
+      tags:
+        - Queries
+      parameters:
+        - $ref: '#/components/parameters/UuidPathParam'
+      responses:
+        '200':
+          description: Request details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/QueryRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/requests/{uuid}/clone:
+    post:
+      summary: Clone a request
+      description: |
+        Create a new request based on an existing one.
+        Useful for resubmitting similar queries.
+      tags:
+        - Queries
+      parameters:
+        - $ref: '#/components/parameters/UuidPathParam'
+      responses:
+        '201':
+          description: Request cloned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/QueryRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/requests/{uuid}/approve:
+    post:
+      summary: Approve a query request
+      description: |
+        Approve a pending query request. Requires MANAGER or ADMIN role.
+        Approved queries are queued for execution.
+        
+        **RBAC**: Manager or Admin role required
+        **Idempotency**: Safe to retry - approval is idempotent
+      tags:
+        - Queries - Approval
+      parameters:
+        - $ref: '#/components/parameters/UuidPathParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      responses:
+        '200':
+          description: Request approved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/QueryRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/requests/{uuid}/reject:
+    post:
+      summary: Reject a query request
+      description: |
+        Reject a pending query request with a reason.
+        Requires MANAGER or ADMIN role.
+        
+        **RBAC**: Manager or Admin role required
+      tags:
+        - Queries - Approval
+      parameters:
+        - $ref: '#/components/parameters/UuidPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  description: Reason for rejection
+                  example: Query scope too broad, please add WHERE clause to limit impact
+      responses:
+        '200':
+          description: Request rejected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/QueryRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/pending:
+    get:
+      summary: Get pending requests (Deprecated)
+      description: |
+        **Deprecated**: Use `/queries/requests?status=pending` instead.
+        
+        Get paginated list of pending requests for approval.
+        Requires MANAGER or ADMIN role.
+      deprecated: true
+      tags:
+        - Queries - Approval
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: List of pending requests
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      requests:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/QueryRequest'
+                      pagination:
+                        $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/requests:
+    get:
+      summary: Search query requests
+      description: |
+        Unified search endpoint for requests. Supports filtering by status, POD, type, and dates.
+        
+        **RBAC**: Manager or Admin role required
+      tags:
+        - Queries
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          description: Filter by request status
+          schema:
+            $ref: '#/components/schemas/RequestStatus'
+        - name: podId
+          in: query
+          description: Filter by POD ID
+          schema:
+            type: string
+          example: pod-engineering
+        - name: databaseType
+          in: query
+          description: Filter by database type
+          schema:
+            $ref: '#/components/schemas/DatabaseType'
+        - name: submissionType
+          in: query
+          description: Filter by submission type
+          schema:
+            $ref: '#/components/schemas/SubmissionType'
+        - name: search
+          in: query
+          description: Search text in comments or instance names
+          schema:
+            type: string
+          example: user cleanup
+        - name: startDate
+          in: query
+          description: Filter by start date (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+          example: '2024-01-01T00:00:00Z'
+        - name: endDate
+          in: query
+          description: Filter by end date (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+          example: '2024-12-31T23:59:59Z'
+      responses:
+        '200':
+          description: Paginated list of requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedQueryRequests'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/all:
+    get:
+      summary: Get all requests (Deprecated)
+      description: |
+        **Deprecated**: Use `/queries/requests` instead.
+        
+        Get all query requests. Admin only.
+      deprecated: true
+      tags:
+        - Admin
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: List of all requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedQueryRequests'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/stats:
+    get:
+      summary: Get system statistics
+      description: |
+        Get system-wide statistics including request counts, execution metrics, etc.
+        
+        **RBAC**: Admin only
+      tags:
+        - Admin
+      responses:
+        '200':
+          description: System statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      totalRequests:
+                        type: integer
+                        example: 1250
+                      requestsByStatus:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                      requestsByPod:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                      averageExecutionTime:
+                        type: number
+                        example: 2.5
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # METADATA ENDPOINTS
+  # =============================================================================
+  
+  /queries/instances:
+    get:
+      summary: Get database instances
+      description: |
+        Retrieve list of available database instances for query submission.
+        Can be filtered by database type.
+      tags:
+        - Metadata
+      parameters:
+        - name: type
+          in: query
+          description: Filter by database type
+          schema:
+            $ref: '#/components/schemas/DatabaseType'
+      responses:
+        '200':
+          description: List of database instances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DatabaseInstance'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/instances/{instanceId}/databases:
+    get:
+      summary: Get databases for an instance
+      description: Retrieve list of databases available in a specific instance
+      tags:
+        - Metadata
+      parameters:
+        - $ref: '#/components/parameters/InstanceIdParam'
+      responses:
+        '200':
+          description: List of database names
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: analytics_db
+                        sizeOnDisk:
+                          type: number
+                          description: Size in bytes
+                          example: 1073741824
+                        empty:
+                          type: boolean
+                          example: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /queries/pods:
+    get:
+      summary: Get all PODs
+      description: Retrieve list of all PODs (teams) for query routing
+      tags:
+        - Metadata
+      responses:
+        '200':
+          description: List of PODs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Pod'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # DATABASE MANAGEMENT ENDPOINTS
+  # =============================================================================
+  
+  /databases/instances:
+    get:
+      summary: List database instances
+      description: |
+        Retrieve all configured database instances (PostgreSQL and MongoDB).
+        Results can be filtered by database type.
+        
+        **Security**: Returns only instances the authenticated user has access to.
+      tags:
+        - Database Management
+      parameters:
+        - name: type
+          in: query
+          description: Filter instances by database type
+          schema:
+            $ref: '#/components/schemas/DatabaseType'
+          example: postgresql
+      responses:
+        '200':
+          description: List of database instances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DatabaseInstance'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /databases/instances/{instanceId}:
+    get:
+      summary: Get instance by ID
+      description: Retrieve detailed information about a specific database instance
+      tags:
+        - Database Management
+      parameters:
+        - $ref: '#/components/parameters/InstanceIdParam'
+      responses:
+        '200':
+          description: Instance details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DatabaseInstance'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /databases/instances/{instanceId}/databases:
+    get:
+      summary: Get databases in an instance
+      description: |
+        Retrieve paginated list of databases in a specific instance.
+        Supports search filtering.
+      tags:
+        - Database Management
+      parameters:
+        - $ref: '#/components/parameters/InstanceIdParam'
+        - name: search
+          in: query
+          description: Search database names
+          schema:
+            type: string
+          example: analytics
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: List of databases
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      databases:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              example: analytics_db
+                            sizeOnDisk:
+                              type: number
+                              example: 1073741824
+                            empty:
+                              type: boolean
+                              example: false
+                      pagination:
+                        $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /databases/instances/{instanceId}/sync:
+    post:
+      summary: Synchronize database instance metadata
+      description: |
+        Trigger metadata synchronization for a specific database instance.
+        Updates the list of available databases and their schemas.
+        
+        **RBAC**: Admin role required
+        **Idempotency**: Safe to retry - sync operations are idempotent
+        **Duration**: May take 30-60 seconds for large databases
+      tags:
+        - Database Management
+      parameters:
+        - $ref: '#/components/parameters/InstanceIdParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      responses:
+        '200':
+          description: Sync initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Sync completed successfully
+                  data:
+                    type: object
+                    properties:
+                      databasesFound:
+                        type: integer
+                        example: 15
+                      syncedAt:
+                        type: string
+                        format: date-time
+                        example: '2024-01-15T11:45:00Z'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /databases/instances/{instanceId}/sync-history:
+    get:
+      summary: Get sync history
+      description: Retrieve synchronization history for a database instance
+      tags:
+        - Database Management
+      parameters:
+        - $ref: '#/components/parameters/InstanceIdParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Sync history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        syncedAt:
+                          type: string
+                          format: date-time
+                        status:
+                          type: string
+                          enum: [success, failed]
+                        databasesFound:
+                          type: integer
+                        error:
+                          type: string
+                          nullable: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /databases/sync-all:
+    post:
+      summary: Trigger sync for all instances
+      description: |
+        Initiate metadata synchronization for all database instances.
+        
+        **RBAC**: Admin only
+        **Warning**: Resource-intensive operation
+      tags:
+        - Database Management
+      responses:
+        '200':
+          description: Sync started for all instances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Sync initiated for all instances
+                  data:
+                    type: object
+                    properties:
+                      instancesQueued:
+                        type: integer
+                        example: 5
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /databases/blacklist:
+    get:
+      summary: Get blacklist entries
+      description: Retrieve list of blacklisted databases
+      tags:
+        - Database Management
+      responses:
+        '200':
+          description: List of blacklisted patterns
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        instanceId:
+                          type: string
+                          example: postgres-prod-1
+                        databaseName:
+                          type: string
+                          example: legacy_system_db
+                        reason:
+                          type: string
+                          example: Database scheduled for decommission
+                        createdAt:
+                          type: string
+                          format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    
+    post:
+      summary: Add database to blacklist
+      description: |
+        Blacklist a database to prevent query submissions.
+        Used for maintenance windows or deprecated databases.
+        
+        **RBAC**: Admin role required
+        **Impact**: Users cannot submit queries to blacklisted databases
+      tags:
+        - Database Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - instanceId
+                - databaseName
+                - reason
+              properties:
+                instanceId:
+                  type: string
+                  pattern: '^[a-zA-Z0-9-_]+$'
+                  minLength: 1
+                  maxLength: 255
+                  description: Database instance identifier
+                  example: postgres-prod-1
+                databaseName:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                  description: Database name to blacklist
+                  example: legacy_system_db
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  description: Reason for blacklisting (audit trail)
+                  example: Database scheduled for decommission on 2024-02-01
+      responses:
+        '201':
+          description: Database blacklisted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Database blacklisted successfully
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /databases/blacklist/{id}:
+    delete:
+      summary: Remove from blacklist
+      description: |
+        Remove a database from the blacklist.
+        
+        **RBAC**: Admin only
+      tags:
+        - Database Management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Blacklist entry ID
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Removed from blacklist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Database removed from blacklist
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # USER MANAGEMENT ENDPOINTS
+  # =============================================================================
+  
+  /users:
+    get:
+      summary: List all users
+      description: |
+        Retrieve paginated list of all users in the system.
+        
+        **RBAC**: Admin role required
+        **Filtering**: Supports role and status filters
+      tags:
+        - User Management
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: role
+          in: query
+          description: Filter by user role
+          schema:
+            $ref: '#/components/schemas/UserRole'
+          example: developer
+        - name: isActive
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+          example: true
+      responses:
+        '200':
+          description: Paginated list of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /users/{id}:
+    get:
+      summary: Get user by ID
+      description: |
+        Retrieve detailed information about a specific user.
+        
+        **RBAC**: Admin only
+      tags:
+        - User Management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User UUID
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    
+    put:
+      summary: Update a user
+      description: |
+        Update user information (name, role, POD, status).
+        
+        **RBAC**: Admin only
+        **Note**: Cannot modify own admin status
+      tags:
+        - User Management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User UUID
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: John Doe
+                role:
+                  $ref: '#/components/schemas/UserRole'
+                podId:
+                  type: string
+                  example: pod-engineering
+                isActive:
+                  type: boolean
+                  example: true
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    
+    delete:
+      summary: Delete a user
+      description: |
+        Permanently delete a user account and all associated data.
+        
+        **RBAC**: Admin role required
+        **Warning**: This action is irreversible
+        **Impact**: User loses access immediately, all pending requests are canceled
+      tags:
+        - User Management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User UUID
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: User deleted successfully
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /users/{id}/activate:
+    post:
+      summary: Activate a user account
+      description: |
+        Activate a previously deactivated user account.
+        User regains access to the system upon activation.
+        
+        **RBAC**: Admin role required
+        **Effect**: User can log in and submit queries
+      tags:
+        - User Management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User UUID
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      responses:
+        '200':
+          description: User activated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /users/{id}/reset-password:
+    post:
+      summary: Reset user password
+      description: |
+        Reset a user's password (Admin only).
+        User will need to use the new password on next login.
+        
+        **RBAC**: Admin only
+        **Security**: Password must meet complexity requirements
+      tags:
+        - User Management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User UUID
+          schema:
+            type: string
+            format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newPassword
+              properties:
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 8
+                  pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$'
+                  description: Must contain uppercase, lowercase, and number
+                  example: NewSecurePass123!
+      responses:
+        '200':
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Password reset successfully
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token authentication.
+        Include the access token in the Authorization header:
+        `Authorization: Bearer <token>`
+    
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+      description: |
+        HttpOnly cookie-based authentication.
+        Cookies are automatically sent by the browser.
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: Page number for pagination
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      example: 1
+    
+    LimitParam:
+      name: limit
+      in: query
+      description: Number of items per page
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+      example: 10
+    
+    UuidPathParam:
+      name: uuid
+      in: path
+      required: true
+      description: Request UUID
+      schema:
+        type: string
+        format: uuid
+        pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      example: 550e8400-e29b-41d4-a716-446655440000
+    
+    InstanceIdParam:
+      name: instanceId
+      in: path
+      required: true
+      description: Database instance identifier
+      schema:
+        type: string
+        pattern: '^[a-zA-Z0-9-_]+$'
+      example: postgres-prod-1
+    
+    IdempotencyKeyHeader:
+      name: Idempotency-Key
+      in: header
+      description: |
+        Unique key to ensure idempotent operations.
+        Use the same key for retries to prevent duplicate submissions.
+      schema:
+        type: string
+        format: uuid
+      example: 123e4567-e89b-12d3-a456-426614174000
+

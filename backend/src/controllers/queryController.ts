@@ -751,39 +751,63 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
 export const getInstances = async (req: Request, res: Response): Promise<void> => {
     const { type } = req.query;
 
-    let instances;
-    if (type) {
-        instances = staticData.getInstancesByType(type as any);
-    } else {
-        instances = staticData.getAllInstances();
+    try {
+        const instances = await databaseSyncService.getInstances(type as string);
+        response.success(res, instances);
+    } catch (error) {
+        const err = error as Error;
+        logger.error('Get instances error', { error: err.message });
+        response.error(res, 'Failed to fetch instances', 500);
     }
-
-    response.success(res, instances);
 };
 
 /**
  * Get databases for an instance
  * GET /api/instances/:instanceId/databases
  *
- * Uses static config data
+ * Uses synced database data (fallback to static if sync fails/not found? No, consistency first)
  */
 export const getDatabases = async (req: Request, res: Response): Promise<void> => {
     const { instanceId } = req.params;
+    const instanceIdStr = instanceId as string;
 
-    const instance = staticData.getInstanceById(instanceId as string);
-    if (!instance) {
-        response.error(res, 'Instance not found', 404, 'NOT_FOUND');
-        return;
+    try {
+        // Try getting from DB first
+        const instance = await databaseSyncService.getInstanceById(instanceIdStr);
+
+        if (!instance) {
+            // Fallback to static data if not found in DB (e.g. just added to config but not synced yet)
+            const staticInstance = staticData.getInstanceById(instanceIdStr);
+            if (!staticInstance) {
+                response.error(res, 'Instance not found', 404, 'NOT_FOUND');
+                return;
+            }
+
+            // Return static data result
+            response.success(res, {
+                instanceId,
+                instanceName: staticInstance.name,
+                type: staticInstance.type,
+                databases: staticData.getDatabasesForInstance(instanceIdStr),
+                source: 'static'
+            });
+            return;
+        }
+
+        const databases = await databaseSyncService.getDatabasesForInstance(instanceIdStr);
+
+        response.success(res, {
+            instanceId,
+            instanceName: instance.name,
+            type: instance.type,
+            databases: databases.map(d => d.name), // returning strings to match expected API format
+            source: 'synced'
+        });
+    } catch (error) {
+        const err = error as Error;
+        logger.error('Get databases error', { error: err.message });
+        response.error(res, 'Failed to fetch databases', 500);
     }
-
-    const databases = staticData.getDatabasesForInstance(instanceId as string);
-
-    response.success(res, {
-        instanceId,
-        instanceName: instance.name,
-        type: instance.type,
-        databases,
-    });
 };
 
 /**
