@@ -802,19 +802,18 @@ export async function getBlacklistEntries(): Promise<BlacklistEntry[]> {
 async function seedInstancesFromStaticConfig(): Promise<void> {
     try {
         // Check if we have instances
-        const existing = await portalQuery('SELECT COUNT(*) as count FROM database_instances');
-        if (parseInt(existing.rows[0].count, 10) > 0) {
-            return;
-        }
+        // REMOVED check to allow updates to existing instances (idempotent seeding)
+        // const existing = await portalQuery('SELECT COUNT(*) as count FROM database_instances');
+        // if (parseInt(existing.rows[0].count, 10) > 0) { ... }
 
-        logger.info('Seeding database instances from static config...');
+        logger.info('Seeding/Updating database instances from static config...');
         const staticData = require('../config/staticData');
         const instances = staticData.getDatabaseInstancesArray();
 
         for (const inst of instances) {
             // Map static instance to DB columns
-            // explicit cast for type safety
             const type = inst.type;
+            const connectionStringEnv = (inst as any).connection_string_env || null;
 
             // For params
             const params = [
@@ -823,20 +822,24 @@ async function seedInstancesFromStaticConfig(): Promise<void> {
                 type,
                 (inst as any).host || null,
                 (inst as any).port || null,
-                (inst as any).uri || null, // Storing URI in connection_string_env for now or separate col?
-                // Actually the table has host/port. Connection string usually constructed or environmental.
-                // Let's rely on standard columns.
+                connectionStringEnv, // Use the explicitly provided env var name
             ];
 
             // DB schema: id, name, type, host, port, credentials_env_prefix, connection_string_env, is_active
             await portalQuery(`
                 INSERT INTO database_instances 
-                (id, name, type, host, port, is_active, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT (id) DO NOTHING
+                (id, name, type, host, port, connection_string_env, is_active, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (id) DO UPDATE SET
+                    name = EXCLUDED.name,
+                    type = EXCLUDED.type,
+                    host = EXCLUDED.host,
+                    port = EXCLUDED.port,
+                    connection_string_env = EXCLUDED.connection_string_env,
+                    updated_at = CURRENT_TIMESTAMP
             `, params);
 
-            logger.info(`Seeded instance: ${inst.name}`);
+            logger.info(`Seeded/Updated instance: ${inst.name}`);
         }
     } catch (error) {
         logger.error('Failed to seed instances', { error: (error as Error).message });

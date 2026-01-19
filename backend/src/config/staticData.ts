@@ -29,6 +29,7 @@ interface BaseInstance {
     readonly name: string;
     readonly type: DatabaseInstanceType;
     readonly databases: readonly string[];
+    readonly connection_string_env?: string;
 }
 
 /**
@@ -145,6 +146,7 @@ function getDatabaseInstancesArray(): DatabaseInstance[] {
             name: 'Production-Atlas',
             type: 'mongodb',
             uri: process.env.PROD_MONGO_URI,
+            connection_string_env: 'PROD_MONGO_URI',
             databases: [], // Will be populated by sync
         } as MongoInstance);
     }
