@@ -862,7 +862,11 @@ async function seedBlacklist(): Promise<void> {
     try {
         // User requested to ONLY show customer_db and analytics_db
         // So we blacklist everything else including the default 'target_db'
-        const systemDbs = ['postgres', 'neondb', 'portal_db', 'template1', 'rdsadmin', 'target_db'];
+        // Added 'db_query_portal' and 'query_portal' as probable names for the portal db
+        const systemDbs = [
+            'postgres', 'neondb', 'portal_db', 'template1',
+            'rdsadmin', 'target_db', 'db_query_portal', 'query_portal'
+        ];
 
         // Update blacklist and Force Deactivate matching databases immediately
         for (const pattern of systemDbs) {
@@ -873,11 +877,11 @@ async function seedBlacklist(): Promise<void> {
                 ON CONFLICT DO NOTHING
             `, [pattern]);
 
-            // Force deactivate existing synced databases matching this pattern
+            // Force deactivate existing synced databases matching this pattern (Case Insensitive)
             await portalQuery(`
                 UPDATE databases 
                 SET is_active = false, updated_at = CURRENT_TIMESTAMP
-                WHERE name = $1 AND source = 'synced' AND is_active = true
+                WHERE LOWER(name) = LOWER($1) AND source = 'synced' AND is_active = true
             `, [pattern]);
         }
         logger.info('Seeded database blacklist and cleaned up existing system databases', { patterns: systemDbs });
