@@ -13,6 +13,9 @@ export interface DatabaseSelectorProps {
     onInstanceChange: (instanceId: string) => void;
     onDatabaseChange: (databaseName: string) => void;
     onPodChange: (podId: string) => void;
+    instanceError?: boolean;
+    databaseError?: boolean;
+    podError?: boolean;
 }
 
 export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
@@ -26,6 +29,9 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
     onInstanceChange,
     onDatabaseChange,
     onPodChange,
+    instanceError = false,
+    databaseError = false,
+    podError = false,
 }) => {
     const isDatabaseDisabled = !selectedInstanceId;
 
@@ -39,7 +45,7 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
                 <select
                     value={selectedInstanceId}
                     onChange={(e) => onInstanceChange(e.target.value)}
-                    className="select-field"
+                    className={`select-field ${instanceError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
                     required
                 >
                     <option value="">Select Instance</option>
@@ -49,6 +55,9 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
                         </option>
                     ))}
                 </select>
+                {instanceError && (
+                    <p className="mt-1 text-sm text-red-600">Please select an instance</p>
+                )}
             </div>
 
             {/* Database Selection */}
@@ -64,7 +73,7 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
                         className={`select-field transition-all ${isDatabaseDisabled
                                 ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400'
                                 : ''
-                            }`}
+                            } ${databaseError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
                         required
                         disabled={isDatabaseDisabled || loadingDatabases}
                     >
@@ -101,6 +110,10 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
                         Please select an instance first
                     </div>
                 )}
+                
+                {databaseError && !isDatabaseDisabled && (
+                    <p className="mt-1 text-sm text-red-600">Please select a database</p>
+                )}
             </div>
 
             {/* POD Selection */}
@@ -111,7 +124,7 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
                 <select
                     value={selectedPodId}
                     onChange={(e) => onPodChange(e.target.value)}
-                    className="select-field"
+                    className={`select-field ${podError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
                     required
                 >
                     <option value="">Select POD</option>
@@ -119,6 +132,9 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
                         <option key={pod.id} value={pod.id}>{pod.name}</option>
                     ))}
                 </select>
+                {podError && (
+                    <p className="mt-1 text-sm text-red-600">Please select a POD</p>
+                )}
             </div>
         </div>
     );

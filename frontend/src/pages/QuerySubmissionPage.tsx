@@ -42,6 +42,14 @@ const QuerySubmissionPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
+  // Error states for validation
+  const [instanceError, setInstanceError] = useState(false);
+  const [databaseError, setDatabaseError] = useState(false);
+  const [podError, setPodError] = useState(false);
+  const [commentsError, setCommentsError] = useState(false);
+  const [queryError, setQueryError] = useState(false);
+  const [fileError, setFileError] = useState(false);
+
   // Data Fetching Hooks
   const { data: instances = [], isLoading: loadingInstances } = useInstances();
   const { data: pods = [], isLoading: loadingPods } = usePods();
@@ -90,6 +98,13 @@ const QuerySubmissionPage: React.FC = () => {
     setComments('');
     setQuery('');
     setSelectedFile(null);
+    // Clear all errors
+    setInstanceError(false);
+    setDatabaseError(false);
+    setPodError(false);
+    setCommentsError(false);
+    setQueryError(false);
+    setFileError(false);
   };
 
   // File handling
@@ -108,6 +123,7 @@ const QuerySubmissionPage: React.FC = () => {
     }
 
     setSelectedFile(file);
+    setFileError(false);
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,19 +159,54 @@ const QuerySubmissionPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Common validation
-    if (!instanceId || !databaseName || !podId || !comments.trim()) {
-      toast.error('Please fill in all required fields');
-      return;
+    // Clear all previous errors
+    setInstanceError(false);
+    setDatabaseError(false);
+    setPodError(false);
+    setCommentsError(false);
+    setQueryError(false);
+    setFileError(false);
+
+    // Validate all fields and collect errors
+    let hasErrors = false;
+    const errors: string[] = [];
+
+    if (!instanceId) {
+      setInstanceError(true);
+      errors.push('Instance');
+      hasErrors = true;
+    }
+    if (!databaseName) {
+      setDatabaseError(true);
+      errors.push('Database');
+      hasErrors = true;
+    }
+    if (!podId) {
+      setPodError(true);
+      errors.push('POD');
+      hasErrors = true;
+    }
+    if (!comments.trim()) {
+      setCommentsError(true);
+      errors.push('Comments');
+      hasErrors = true;
     }
 
     // Type-specific validation
     if (submissionType === 'query' && !query.trim()) {
-      toast.error('Please enter a query');
-      return;
+      setQueryError(true);
+      errors.push('Query');
+      hasErrors = true;
     }
     if (submissionType === 'script' && !selectedFile) {
-      toast.error('Please upload a script file');
+      setFileError(true);
+      errors.push('Script file');
+      hasErrors = true;
+    }
+
+    // If there are errors, show toast and return
+    if (hasErrors) {
+      toast.error(`Please fill in all required fields: ${errors.join(', ')}`);
       return;
     }
 
@@ -239,9 +290,21 @@ const QuerySubmissionPage: React.FC = () => {
                 selectedInstanceId={instanceId}
                 selectedDatabaseName={databaseName}
                 selectedPodId={podId}
-                onInstanceChange={setInstanceId}
-                onDatabaseChange={setDatabaseName}
-                onPodChange={setPodId}
+                onInstanceChange={(id) => {
+                  setInstanceId(id);
+                  setInstanceError(false);
+                }}
+                onDatabaseChange={(name) => {
+                  setDatabaseName(name);
+                  setDatabaseError(false);
+                }}
+                onPodChange={(id) => {
+                  setPodId(id);
+                  setPodError(false);
+                }}
+                instanceError={instanceError}
+                databaseError={databaseError}
+                podError={podError}
               />
 
               {/* Comments - Always visible */}
@@ -251,12 +314,18 @@ const QuerySubmissionPage: React.FC = () => {
                 </label>
                 <textarea
                   value={comments}
-                  onChange={(e) => setComments(e.target.value)}
+                  onChange={(e) => {
+                    setComments(e.target.value);
+                    setCommentsError(false);
+                  }}
                   placeholder="Describe the purpose of this request..."
                   rows={3}
-                  className="textarea-field"
+                  className={`textarea-field ${commentsError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
                   required
                 />
+                {commentsError && (
+                  <p className="mt-1 text-sm text-red-600">Please provide comments</p>
+                )}
               </div>
 
               {/* Submission Type Toggle - Now BELOW comments */}
@@ -298,12 +367,18 @@ const QuerySubmissionPage: React.FC = () => {
                   </label>
                   <textarea
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setQueryError(false);
+                    }}
                     placeholder="Enter your SQL or MongoDB query here..."
                     rows={8}
-                    className="textarea-field font-mono text-sm"
+                    className={`textarea-field font-mono text-sm ${queryError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
                     required
                   />
+                  {queryError && (
+                    <p className="mt-1 text-sm text-red-600">Please enter a query</p>
+                  )}
                 </div>
               )}
 
@@ -339,7 +414,7 @@ const QuerySubmissionPage: React.FC = () => {
                       onDrop={handleDrop}
                       onDragOver={handleDragOver}
                       onDragLeave={handleDragLeave}
-                      className={`upload-zone ${dragOver ? 'dragover' : ''}`}
+                      className={`upload-zone ${dragOver ? 'dragover' : ''} ${fileError ? 'border-red-500 border-2' : ''}`}
                     >
                       <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                       <p className="text-gray-600 font-medium">Click to upload or drag and drop</p>
@@ -347,6 +422,10 @@ const QuerySubmissionPage: React.FC = () => {
                         JavaScript (.js) or Python (.py) files only (max 16MB)
                       </p>
                     </div>
+                  )}
+
+                  {fileError && (
+                    <p className="mt-1 text-sm text-red-600">Please upload a script file</p>
                   )}
 
                   <input

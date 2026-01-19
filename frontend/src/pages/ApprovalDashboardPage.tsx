@@ -305,7 +305,8 @@ const ApprovalDashboardPage: React.FC = () => {
 
                   {/* POD Filter */}
                   <div className="p-4 border-b">
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Pod</label>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Requests for My Pods</label>
+                    <p className="text-xs text-gray-500 mb-2">Filter requests submitted to your managed pods</p>
                     <select
                       value={tempFilterPod}
                       onChange={(e) => setTempFilterPod(e.target.value)}
