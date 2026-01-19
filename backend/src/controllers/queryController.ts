@@ -358,15 +358,20 @@ export const approveRequest = async (req: Request<{ uuid: string }>, res: Respon
             // Check if execution actually succeeded (result.success could be false)
             if (result.success === false) {
                 // Mark as failed when result indicates failure
-                const errorMessage = (result as any).error?.message || (result as any).error || 'Execution failed';
+                // Extract error message from various possible locations in the result
+                const errorMessage = (result as any).error?.message 
+                    || (result as any).error 
+                    || (result as any).message
+                    || JSON.stringify(result)
+                    || 'Execution failed';
 
                 queryRequest.markFailed(errorMessage);
                 await em.flush();
 
                 // Send failure notification
-                await slackService.notifyApprovalSuccess(
+                await slackService.notifyApprovalFailure(
                     { ...queryRequest, slackUserId: requester?.slackUserId || undefined, userEmail: requester?.email } as any,
-                    resultStr
+                    errorMessage
                 );
 
                 logger.error('Query execution failed', { requestId: queryRequest.id, uuid, error: errorMessage });
