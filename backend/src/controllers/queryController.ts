@@ -22,7 +22,7 @@ import { QueryRequest, RequestStatus, SubmissionType, DatabaseType } from '../en
 import { User, UserRole } from '../entities/User';
 import { Pod } from '../entities/Pod';
 import * as staticData from '../config/staticData';
-import { slackService, queryExecutionService, scriptExecutionService, analyzeQuery } from '../services';
+import { slackService, queryExecutionService, scriptExecutionService, analyzeQuery, databaseSyncService } from '../services';
 import * as response from '../utils/response';
 import logger from '../utils/logger';
 import { auditLogger } from '../utils/auditLogger';
@@ -75,8 +75,12 @@ export const submitRequest = async (req: Request<unknown, unknown, SubmitRequest
             throw new ValidationError('Invalid instance selected');
         }
 
-        // Validate database exists in instance
-        if (!staticData.validateInstanceDatabase(instanceId, databaseName)) {
+        // Validate database exists (check Sync Service first, then Static)
+        const syncedDbs = await databaseSyncService.getDatabasesForInstance(instanceId);
+        const isSynced = syncedDbs.some(db => db.name === databaseName);
+        const isStatic = staticData.validateInstanceDatabase(instanceId, databaseName);
+
+        if (!isSynced && !isStatic) {
             throw new ValidationError('Invalid database for this instance');
         }
 

@@ -750,6 +750,60 @@ export async function getBlacklistEntries(): Promise<BlacklistEntry[]> {
 /**
  * Start periodic sync scheduler
  */
+// =============================================================================
+// SEEDING
+// =============================================================================
+
+/**
+ * Seed instances from static config if table is empty
+ */
+async function seedInstancesFromStaticConfig(): Promise<void> {
+    try {
+        // Check if we have instances
+        const existing = await portalQuery('SELECT COUNT(*) as count FROM database_instances');
+        if (parseInt(existing.rows[0].count, 10) > 0) {
+            return;
+        }
+
+        logger.info('Seeding database instances from static config...');
+        const staticData = require('../config/staticData');
+        const instances = staticData.getDatabaseInstancesArray();
+
+        for (const inst of instances) {
+            // Map static instance to DB columns
+            // explicit cast for type safety
+            const type = inst.type;
+
+            // For params
+            const params = [
+                inst.id,
+                inst.name,
+                type,
+                (inst as any).host || null,
+                (inst as any).port || null,
+                (inst as any).uri || null, // Storing URI in connection_string_env for now or separate col?
+                // Actually the table has host/port. Connection string usually constructed or environmental.
+                // Let's rely on standard columns.
+            ];
+
+            // DB schema: id, name, type, host, port, credentials_env_prefix, connection_string_env, is_active
+            await portalQuery(`
+                INSERT INTO database_instances 
+                (id, name, type, host, port, is_active, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (id) DO NOTHING
+            `, params);
+
+            logger.info(`Seeded instance: ${inst.name}`);
+        }
+    } catch (error) {
+        logger.error('Failed to seed instances', { error: (error as Error).message });
+    }
+}
+
+/**
+ * Start periodic sync scheduler
+ */
 export function startPeriodicSync(): void {
     if (syncInterval) {
         logger.warn('Periodic sync already running');
@@ -769,9 +823,11 @@ export function startPeriodicSync(): void {
         nextSyncAt = new Date(Date.now() + intervalMs).toISOString();
     };
 
-    // Sync on startup after delay
+    // Seed then Sync on startup
     if (SYNC_CONFIG.syncOnStartup) {
-        setTimeout(() => {
+        setTimeout(async () => {
+            await seedInstancesFromStaticConfig();
+
             syncAllDatabases({ syncType: 'startup' }).catch((err: Error) => {
                 logger.error('Startup sync failed', { error: err.message });
             });
