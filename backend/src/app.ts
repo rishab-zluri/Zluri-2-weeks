@@ -101,13 +101,13 @@ app.use(cors(corsOptions));
 const generalLimiter = rateLimit({
     windowMs: config.rateLimit.windowMs,
     max: config.rateLimit.maxRequests,
-    message: {
+    message: (req: Request, res: Response) => ({
         success: false,
         error: {
             code: 'RATE_LIMIT_EXCEEDED',
-            message: 'Global API Rate Limit Exceeded (Try raising RATE_LIMIT_MAX_REQUESTS)',
+            message: `Global API Rate Limit Exceeded for IP: ${req.ip} (Try raising RATE_LIMIT_MAX_REQUESTS)`,
         },
-    },
+    }),
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => config.isDevelopment,
@@ -119,13 +119,13 @@ logger.info(`Rate Limit Config - Window: ${config.rateLimit.windowMs}, General M
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     limit: config.rateLimit.authMaxRequests,
-    message: {
+    message: (req: Request, res: Response) => ({
         success: false,
         error: {
             code: 'AUTH_RATE_LIMIT_EXCEEDED',
-            message: 'Auth Rate Limit Exceeded (Try raising RATE_LIMIT_AUTH_MAX)',
+            message: `Auth Rate Limit Exceeded for IP: ${req.ip} (Try raising RATE_LIMIT_AUTH_MAX)`,
         },
-    },
+    }),
     standardHeaders: true,
     legacyHeaders: false,
 });
