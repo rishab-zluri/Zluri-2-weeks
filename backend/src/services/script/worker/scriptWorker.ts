@@ -390,6 +390,9 @@ async function executeInWorker(config: WorkerConfig): Promise<ChildProcessResult
                 user: pgInstance.user,
                 password: pgInstance.password,
                 query_timeout: timeout,
+                ssl: {
+                    rejectUnauthorized: false
+                },
             });
             await dbClient.connect();
             dbWrapper = createPostgresWrapper(dbClient);

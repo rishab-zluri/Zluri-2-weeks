@@ -1,0 +1,1098 @@
+openapi: 3.0.3
+info:
+  title: Database Query Portal API
+  description: |
+    API for managing database query requests with approval workflow.
+    
+    ## Features
+    - User authentication with JWT tokens
+    - Query and script submission
+    - Manager approval/rejection workflow
+    - Database instance and database listing
+    - Script execution with Python/JavaScript support
+    
+    ## Authentication
+    All endpoints except `/auth/login` and `/auth/register` require authentication.
+    Use the `Authorization: Bearer <token>` header or cookies.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: https://zluri-2-weeks-production.up.railway.app/api
+    description: Production server
+  - url: http://localhost:3000/api
+    description: Local development server
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Query Execution
+    description: Submit and execute database queries and scripts
+  - name: Manager Approval
+    description: Manager approval and rejection workflows
+  - name: Database Instances
+    description: Fetch available database instances and databases
+  - name: User Requests
+    description: User's own query requests
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: accessToken
+
+  schemas:
+    # Authentication Schemas
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: manager1@zluri.com
+        password:
+          type: string
+          format: password
+          example: password123
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            accessToken:
+              type: string
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            refreshToken:
+              type: string
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            expiresIn:
+              type: string
+              example: 15m
+        message:
+          type: string
+          example: Login successful
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 485c1e4c-3a6f-44e5-8849-e57bd15d6aad
+        email:
+          type: string
+          format: email
+          example: manager1@zluri.com
+        name:
+          type: string
+          example: Manager One
+        role:
+          type: string
+          enum: [developer, manager, admin]
+          example: manager
+        podId:
+          type: string
+          example: pod-1
+
+    # Query Request Schemas
+    SubmitQueryRequest:
+      type: object
+      required:
+        - instanceId
+        - databaseName
+        - submissionType
+        - queryContent
+        - comments
+        - podId
+      properties:
+        instanceId:
+          type: string
+          example: mongodb-atlas-ships
+          description: Database instance identifier
+        databaseName:
+          type: string
+          example: 69401559e576ef4085e50133_test
+          description: Name of the database
+        submissionType:
+          type: string
+          enum: [query, script]
+          example: query
+          description: Type of submission
+        queryContent:
+          type: string
+          example: db.ships.find().limit(10)
+          description: Query or script content
+        comments:
+          type: string
+          example: Fetching ship data for analysis
+          description: Comments about the request
+        podId:
+          type: string
+          example: pod-1
+          description: POD identifier
+
+    SubmitScriptRequest:
+      type: object
+      required:
+        - instanceId
+        - databaseName
+        - submissionType
+        - comments
+        - podId
+        - scriptContent
+        - scriptFilename
+      properties:
+        instanceId:
+          type: string
+          example: prod-target-aws
+        databaseName:
+          type: string
+          example: customer_db
+        submissionType:
+          type: string
+          enum: [script]
+          example: script
+        comments:
+          type: string
+          example: Data migration script
+        podId:
+          type: string
+          example: pod-1
+        scriptContent:
+          type: string
+          example: |
+            const { Pool } = require('pg');
+            // Script content here
+        scriptFilename:
+          type: string
+          example: migration.js
+
+    QueryRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 72
+        uuid:
+          type: string
+          format: uuid
+          example: 730a884a-20da-4fa5-92e3-e49bfbb1e939
+        status:
+          type: string
+          enum: [pending, approved, rejected, executing, completed, failed]
+          example: pending
+        submissionType:
+          type: string
+          enum: [query, script]
+          example: query
+        databaseType:
+          type: string
+          enum: [postgresql, mongodb]
+          example: mongodb
+        instanceId:
+          type: string
+          example: mongodb-atlas-ships
+        instanceName:
+          type: string
+          example: MongoDB Atlas - Ships
+        databaseName:
+          type: string
+          example: 69401559e576ef4085e50133_test
+        queryContent:
+          type: string
+          nullable: true
+          description: Query content (for query submissions)
+          example: db.ships.find().limit(10)
+        scriptPath:
+          type: string
+          nullable: true
+          description: Path to uploaded script file (for script submissions)
+          example: /uploads/scripts/migration-1234567890.js
+        scriptFilename:
+          type: string
+          nullable: true
+          description: Original filename of uploaded script (for script submissions)
+          example: migration.js
+        comments:
+          type: string
+          example: Fetching ship data
+        podId:
+          type: string
+          example: pod-1
+        podName:
+          type: string
+          example: Engineering Pod
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-01-19T12:00:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-01-19T12:05:00Z
+        executionResult:
+          type: object
+          nullable: true
+          description: Result of query/script execution (available after approval)
+          properties:
+            success:
+              type: boolean
+            output:
+              type: string
+            duration:
+              type: number
+            rowCount:
+              type: integer
+
+    # Manager Approval Schemas
+    ApprovalResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/QueryRequest'
+        message:
+          type: string
+          example: Request approved and executed successfully
+
+    RejectRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          example: Query is too broad, please add WHERE clause
+          description: Reason for rejection
+
+    # Database Instance Schemas
+    DatabaseInstance:
+      type: object
+      properties:
+        id:
+          type: string
+          example: mongodb-atlas-ships
+        name:
+          type: string
+          example: MongoDB Atlas - Ships
+        type:
+          type: string
+          enum: [postgresql, mongodb]
+          example: mongodb
+        host:
+          type: string
+          nullable: true
+          example: null
+        port:
+          type: integer
+          nullable: true
+          example: null
+        connection_string_env:
+          type: string
+          example: PROD_MONGO_URI
+        last_sync_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-01-19T10:00:00Z
+        last_sync_status:
+          type: string
+          enum: [success, failed, pending]
+          example: success
+
+    Database:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: 69401559e576ef4085e50133_test
+        instance_id:
+          type: string
+          example: mongodb-atlas-ships
+        size_mb:
+          type: number
+          nullable: true
+          example: 245.5
+        is_blacklisted:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          example: 2026-01-19T10:00:00Z
+
+    DatabasesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Database'
+        count:
+          type: integer
+          example: 15
+        source:
+          type: string
+          enum: [cache, live]
+          example: cache
+        lastSync:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2026-01-19T10:00:00Z
+        syncStatus:
+          type: string
+          enum: [success, failed, pending]
+          example: success
+
+    # User Requests Schemas
+    UserRequestsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryRequest'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+              example: 1
+            limit:
+              type: integer
+              example: 10
+            total:
+              type: integer
+              example: 25
+            totalPages:
+              type: integer
+              example: 3
+
+    # Error Schemas
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Invalid credentials
+        code:
+          type: string
+          example: AUTHENTICATION_ERROR
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: email
+              message:
+                type: string
+                example: Invalid email format
+
+paths:
+  # Authentication Endpoints
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Manager Login
+      description: Authenticate a manager user and receive JWT tokens
+      operationId: managerLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              manager:
+                summary: Manager login
+                value:
+                  email: manager1@zluri.com
+                  password: password123
+              developer:
+                summary: Developer login
+                value:
+                  email: developer1@zluri.com
+                  password: password123
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: accessToken=eyJhbGc...; HttpOnly; Secure; SameSite=Strict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: Invalid credentials
+                code: AUTHENTICATION_ERROR
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout
+      description: Logout user and invalidate tokens
+      operationId: logout
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Logged out successfully
+
+  # Query Execution Endpoints
+  /queries/submit:
+    post:
+      tags:
+        - Query Execution
+      summary: Submit Query Request
+      description: Submit a new query or script for approval (text-based submission)
+      operationId: submitQuery
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/SubmitQueryRequest'
+                - $ref: '#/components/schemas/SubmitScriptRequest'
+            examples:
+              mongoQuery:
+                summary: MongoDB Query
+                value:
+                  instanceId: mongodb-atlas-ships
+                  databaseName: 69401559e576ef4085e50133_test
+                  submissionType: query
+                  queryContent: db.ships.find().limit(10)
+                  comments: Fetching ship data
+                  podId: pod-1
+              postgresQuery:
+                summary: PostgreSQL Query
+                value:
+                  instanceId: prod-target-aws
+                  databaseName: customer_db
+                  submissionType: query
+                  queryContent: SELECT * FROM customers LIMIT 10
+                  comments: Customer data analysis
+                  podId: pod-1
+              script:
+                summary: JavaScript Script
+                value:
+                  instanceId: prod-target-aws
+                  databaseName: customer_db
+                  submissionType: script
+                  comments: Data migration script
+                  podId: pod-1
+                  scriptContent: |
+                    const { Pool } = require('pg');
+                    console.log('Migration started');
+                  scriptFilename: migration.js
+      responses:
+        '201':
+          description: Request submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/QueryRequest'
+                  message:
+                    type: string
+                    example: Request submitted successfully
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: Invalid database for this instance
+                code: VALIDATION_ERROR
+
+  /queries/submit-script:
+    post:
+      tags:
+        - Query Execution
+      summary: Submit Script with File Upload
+      description: |
+        Submit a script execution request with file upload.
+        Supports JavaScript (.js) and Python (.py) files.
+        Maximum file size: 5MB.
+      operationId: submitScriptFile
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - instanceId
+                - databaseName
+                - podId
+                - scriptFile
+              properties:
+                instanceId:
+                  type: string
+                  description: Database instance identifier
+                  example: prod-target-aws
+                databaseName:
+                  type: string
+                  description: Name of the database
+                  example: customer_db
+                podId:
+                  type: string
+                  description: POD identifier
+                  example: pod-1
+                comments:
+                  type: string
+                  description: Comments about the script
+                  example: Data migration script for customer records
+                scriptFile:
+                  type: string
+                  format: binary
+                  description: Script file (.js or .py)
+            encoding:
+              scriptFile:
+                contentType: application/javascript, text/x-python
+      responses:
+        '201':
+          description: Script submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/QueryRequest'
+                  message:
+                    type: string
+                    example: Script submitted successfully
+              example:
+                success: true
+                data:
+                  id: 73
+                  uuid: 8f3a9b2c-4d5e-6f7a-8b9c-0d1e2f3a4b5c
+                  status: pending
+                  submissionType: script
+                  databaseType: postgresql
+                  instanceId: prod-target-aws
+                  instanceName: Production PostgreSQL
+                  databaseName: customer_db
+                  scriptPath: /uploads/scripts/migration-1234567890.js
+                  scriptFilename: migration.js
+                  comments: Data migration script for customer records
+                  podId: pod-1
+                  podName: Engineering Pod
+                  createdAt: 2026-01-19T12:00:00Z
+                  updatedAt: 2026-01-19T12:00:00Z
+                message: Script submitted successfully
+        '400':
+          description: Validation error or invalid file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                noFile:
+                  summary: No file uploaded
+                  value:
+                    success: false
+                    error: No script file uploaded
+                    code: VALIDATION_ERROR
+                invalidFileType:
+                  summary: Invalid file type
+                  value:
+                    success: false
+                    error: Only .js and .py files are allowed
+                    code: VALIDATION_ERROR
+                fileTooLarge:
+                  summary: File too large
+                  value:
+                    success: false
+                    error: File size exceeds 5MB limit
+                    code: VALIDATION_ERROR
+        '401':
+          description: Unauthorized - authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: File size exceeds maximum allowed size
+                code: PAYLOAD_TOO_LARGE
+
+  /queries/my:
+    get:
+      tags:
+        - User Requests
+      summary: Get User's Own Requests
+      description: Retrieve all query requests submitted by the current user
+      operationId: getUserRequests
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [pending, approved, rejected, executing, completed, failed]
+        - name: search
+          in: query
+          description: Search in comments or query content
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User requests retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRequestsResponse'
+
+  /queries/{uuid}:
+    get:
+      tags:
+        - User Requests
+      summary: Get Request by UUID
+      description: Retrieve a specific query request by its UUID
+      operationId: getRequestByUuid
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          description: Request UUID
+          schema:
+            type: string
+            format: uuid
+            example: 730a884a-20da-4fa5-92e3-e49bfbb1e939
+      responses:
+        '200':
+          description: Request retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/QueryRequest'
+        '404':
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Manager Approval Endpoints
+  /queries/pending:
+    get:
+      tags:
+        - Manager Approval
+      summary: Get Pending Requests
+      description: Retrieve all pending requests for manager approval (filtered by manager's PODs)
+      operationId: getPendingRequests
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: podId
+          in: query
+          description: Filter by specific POD
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pending requests retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserRequestsResponse'
+
+  /queries/{uuid}/approve:
+    post:
+      tags:
+        - Manager Approval
+      summary: Approve Request
+      description: Approve a pending query request and execute it
+      operationId: approveRequest
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          description: Request UUID
+          schema:
+            type: string
+            format: uuid
+            example: 918933cb-6db9-450f-833a-04b0da1dfcac
+      responses:
+        '200':
+          description: Request approved and executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalResponse'
+        '400':
+          description: Request is not pending or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not authorized to approve this request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queries/{uuid}/reject:
+    post:
+      tags:
+        - Manager Approval
+      summary: Reject Request
+      description: Reject a pending query request with a reason
+      operationId: rejectRequest
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          description: Request UUID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectRequest'
+            example:
+              reason: Query is too broad, please add WHERE clause to limit results
+      responses:
+        '200':
+          description: Request rejected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/QueryRequest'
+                  message:
+                    type: string
+                    example: Request rejected successfully
+        '400':
+          description: Request is not pending or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not authorized to reject this request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Database Instance Endpoints
+  /databases/instances:
+    get:
+      tags:
+        - Database Instances
+      summary: Get All Database Instances
+      description: Retrieve all available database instances
+      operationId: getDatabaseInstances
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: type
+          in: query
+          description: Filter by database type
+          schema:
+            type: string
+            enum: [postgresql, mongodb]
+      responses:
+        '200':
+          description: Database instances retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DatabaseInstance'
+                  count:
+                    type: integer
+                    example: 3
+              examples:
+                allInstances:
+                  summary: All instances
+                  value:
+                    success: true
+                    data:
+                      - id: mongodb-atlas-ships
+                        name: MongoDB Atlas - Ships
+                        type: mongodb
+                        connection_string_env: PROD_MONGO_URI
+                        last_sync_at: 2026-01-19T10:00:00Z
+                        last_sync_status: success
+                      - id: prod-target-aws
+                        name: Production PostgreSQL
+                        type: postgresql
+                        host: ep-steep-thunder.aws.neon.tech
+                        port: 5432
+                        last_sync_at: 2026-01-19T10:00:00Z
+                        last_sync_status: success
+                    count: 2
+
+  /databases/instances/{instanceId}:
+    get:
+      tags:
+        - Database Instances
+      summary: Get Database Instance by ID
+      description: Retrieve a specific database instance by its ID
+      operationId: getDatabaseInstanceById
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          description: Database instance ID
+          schema:
+            type: string
+            example: mongodb-atlas-ships
+      responses:
+        '200':
+          description: Database instance retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DatabaseInstance'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /databases/instances/{instanceId}/databases:
+    get:
+      tags:
+        - Database Instances
+      summary: Get Databases for Instance
+      description: Retrieve all databases available in a specific instance
+      operationId: getDatabasesForInstance
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          description: Database instance ID
+          schema:
+            type: string
+            example: mongodb-atlas-ships
+        - name: search
+          in: query
+          description: Search databases by name
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Databases retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabasesResponse'
+              examples:
+                mongoDatabases:
+                  summary: MongoDB databases
+                  value:
+                    success: true
+                    data:
+                      - id: 1
+                        name: 69401559e576ef4085e50133_test
+                        instance_id: mongodb-atlas-ships
+                        size_mb: 245.5
+                        is_blacklisted: false
+                        created_at: 2026-01-19T10:00:00Z
+                      - id: 2
+                        name: 69401559e576ef4085e50133_prod
+                        instance_id: mongodb-atlas-ships
+                        size_mb: 1024.8
+                        is_blacklisted: false
+                        created_at: 2026-01-19T10:00:00Z
+                    count: 2
+                    source: cache
+                    lastSync: 2026-01-19T10:00:00Z
+                    syncStatus: success
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+security:
+  - bearerAuth: []
+  - cookieAuth: []

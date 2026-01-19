@@ -1,0 +1,16 @@
+# Coverage Reports - Add to .gitignore if not already present
+
+# Backend coverage
+backend/coverage/
+backend/.nyc_output/
+
+# Frontend coverage
+frontend/coverage/
+frontend/.nyc_output/
+
+# Keep the dashboard and scripts
+!coverage-dashboard.html
+!generate-coverage.sh
+!generate-coverage.bat
+!COVERAGE_REPORTS_GUIDE.md
+!COVERAGE_SETUP_COMPLETE.md

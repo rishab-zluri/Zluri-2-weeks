@@ -50,7 +50,37 @@ This portal allows developers to submit database queries/scripts for execution, 
 - **Target Databases**: PostgreSQL, MongoDB
 - **Authentication**: JWT (Access + Refresh Tokens)
 - **Notifications**: Slack API
-- **Testing**: Jest (100% coverage)
+- **Testing**: Jest (Backend) + Vitest (Frontend)
+- **Coverage**: 90%+ target for both frontend and backend
+
+## Test Coverage
+
+View comprehensive test coverage reports for both frontend and backend:
+
+### Quick Access
+Open `coverage-dashboard.html` in your browser for a unified view of all coverage reports.
+
+### Generate Reports
+```bash
+# Backend coverage
+cd backend && npm run test:coverage
+
+# Frontend coverage  
+cd frontend && npm run test:coverage
+
+# Or use the helper script (macOS/Linux)
+./generate-coverage.sh
+
+# Windows
+generate-coverage.bat
+```
+
+### Coverage Locations
+- **Backend Report**: `backend/coverage/index.html`
+- **Frontend Report**: `frontend/coverage/index.html`
+- **Unified Dashboard**: `coverage-dashboard.html`
+
+See [COVERAGE_REPORTS_GUIDE.md](COVERAGE_REPORTS_GUIDE.md) for detailed instructions.
 
 ## Project Structure
 

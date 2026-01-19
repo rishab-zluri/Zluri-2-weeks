@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Coverage Dashboard - Database Query Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        .backend-icon {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .frontend-icon {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+
+        .card p {
+            color: #718096;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .card-link {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: opacity 0.3s ease;
+        }
+
+        .card-link:hover {
+            opacity: 0.9;
+        }
+
+        .frontend-card .card-link {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-section h3 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #2d3748;
+        }
+
+        .info-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .info-section li {
+            padding: 10px 0;
+            color: #4a5568;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .info-section li:last-child {
+            border-bottom: none;
+        }
+
+        .info-section code {
+            background: #f7fafc;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #667eea;
+            font-size: 0.9rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .badge-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .badge-warning {
+            background: #feebc8;
+            color: #7c2d12;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Test Coverage Dashboard</h1>
+            <p>Database Query Portal - Frontend & Backend Coverage Reports</p>
+        </div>
+
+        <div class="cards">
+            <div class="card backend-card" onclick="window.open('backend/coverage/index.html', '_blank')">
+                <div class="card-icon backend-icon">🔧</div>
+                <h2>Backend Coverage</h2>
+                <p>Node.js + Express + TypeScript backend with Jest testing framework. View detailed coverage reports for controllers, services, middleware, and utilities.</p>
+                <a href="backend/coverage/index.html" class="card-link" target="_blank">View Backend Report →</a>
+            </div>
+
+            <div class="card frontend-card" onclick="window.open('frontend/coverage/index.html', '_blank')">
+                <div class="card-icon frontend-icon">⚛️</div>
+                <h2>Frontend Coverage</h2>
+                <p>React + TypeScript frontend with Vitest testing framework. View detailed coverage reports for components, pages, hooks, and services.</p>
+                <a href="frontend/coverage/index.html" class="card-link" target="_blank">View Frontend Report →</a>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>📝 How to Generate Coverage Reports</h3>
+            <ul>
+                <li>
+                    <strong>Backend:</strong> 
+                    <code>cd backend && npm run test:coverage</code>
+                    <span class="badge badge-success">Jest</span>
+                </li>
+                <li>
+                    <strong>Frontend:</strong> 
+                    <code>cd frontend && npm run test:coverage</code>
+                    <span class="badge badge-warning">Vitest</span>
+                </li>
+                <li>
+                    <strong>Backend HTML Only:</strong> 
+                    <code>cd backend && npm run test:coverage:html</code>
+                </li>
+                <li>
+                    <strong>View This Dashboard:</strong> 
+                    Open <code>coverage-dashboard.html</code> in your browser
+                </li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>💡 Tip: Run coverage tests before viewing reports to see the latest results</p>
+            <p style="margin-top: 10px; font-size: 0.9rem;">Last updated: <span id="timestamp"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // Display current timestamp
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+
+        // Prevent card click when clicking on link
+        document.querySelectorAll('.card-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        });
+    </script>
+</body>
+</html>
