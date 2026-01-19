@@ -860,7 +860,9 @@ async function seedInstancesFromStaticConfig(): Promise<void> {
  */
 async function seedBlacklist(): Promise<void> {
     try {
-        const systemDbs = ['postgres', 'neondb', 'portal_db', 'template1', 'rdsadmin'];
+        // User requested to ONLY show customer_db and analytics_db
+        // So we blacklist everything else including the default 'target_db'
+        const systemDbs = ['postgres', 'neondb', 'portal_db', 'template1', 'rdsadmin', 'target_db'];
 
         // Update blacklist and Force Deactivate matching databases immediately
         for (const pattern of systemDbs) {
@@ -937,8 +939,8 @@ export function startPeriodicSync(): void {
             // Cleanup stale dev instances first
             await cleanupDevInstances();
 
-            // Seed blacklist removed per user request
-            // await seedBlacklist();
+            // Seed blacklist to hide system DBs (and target_db per user request)
+            await seedBlacklist();
 
             await seedInstancesFromStaticConfig();
 
