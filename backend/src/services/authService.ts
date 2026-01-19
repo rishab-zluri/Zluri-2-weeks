@@ -447,11 +447,13 @@ export async function refreshAccessToken(
             }
 
             // ==================================================================
-            // HAPPY PATH: Issue new access token, mark refresh token as used
+            // HAPPY PATH: Issue new access token
+            // NOTE: We do NOT mark as used yet because Frontend doesn't support rotation.
+            // If we mark used but don't return new token, user gets locked out next time.
             // ==================================================================
 
             // Mark this token as used (arm the trap)
-            storedToken.markAsUsed();
+            // storedToken.markAsUsed();
 
             // Generate new access token
             const newAccessToken = generateAccessToken({

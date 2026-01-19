@@ -19,10 +19,10 @@ const config: Options = {
     password: !process.env.PORTAL_DB_URL ? (process.env.PORTAL_DB_PASSWORD || '') : undefined,
     dbName: !process.env.PORTAL_DB_URL ? (process.env.PORTAL_DB_NAME || 'db_portal') : undefined,
 
-    // SSL for Production (Supabase/Neon)
+    // SSL for Production (Supabase/Neon/Railway)
     driverOptions: {
         connection: {
-            ssl: (process.env.PORTAL_DB_SSL === 'true' || process.env.PORTAL_DB_SSL === '1' || (process.env.PORTAL_DB_URL && process.env.PORTAL_DB_URL.includes('sslmode=require')))
+            ssl: (process.env.NODE_ENV === 'production' || process.env.PORTAL_DB_SSL === 'true' || process.env.PORTAL_DB_SSL === '1' || (process.env.PORTAL_DB_URL && process.env.PORTAL_DB_URL.includes('sslmode=require')))
                 ? { rejectUnauthorized: false }
                 : false
         }
