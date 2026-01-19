@@ -37,18 +37,42 @@ export class ConnectionPool {
         if (!this.pgPools.has(poolKey)) {
             const envPrefix = `PG_${instanceId.toUpperCase().replace(/-/g, '_')}`;
 
-            const pool = new Pool({
-                host: connectionConfig.host,
-                port: connectionConfig.port,
+            // Check for explicit connection string environment variable
+            let connectionString: string | undefined;
+            if ((connectionConfig as any).connection_string_env && process.env[(connectionConfig as any).connection_string_env]) {
+                connectionString = process.env[(connectionConfig as any).connection_string_env];
+            }
+
+            const poolConfig: any = {
                 database: databaseName,
-                // Use instance credentials first, then env vars, then defaults
-                user: connectionConfig.user || process.env[`${envPrefix}_USER`] || process.env.PG_DEFAULT_USER || process.env.DB_DEFAULT_USER || 'postgres',
-                password: connectionConfig.password || process.env[`${envPrefix}_PASSWORD`] || process.env.PG_DEFAULT_PASSWORD || process.env.DB_DEFAULT_PASSWORD || '',
                 // Connection pool settings
                 max: parseInt(process.env.PG_POOL_MAX || '5', 10) || 5,
                 idleTimeoutMillis: parseInt(process.env.PG_IDLE_TIMEOUT || '30000', 10) || 30000,
                 connectionTimeoutMillis: parseInt(process.env.PG_CONNECT_TIMEOUT || '10000', 10) || 10000,
-            });
+            };
+
+            if (connectionString) {
+                // If connection string is provided, use it (it usually includes user/pass/host/port/ssl)
+                poolConfig.connectionString = connectionString;
+                // We might need to append strict SSL if not in the string, but typically the string has it.
+                // Ensuring SSL if production
+                if (process.env.NODE_ENV === 'production' && !connectionString.includes('sslmode=')) {
+                    poolConfig.ssl = { rejectUnauthorized: false };
+                }
+            } else {
+                // Fallback to individual parameters
+                poolConfig.host = connectionConfig.host;
+                poolConfig.port = connectionConfig.port;
+                poolConfig.user = connectionConfig.user || process.env[`${envPrefix}_USER`] || process.env.PG_DEFAULT_USER || process.env.DB_DEFAULT_USER || 'postgres';
+                poolConfig.password = connectionConfig.password || process.env[`${envPrefix}_PASSWORD`] || process.env.PG_DEFAULT_PASSWORD || process.env.DB_DEFAULT_PASSWORD || '';
+
+                // Enforce SSL in production for individual params
+                if (process.env.NODE_ENV === 'production' && connectionConfig.host !== 'localhost') {
+                    poolConfig.ssl = { rejectUnauthorized: false };
+                }
+            }
+
+            const pool = new Pool(poolConfig);
 
             // Error handling for idle clients
             pool.on('error', (err) => {
