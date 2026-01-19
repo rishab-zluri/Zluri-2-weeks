@@ -327,11 +327,44 @@ export class ScriptExecutor {
                 }
             }
 
-            // 3. Get Instance
-            const { getInstanceById } = await import('../../config/staticData');
-            const instance = getInstanceById(instanceId);
+            // 3. Get Instance from database (not static config)
+            const { getInstanceById } = await import('../databaseSyncService');
+            const dbInstance = await getInstanceById(instanceId);
 
-            if (!instance) throw new Error(`Instance not found: ${instanceId}`);
+            if (!dbInstance) throw new Error(`Instance not found: ${instanceId}`);
+
+            // Get credentials for the instance
+            const { getInstanceCredentials } = await import('../databaseSyncService');
+            const credentials = getInstanceCredentials(dbInstance);
+
+            // Build instance object with connection details
+            const instance: any = {
+                id: dbInstance.id,
+                name: dbInstance.name,
+                type: dbInstance.type,
+            };
+
+            if (dbInstance.type === 'postgresql') {
+                if (credentials.connectionString) {
+                    // Parse connection string to get host/port/user/password
+                    const url = new URL(credentials.connectionString.replace('postgresql://', 'http://'));
+                    instance.host = url.hostname;
+                    instance.port = parseInt(url.port || '5432', 10);
+                    instance.user = url.username || credentials.user;
+                    instance.password = url.password || credentials.password;
+                } else {
+                    instance.host = dbInstance.host;
+                    instance.port = dbInstance.port;
+                    instance.user = credentials.user;
+                    instance.password = credentials.password;
+                }
+            } else if (dbInstance.type === 'mongodb') {
+                // For MongoDB, use the connection string directly
+                instance.uri = credentials.connectionString || '';
+                if (!instance.uri) {
+                    throw new Error(`MongoDB instance ${instanceId} has no connection string configured`);
+                }
+            }
 
             // 4. Prepare Worker Config
             const workerConfig: WorkerConfig = {

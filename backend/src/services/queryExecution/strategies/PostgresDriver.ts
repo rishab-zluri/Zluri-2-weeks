@@ -11,7 +11,7 @@ import {
     QueryConfig
 } from '../interfaces';
 import { ConnectionPool } from '../ConnectionPool';
-import { getInstanceById } from '../../../config/staticData';
+import { getInstanceById, getInstanceCredentials } from '../../databaseSyncService';
 import logger from '../../../utils/logger';
 import { QueryExecutionError, ValidationError } from '../../../utils/errors';
 
@@ -50,17 +50,38 @@ export class PostgresDriver implements IDatabaseDriver {
         const validation = this.validate(queryContent);
         // Note: We only log warnings, specific validation errors are thrown in validate()
 
-        // 2. Get connection config
-        const instance = getInstanceById(instanceId);
-        if (!instance) throw new ValidationError(`Instance ${instanceId} not found`);
-        if (instance.type !== 'postgresql') throw new ValidationError(`Instance ${instanceId} is not a PostgreSQL instance`);
+        // 2. Get connection config from database
+        const dbInstance = await getInstanceById(instanceId);
+        if (!dbInstance) throw new ValidationError(`Instance ${instanceId} not found`);
+        if (dbInstance.type !== 'postgresql') throw new ValidationError(`Instance ${instanceId} is not a PostgreSQL instance`);
+
+        // Get credentials
+        const credentials = getInstanceCredentials(dbInstance);
+        
+        // Build connection config
+        let connectionConfig: any = {
+            id: dbInstance.id,
+            name: dbInstance.name,
+            type: 'postgresql',
+            databases: []
+        };
+
+        if (credentials.connectionString) {
+            // Parse connection string to get host/port
+            const url = new URL(credentials.connectionString.replace('postgresql://', 'http://'));
+            connectionConfig.host = url.hostname;
+            connectionConfig.port = parseInt(url.port || '5432', 10);
+            connectionConfig.user = url.username || credentials.user;
+            connectionConfig.password = url.password || credentials.password;
+        } else {
+            connectionConfig.host = dbInstance.host;
+            connectionConfig.port = dbInstance.port;
+            connectionConfig.user = credentials.user;
+            connectionConfig.password = credentials.password;
+        }
 
         // 3. Get pool
-        const pool = this.poolManager.getPgPool(instanceId, {
-            ...instance,
-            host: instance.host!,
-            port: instance.port!
-        }, databaseName);
+        const pool = this.poolManager.getPgPool(instanceId, connectionConfig, databaseName);
 
         let client: PoolClient | null = null;
         const startTime = Date.now();

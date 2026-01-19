@@ -11,7 +11,7 @@ import {
     QueryConfig
 } from '../interfaces';
 import { ConnectionPool } from '../ConnectionPool';
-import { getInstanceById } from '../../../config/staticData';
+import { getInstanceById, getInstanceCredentials } from '../../databaseSyncService';
 import logger from '../../../utils/logger';
 import { QueryExecutionError, ValidationError } from '../../../utils/errors';
 
@@ -39,10 +39,18 @@ export class MongoDriver implements IDatabaseDriver {
     public async execute(request: QueryRequest, options?: ExecutionOptions): Promise<ExecutionResult> {
         const { instanceId, databaseName, queryContent } = request;
 
-        // 1. Get connection config
-        const instance = getInstanceById(instanceId);
-        if (!instance) throw new ValidationError(`Instance ${instanceId} not found`);
-        if (instance.type !== 'mongodb') throw new ValidationError(`Instance ${instanceId} is not a MongoDB instance`);
+        // 1. Get connection config from database
+        const dbInstance = await getInstanceById(instanceId);
+        if (!dbInstance) throw new ValidationError(`Instance ${instanceId} not found`);
+        if (dbInstance.type !== 'mongodb') throw new ValidationError(`Instance ${instanceId} is not a MongoDB instance`);
+
+        // Get credentials
+        const credentials = getInstanceCredentials(dbInstance);
+        const uri = credentials.connectionString;
+        
+        if (!uri) {
+            throw new ValidationError(`MongoDB instance ${instanceId} has no connection string configured`);
+        }
 
         // 2. Validate query / content
         const validation = this.validate(queryContent);
@@ -54,10 +62,11 @@ export class MongoDriver implements IDatabaseDriver {
         try {
             // 3. Get client - pass uri for MongoDB instances
             client = await this.poolManager.getMongoClient(instanceId, {
-                ...instance,
-                uri: (instance as any).uri,
-                host: (instance as any).host,
-                port: (instance as any).port
+                id: dbInstance.id,
+                name: dbInstance.name,
+                type: 'mongodb',
+                databases: [],
+                uri: uri
             });
 
             const db = client.db(databaseName);
