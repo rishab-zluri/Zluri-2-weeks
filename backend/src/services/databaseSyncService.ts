@@ -847,6 +847,26 @@ async function seedInstancesFromStaticConfig(): Promise<void> {
 }
 
 /**
+ * Seed default blacklist to hide system databases
+ */
+async function seedBlacklist(): Promise<void> {
+    try {
+        const systemDbs = ['postgres', 'neondb', 'portal_db', 'template1', 'rdsadmin'];
+
+        for (const pattern of systemDbs) {
+            await portalQuery(`
+                INSERT INTO database_blacklist (pattern, pattern_type, reason, created_by)
+                VALUES ($1, 'exact', 'System database', 'system')
+                ON CONFLICT DO NOTHING
+            `, [pattern]);
+        }
+        logger.info('Seeded database blacklist', { patterns: systemDbs });
+    } catch (error) {
+        logger.warn('Failed to seed blacklist', { error: (error as Error).message });
+    }
+}
+
+/**
  * Cleanup development instances if running in production
  */
 async function cleanupDevInstances(): Promise<void> {
@@ -898,6 +918,9 @@ export function startPeriodicSync(): void {
         setTimeout(async () => {
             // Cleanup stale dev instances first
             await cleanupDevInstances();
+
+            // Seed blacklist to hide system DBs
+            await seedBlacklist();
 
             await seedInstancesFromStaticConfig();
 

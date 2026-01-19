@@ -241,7 +241,7 @@ export function validateInstanceDatabase(instanceId: string, databaseName: strin
 // Exports
 // ============================================================================
 
-export { pods };
+export { pods, getDatabaseInstancesArray };
 
 // Backward compatibility getter
 export const databaseInstances = getDatabaseInstancesArray();
@@ -259,4 +259,5 @@ export default {
     getInstanceById,
     getDatabasesForInstance,
     validateInstanceDatabase,
+    getDatabaseInstancesArray,
 };
