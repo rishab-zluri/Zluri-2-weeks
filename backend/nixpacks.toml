@@ -1,0 +1,14 @@
+# Nixpacks configuration for Railway deployment
+# Adds Python3 support for script execution
+
+[phases.setup]
+nixPkgs = ["nodejs", "python3", "python3Packages.pip"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"
