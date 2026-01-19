@@ -38,6 +38,12 @@ client.interceptors.response.use(
     async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+        // Loop Prevention: If we are already failing on the refresh endpoint itself, do NOT retry
+        // AND ensure we redirect to login to stop the madness
+        if (error.config?.url?.includes('/refresh') || error.config?.url?.includes('/login')) {
+            return Promise.reject(error);
+        }
+
         // Handle 401 Unauthorized - Token Refresh
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
@@ -57,11 +63,6 @@ client.interceptors.response.use(
                 }
                 return Promise.reject(refreshError);
             }
-        }
-
-        // Loop Prevention: If we are already failing on the refresh endpoint itself, do NOT retry
-        if (error.config?.url?.includes('/refresh') && error.response?.status === 401) {
-            return Promise.reject(error);
         }
 
         // Handle 403 Forbidden - Access Denied
