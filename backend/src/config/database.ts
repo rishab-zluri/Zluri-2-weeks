@@ -46,8 +46,12 @@ const portalPool = new Pool({
 
 // Pool event handlers
 /* istanbul ignore next - pool event handler */
-portalPool.on('connect', () => {
+portalPool.on('connect', (client) => {
     logger.debug('New client connected to portal database');
+    // Ensure public schema is in search path
+    client.query('SET search_path TO public').catch(err => {
+        logger.error('Failed to set search_path on connection', { error: err.message });
+    });
 });
 
 /* istanbul ignore next - pool error handler */

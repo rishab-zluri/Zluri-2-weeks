@@ -64,6 +64,9 @@ const config: Options = {
     // Debug in development
     debug: process.env.NODE_ENV === 'development',
 
+    // Schema to use
+    schema: 'public',
+
     // Allow queries across multiple schemas
     allowGlobalContext: true,
 
