@@ -185,8 +185,8 @@ const MyQueriesPage: React.FC = () => {
   const handleClone = async (query: QueryRequest) => {
     // Validate that the instance still exists before cloning
     try {
-      // Check if instance exists by trying to fetch it
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/instances/${query.instanceId}`, {
+      // Check if instance exists by trying to fetch its databases
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/v1/databases/instances/${query.instanceId}/databases`, {
         credentials: 'include',
       });
       
