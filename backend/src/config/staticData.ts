@@ -127,15 +127,20 @@ function getDatabaseInstancesArray(): DatabaseInstance[] {
     }
 
     // Add Production Instances if env vars are present (example pattern)
-    if (process.env.PROD_TARGET_HOST) {
+    // Supports explicit connection string via PROD_TARGET_URL
+    if (process.env.PROD_TARGET_URL || process.env.PROD_TARGET_HOST) {
+        // Parse URL if available to get host/port defaults, or fallback to individual vars
+        // Note: Actual connection logic handles the string if connection_string_env is set.
+
         instances.push({
             id: 'prod-target-aws',
-            name: 'Target Database',
+            name: 'Zluri Query Portal', // Renamed per user request
             type: 'postgresql',
-            host: process.env.PROD_TARGET_HOST,
+            host: process.env.PROD_TARGET_HOST || 'localhost', // Placeholder if URL is used
             port: parseInt(process.env.PROD_TARGET_PORT || '5432', 10),
             user: process.env.PROD_TARGET_USER || 'postgres',
             password: process.env.PROD_TARGET_PASSWORD || '',
+            connection_string_env: 'PROD_TARGET_URL', // Use this env var for full connection string
             databases: [], // Will be populated by sync
         } as PostgresInstance);
     }

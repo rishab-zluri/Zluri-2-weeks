@@ -487,8 +487,18 @@ async function performSyncInTransaction(
     }
 
     // Mark databases not seen in this sync as inactive (soft delete)
-    if (filteredDatabases.length > 0) {
-        const deactivateResult = await client.query(`
+    // Mark databases not seen in this sync as inactive (soft delete)
+    // Even if filteredDatabases is empty, we must run this to deactivate EVERYTHING if needed.
+    // We pass a dummy value if empty to ensure valid SQL syntax for != ALL(...) check?
+    // Actually, name != ALL('{}') matches everything, which is what we want (deactivate all other names i.e. all names).
+    // So passing empty array is correct.
+
+    const dbListForQuery = filteredDatabases.length > 0 ? filteredDatabases : [];
+
+    // Note: If dbListForQuery is empty, name != ALL([]) is TRUE for all rows.
+    // So this will deactivate ALL synced databases for this instance, which is correct (since none matched).
+
+    const deactivateResult = await client.query(`
       UPDATE databases
       SET is_active = false, updated_at = CURRENT_TIMESTAMP
       WHERE instance_id = $1
@@ -496,10 +506,9 @@ async function performSyncInTransaction(
         AND is_active = true
         AND source = 'synced'
       RETURNING id
-    `, [instanceId, filteredDatabases]);
+    `, [instanceId, dbListForQuery]);
 
-        databasesDeactivated = deactivateResult.rowCount || 0;
-    }
+    databasesDeactivated = deactivateResult.rowCount || 0;
 
     // Update instance sync status
     await client.query(`
@@ -853,14 +862,23 @@ async function seedBlacklist(): Promise<void> {
     try {
         const systemDbs = ['postgres', 'neondb', 'portal_db', 'template1', 'rdsadmin'];
 
+        // Update blacklist and Force Deactivate matching databases immediately
         for (const pattern of systemDbs) {
+            // Add to blacklist
             await portalQuery(`
                 INSERT INTO database_blacklist (pattern, pattern_type, reason, created_by)
                 VALUES ($1, 'exact', 'System database', 'system')
                 ON CONFLICT DO NOTHING
             `, [pattern]);
+
+            // Force deactivate existing synced databases matching this pattern
+            await portalQuery(`
+                UPDATE databases 
+                SET is_active = false, updated_at = CURRENT_TIMESTAMP
+                WHERE name = $1 AND source = 'synced' AND is_active = true
+            `, [pattern]);
         }
-        logger.info('Seeded database blacklist', { patterns: systemDbs });
+        logger.info('Seeded database blacklist and cleaned up existing system databases', { patterns: systemDbs });
     } catch (error) {
         logger.warn('Failed to seed blacklist', { error: (error as Error).message });
     }
@@ -919,8 +937,8 @@ export function startPeriodicSync(): void {
             // Cleanup stale dev instances first
             await cleanupDevInstances();
 
-            // Seed blacklist to hide system DBs
-            await seedBlacklist();
+            // Seed blacklist removed per user request
+            // await seedBlacklist();
 
             await seedInstancesFromStaticConfig();
 
