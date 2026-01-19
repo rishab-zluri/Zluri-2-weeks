@@ -409,7 +409,33 @@ async function fetchMongoDatabases(instance: DatabaseInstance, credentials: Inst
         const result = await adminDb.command({ listDatabases: 1, nameOnly: true });
         return result.databases.map((db: { name: string }) => db.name);
     } catch (error) {
-        // If connection fails, remove the client so it can be recreated
+        const err = error as any;
+
+        // CHECK: If Unauthorized (Code 13), fallback to URI database
+        if (err.code === 13 || err.message?.includes('Unauthorized') || err.message?.includes('not authorized')) {
+            const uri = credentials.connectionString || (instance as any).uri;
+            if (uri) {
+                try {
+                    // Parse URI to find database name
+                    // Standard format: mongodb://user:pass@host:port/dbname?options
+                    // or mongodb+srv://user:pass@host/dbname?options
+                    const urlObj = new URL(uri.replace(/^mongodb(\+srv)?:\/\//, 'http://')); // Hack to use URL parser
+                    const path = urlObj.pathname.replace(/^\//, ''); // Remove leading slash
+
+                    if (path && path.length > 0) {
+                        logger.warn('List databases failed (Unauthorized), falling back to URI database', {
+                            instanceId: instance.id,
+                            dbName: path
+                        });
+                        return [path];
+                    }
+                } catch (parseErr) {
+                    logger.warn('Failed to parse database from URI fallback', { uri_partial: uri.substring(0, 20) + '...' });
+                }
+            }
+        }
+
+        // If connection fails or fallback fails, remove the client so it can be recreated
         mongoSyncClients.delete(instance.id);
         throw error;
     }

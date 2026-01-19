@@ -2067,3 +2067,665 @@ components:
         format: uuid
       example: 123e4567-e89b-12d3-a456-426614174000
 
+  schemas:
+    # =============================================================================
+    # ENUMS
+    # =============================================================================
+    
+    UserRole:
+      type: string
+      enum:
+        - developer
+        - manager
+        - admin
+      description: |
+        User role for access control:
+        - **developer**: Can submit queries, view own requests
+        - **manager**: Can approve/reject queries for their POD
+        - **admin**: Full system access, user management
+      example: developer
+    
+    RequestStatus:
+      type: string
+      enum:
+        - pending
+        - approved
+        - rejected
+        - executing
+        - completed
+        - failed
+      description: |
+        Query request lifecycle status:
+        - **pending**: Awaiting approval
+        - **approved**: Approved, queued for execution
+        - **rejected**: Rejected by manager/admin
+        - **executing**: Currently running
+        - **completed**: Successfully executed
+        - **failed**: Execution failed
+      example: pending
+    
+    SubmissionType:
+      type: string
+      enum:
+        - query
+        - script
+      description: |
+        Type of query submission:
+        - **query**: Direct SQL/MongoDB query text
+        - **script**: Uploaded script file
+      example: query
+    
+    DatabaseType:
+      type: string
+      enum:
+        - postgresql
+        - mongodb
+      description: Database engine type
+      example: postgresql
+    
+    RiskLevel:
+      type: string
+      enum:
+        - safe
+        - low
+        - medium
+        - high
+        - critical
+      description: |
+        Query risk assessment level:
+        - **safe**: Read-only SELECT queries
+        - **low**: Simple INSERT/UPDATE with WHERE clause
+        - **medium**: Bulk operations, complex queries
+        - **high**: DELETE, TRUNCATE, schema changes
+        - **critical**: DROP, system-level operations
+      example: medium
+
+    # =============================================================================
+    # ENTITY SCHEMAS
+    # =============================================================================
+    
+    User:
+      type: object
+      required:
+        - id
+        - uuid
+        - email
+        - name
+        - role
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          description: Internal user ID
+          example: 1
+        uuid:
+          type: string
+          format: uuid
+          description: External user UUID (for API references)
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          description: User email address (unique)
+          example: developer@company.com
+        name:
+          type: string
+          description: User full name
+          example: John Doe
+        role:
+          $ref: '#/components/schemas/UserRole'
+        podId:
+          type: string
+          nullable: true
+          description: POD/team identifier
+          example: pod-engineering
+        slackUserId:
+          type: string
+          nullable: true
+          pattern: '^U[A-Z0-9]+$'
+          description: Slack user ID for notifications
+          example: U01234ABCDE
+        isActive:
+          type: boolean
+          description: Whether user account is active
+          example: true
+        lastLogin:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last login timestamp
+          example: '2024-01-15T10:30:00Z'
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: '2024-01-01T00:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: '2024-01-15T12:00:00Z'
+
+    QueryRequest:
+      type: object
+      required:
+        - id
+        - uuid
+        - user
+        - databaseType
+        - instanceId
+        - instanceName
+        - databaseName
+        - submissionType
+        - comments
+        - podId
+        - podName
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          description: Internal request ID
+          example: 12345
+        uuid:
+          type: string
+          format: uuid
+          description: External request UUID (for API references)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        user:
+          type: object
+          description: User who submitted the request
+          properties:
+            id:
+              type: integer
+            uuid:
+              type: string
+              format: uuid
+            email:
+              type: string
+            name:
+              type: string
+        databaseType:
+          $ref: '#/components/schemas/DatabaseType'
+        instanceId:
+          type: string
+          description: Database instance identifier
+          example: postgres-prod-1
+        instanceName:
+          type: string
+          description: Human-readable instance name
+          example: Production PostgreSQL
+        databaseName:
+          type: string
+          description: Target database name
+          example: analytics_db
+        submissionType:
+          $ref: '#/components/schemas/SubmissionType'
+        queryContent:
+          type: string
+          nullable: true
+          description: SQL/MongoDB query text (for query type)
+          example: SELECT COUNT(*) FROM users WHERE active = true
+        scriptFilename:
+          type: string
+          nullable: true
+          description: Original script filename (for script type)
+          example: migration_v2.sql
+        scriptContent:
+          type: string
+          nullable: true
+          description: Script file content (for script type)
+        comments:
+          type: string
+          description: User comments/justification
+          example: Daily active users report for product team
+        podId:
+          type: string
+          description: POD identifier for approval routing
+          example: pod-analytics
+        podName:
+          type: string
+          description: POD display name
+          example: Analytics Team
+        status:
+          $ref: '#/components/schemas/RequestStatus'
+        riskLevel:
+          $ref: '#/components/schemas/RiskLevel'
+        approver:
+          type: object
+          nullable: true
+          description: User who approved/rejected the request
+          properties:
+            id:
+              type: integer
+            uuid:
+              type: string
+              format: uuid
+            email:
+              type: string
+            name:
+              type: string
+        approverEmail:
+          type: string
+          format: email
+          nullable: true
+          description: Email of approver
+          example: manager@company.com
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Approval timestamp
+          example: '2024-01-15T11:00:00Z'
+        rejectionReason:
+          type: string
+          nullable: true
+          description: Reason for rejection
+          example: Query scope too broad, please add WHERE clause
+        executionResult:
+          type: string
+          nullable: true
+          description: Query execution result (JSON)
+        executionError:
+          type: string
+          nullable: true
+          description: Execution error message
+        executionStartedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Execution start timestamp
+        executionCompletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Execution completion timestamp
+        createdAt:
+          type: string
+          format: date-time
+          description: Request creation timestamp
+          example: '2024-01-15T10:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: '2024-01-15T11:30:00Z'
+
+    DatabaseInstance:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - host
+        - port
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Instance identifier (unique)
+          example: postgres-prod-1
+        name:
+          type: string
+          description: Human-readable instance name
+          example: Production PostgreSQL
+        type:
+          $ref: '#/components/schemas/DatabaseType'
+        host:
+          type: string
+          description: Database host address
+          example: db.internal.company.com
+        port:
+          type: integer
+          description: Database port
+          example: 5432
+        description:
+          type: string
+          nullable: true
+          description: Instance description
+          example: Main production database cluster
+        isActive:
+          type: boolean
+          description: Whether instance is active
+          example: true
+        lastSyncAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last metadata sync timestamp
+          example: '2024-01-15T08:00:00Z'
+        lastSyncStatus:
+          type: string
+          nullable: true
+          enum: [success, failed]
+          description: Last sync status
+          example: success
+        lastSyncError:
+          type: string
+          nullable: true
+          description: Last sync error message
+        createdAt:
+          type: string
+          format: date-time
+          description: Instance creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+    
+    Pod:
+      type: object
+      required:
+        - id
+        - name
+        - managerEmail
+        - isActive
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: POD identifier
+          example: pod-engineering
+        name:
+          type: string
+          description: POD display name
+          example: Engineering Team
+        managerEmail:
+          type: string
+          format: email
+          description: POD manager email for approvals
+          example: manager@company.com
+        description:
+          type: string
+          nullable: true
+          description: POD description
+          example: Core platform engineering team
+        isActive:
+          type: boolean
+          description: Whether POD is active
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          description: POD creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    # =============================================================================
+    # REQUEST/RESPONSE SCHEMAS
+    # =============================================================================
+    
+    SubmitQueryRequest:
+      type: object
+      required:
+        - instanceId
+        - databaseName
+        - queryContent
+        - podId
+      properties:
+        instanceId:
+          type: string
+          pattern: '^[a-zA-Z0-9-_]+$'
+          minLength: 1
+          maxLength: 255
+          description: Database instance identifier
+          example: postgres-prod-1
+        databaseName:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Target database name
+          example: analytics_db
+        submissionType:
+          $ref: '#/components/schemas/SubmissionType'
+        queryContent:
+          type: string
+          minLength: 1
+          maxLength: 50000
+          description: SQL query content (max 50KB)
+          example: SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '1 day'
+        comments:
+          type: string
+          maxLength: 1000
+          description: Optional context or justification
+          example: Daily active users report for product team
+        podId:
+          type: string
+          minLength: 1
+          description: POD identifier for approval routing
+          example: pod-data-engineering
+    
+    PaginationMeta:
+      type: object
+      required:
+        - total
+        - page
+        - limit
+        - totalPages
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+          example: 95
+        page:
+          type: integer
+          description: Current page number
+          example: 2
+        limit:
+          type: integer
+          description: Items per page
+          example: 10
+        totalPages:
+          type: integer
+          description: Total number of pages
+          example: 10
+    
+    PaginatedQueryRequests:
+      type: object
+      required:
+        - success
+        - data
+        - pagination
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryRequest'
+        pagination:
+          $ref: '#/components/schemas/PaginationMeta'
+        links:
+          type: object
+          description: HATEOAS navigation links
+          properties:
+            self:
+              type: string
+              example: /api/v1/queries/my-requests?page=2&limit=10
+            next:
+              type: string
+              nullable: true
+              example: /api/v1/queries/my-requests?page=3&limit=10
+            prev:
+              type: string
+              nullable: true
+              example: /api/v1/queries/my-requests?page=1&limit=10
+            first:
+              type: string
+              example: /api/v1/queries/my-requests?page=1&limit=10
+            last:
+              type: string
+              example: /api/v1/queries/my-requests?page=10&limit=10
+
+    Error:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              description: Human-readable error message
+              example: Invalid request parameters
+            details:
+              type: object
+              description: Additional error details
+              additionalProperties: true
+              example:
+                field: email
+                issue: Invalid email format
+
+  # =============================================================================
+  # RESPONSE TEMPLATES
+  # =============================================================================
+  
+  responses:
+    ValidationError:
+      description: Validation error - Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            validationError:
+              summary: Validation error example
+              value:
+                success: false
+                error:
+                  code: VALIDATION_ERROR
+                  message: Invalid request parameters
+                  details:
+                    errors:
+                      - field: email
+                        message: Invalid email format
+                      - field: password
+                        message: Password must be at least 8 characters
+    
+    Unauthorized:
+      description: Unauthorized - Authentication required or token invalid/expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missingToken:
+              summary: Missing authentication token
+              value:
+                success: false
+                error:
+                  code: UNAUTHORIZED
+                  message: Authentication required
+            invalidToken:
+              summary: Invalid or expired token
+              value:
+                success: false
+                error:
+                  code: TOKEN_INVALID
+                  message: Invalid or expired authentication token
+    
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            insufficientPermissions:
+              summary: Insufficient permissions
+              value:
+                success: false
+                error:
+                  code: FORBIDDEN
+                  message: You do not have permission to perform this action
+            roleRequired:
+              summary: Role requirement not met
+              value:
+                success: false
+                error:
+                  code: ROLE_REQUIRED
+                  message: This action requires ADMIN or MANAGER role
+    
+    NotFound:
+      description: Not Found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            resourceNotFound:
+              summary: Resource not found
+              value:
+                success: false
+                error:
+                  code: NOT_FOUND
+                  message: The requested resource was not found
+    
+    RateLimitExceeded:
+      description: Rate Limit Exceeded - Too many requests
+      headers:
+        X-RateLimit-Limit:
+          description: Request limit per window
+          schema:
+            type: integer
+          example: 100
+        X-RateLimit-Remaining:
+          description: Remaining requests in current window
+          schema:
+            type: integer
+          example: 0
+        X-RateLimit-Reset:
+          description: Time when the rate limit resets (Unix timestamp)
+          schema:
+            type: integer
+          example: 1705320000
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            rateLimitExceeded:
+              summary: Rate limit exceeded
+              value:
+                success: false
+                error:
+                  code: RATE_LIMIT_EXCEEDED
+                  message: Too many requests. Please try again later.
+                  details:
+                    retryAfter: 900
+    
+    InternalError:
+      description: Internal Server Error - Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            internalError:
+              summary: Internal server error
+              value:
+                success: false
+                error:
+                  code: INTERNAL_ERROR
+                  message: An unexpected error occurred. Please try again later.
