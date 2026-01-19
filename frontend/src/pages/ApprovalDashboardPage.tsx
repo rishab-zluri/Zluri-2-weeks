@@ -34,15 +34,24 @@ const ApprovalDashboardPage: React.FC = () => {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [filterPod, setFilterPod] = useState('');
   const [page, setPage] = useState(1);
   const limit = 10;
 
-  // Advanced Filters
+  // Temporary filter states (not applied until "Apply" clicked)
   const [showFilters, setShowFilters] = useState(false);
+  const [tempDateFrom, setTempDateFrom] = useState('');
+  const [tempDateTo, setTempDateTo] = useState('');
+  const [tempFilterPod, setTempFilterPod] = useState('');
+  const [tempFilterType, setTempFilterType] = useState('');
+  
+  // Applied filter states (actually used in API calls)
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [filterType, setFilterType] = useState(''); // Add type filter
+  const [filterPod, setFilterPod] = useState('');
+  const [filterType, setFilterType] = useState('');
+  
+  // Date validation error
+  const [dateError, setDateError] = useState('');
 
   // Mutations
   const approveMutation = useApproveRequest();
@@ -174,12 +183,56 @@ const ApprovalDashboardPage: React.FC = () => {
   };
 
   const handleClearFilters = () => {
+    setTempDateFrom('');
+    setTempDateTo('');
+    setTempFilterPod('');
+    setTempFilterType('');
+    setDateError('');
+    // Also clear applied filters
     setDateFrom('');
     setDateTo('');
     setSearchInput('');
     setFilterPod('');
     setFilterType('');
   };
+
+  const handleApplyFilters = () => {
+    // Validate dates
+    if (tempDateFrom && tempDateTo) {
+      const fromDate = new Date(tempDateFrom);
+      const toDate = new Date(tempDateTo);
+      
+      if (fromDate > toDate) {
+        setDateError('Start date cannot be after end date');
+        toast.error('Start date cannot be after end date');
+        return;
+      }
+    }
+    
+    // Clear any previous error
+    setDateError('');
+    
+    // Apply the temporary filters to actual filter states
+    setDateFrom(tempDateFrom);
+    setDateTo(tempDateTo);
+    setFilterPod(tempFilterPod);
+    setFilterType(tempFilterType);
+    
+    // Close the dropdown
+    setShowFilters(false);
+    setPage(1);
+  };
+  
+  // Sync temp filters when opening dropdown
+  useEffect(() => {
+    if (showFilters) {
+      setTempDateFrom(dateFrom);
+      setTempDateTo(dateTo);
+      setTempFilterPod(filterPod);
+      setTempFilterType(filterType);
+      setDateError('');
+    }
+  }, [showFilters]);
 
   // Helper to update search input directly
   const setSearchInput = (val: string) => setSearchQuery(val);
@@ -254,8 +307,8 @@ const ApprovalDashboardPage: React.FC = () => {
                   <div className="p-4 border-b">
                     <label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Pod</label>
                     <select
-                      value={filterPod}
-                      onChange={(e) => setFilterPod(e.target.value)}
+                      value={tempFilterPod}
+                      onChange={(e) => setTempFilterPod(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="">All Managed Pods</option>
@@ -269,8 +322,8 @@ const ApprovalDashboardPage: React.FC = () => {
                   <div className="p-4 border-b">
                     <label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Type</label>
                     <select
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
+                      value={tempFilterType}
+                      onChange={(e) => setTempFilterType(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="">All Types</option>
@@ -280,28 +333,49 @@ const ApprovalDashboardPage: React.FC = () => {
                   </div>
 
                   {/* Date Range Filters */}
-                  <div className="p-4">
+                  <div className="p-4 border-b">
                     <label className="text-sm font-medium text-gray-700 mb-3 block">Date Range</label>
+                    {dateError && (
+                      <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+                        {dateError}
+                      </div>
+                    )}
                     <div className="space-y-3">
                       <div>
                         <label className="text-xs text-gray-500 mb-1 block">From</label>
                         <input
                           type="date"
-                          value={dateFrom}
-                          onChange={(e) => setDateFrom(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          value={tempDateFrom}
+                          onChange={(e) => {
+                            setTempDateFrom(e.target.value);
+                            setDateError('');
+                          }}
+                          className={`w-full px-3 py-2 border rounded-lg text-sm ${dateError ? 'border-red-300' : 'border-gray-200'}`}
                         />
                       </div>
                       <div>
                         <label className="text-xs text-gray-500 mb-1 block">To</label>
                         <input
                           type="date"
-                          value={dateTo}
-                          onChange={(e) => setDateTo(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          value={tempDateTo}
+                          onChange={(e) => {
+                            setTempDateTo(e.target.value);
+                            setDateError('');
+                          }}
+                          className={`w-full px-3 py-2 border rounded-lg text-sm ${dateError ? 'border-red-300' : 'border-gray-200'}`}
                         />
                       </div>
                     </div>
+                  </div>
+
+                  {/* Apply Button */}
+                  <div className="p-4">
+                    <button
+                      onClick={handleApplyFilters}
+                      className="w-full btn-primary py-2.5 text-sm font-medium"
+                    >
+                      Apply Filters
+                    </button>
                   </div>
                 </div>
               )}

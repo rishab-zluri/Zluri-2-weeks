@@ -56,13 +56,23 @@ const MyQueriesPage: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  // Filter dropdown state
+  // Filter dropdown state - Temporary states (not applied until "Apply" clicked)
   const [showFilters, setShowFilters] = useState(false);
+  const [tempSelectedStatuses, setTempSelectedStatuses] = useState<string[]>([]);
+  const [tempDateFrom, setTempDateFrom] = useState('');
+  const [tempDateTo, setTempDateTo] = useState('');
+  const [tempFilterPod, setTempFilterPod] = useState('');
+  const [tempFilterType, setTempFilterType] = useState('');
+  
+  // Applied filter states (actually used in API calls)
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [filterPod, setFilterPod] = useState(''); // Only for Approvals/History
-  const [filterType, setFilterType] = useState(''); // Add type filter
+  const [filterPod, setFilterPod] = useState('');
+  const [filterType, setFilterType] = useState('');
+  
+  // Date validation error
+  const [dateError, setDateError] = useState('');
 
   // Modal state
   const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
@@ -172,18 +182,34 @@ const MyQueriesPage: React.FC = () => {
   const handleCloseModal = () => setSelectedUuid(null);
 
   // Clone request - navigate to submit page with pre-filled data
-  const handleClone = (query: QueryRequest) => {
-    // Store clone data in sessionStorage for the submit page to read
-    const cloneData = {
-      instanceId: query.instanceId,
-      databaseName: query.databaseName,
-      podId: query.podId,
-      comments: query.comments,
-      queryContent: query.queryContent || '',
-      submissionType: query.submissionType,
-    };
-    sessionStorage.setItem('cloneRequestData', JSON.stringify(cloneData));
-    navigate('/dashboard');
+  const handleClone = async (query: QueryRequest) => {
+    // Validate that the instance still exists before cloning
+    try {
+      // Check if instance exists by trying to fetch it
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/instances/${query.instanceId}`, {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        toast.error(`Cannot clone: Instance "${query.instanceId}" no longer exists. Please create a new request.`);
+        return;
+      }
+      
+      // Store clone data in sessionStorage for the submit page to read
+      const cloneData = {
+        instanceId: query.instanceId,
+        databaseName: query.databaseName,
+        podId: query.podId,
+        comments: query.comments,
+        queryContent: query.queryContent || '',
+        submissionType: query.submissionType,
+      };
+      sessionStorage.setItem('cloneRequestData', JSON.stringify(cloneData));
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Clone validation error:', error);
+      toast.error('Cannot clone this request. The instance may no longer exist.');
+    }
   };
 
   // Check if a request belongs to the current user
@@ -192,22 +218,63 @@ const MyQueriesPage: React.FC = () => {
   };
 
   const handleStatusToggle = (status: string) => {
-    setSelectedStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
+    setTempSelectedStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
   };
 
   const handleClearFilters = () => {
+    setTempSelectedStatuses([]);
+    setTempDateFrom('');
+    setTempDateTo('');
+    setTempFilterPod('');
+    setTempFilterType('');
+    setDateError('');
+    // Also clear applied filters
     setSelectedStatuses([]);
     setDateFrom('');
     setDateTo('');
-    setSearchInput('');
     setFilterPod('');
     setFilterType('');
   };
 
   const handleApplyFilters = () => {
+    // Validate dates
+    if (tempDateFrom && tempDateTo) {
+      const fromDate = new Date(tempDateFrom);
+      const toDate = new Date(tempDateTo);
+      
+      if (fromDate > toDate) {
+        setDateError('Start date cannot be after end date');
+        toast.error('Start date cannot be after end date');
+        return;
+      }
+    }
+    
+    // Clear any previous error
+    setDateError('');
+    
+    // Apply the temporary filters to actual filter states
+    setSelectedStatuses(tempSelectedStatuses);
+    setDateFrom(tempDateFrom);
+    setDateTo(tempDateTo);
+    setFilterPod(tempFilterPod);
+    setFilterType(tempFilterType);
+    
+    // Close the dropdown
     setShowFilters(false);
     setPage(1);
   };
+  
+  // Sync temp filters when opening dropdown
+  useEffect(() => {
+    if (showFilters) {
+      setTempSelectedStatuses(selectedStatuses);
+      setTempDateFrom(dateFrom);
+      setTempDateTo(dateTo);
+      setTempFilterPod(filterPod);
+      setTempFilterType(filterType);
+      setDateError('');
+    }
+  }, [showFilters]);
 
   const activeFilterCount = selectedStatuses.length + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (filterPod ? 1 : 0) + (filterType ? 1 : 0);
 
@@ -323,8 +390,8 @@ const MyQueriesPage: React.FC = () => {
                     <div className="p-4 border-b">
                       <label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Pod</label>
                       <select
-                        value={filterPod}
-                        onChange={(e) => setFilterPod(e.target.value)}
+                        value={tempFilterPod}
+                        onChange={(e) => setTempFilterPod(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
                       >
                         <option value="">All Managed Pods</option>
@@ -339,8 +406,8 @@ const MyQueriesPage: React.FC = () => {
                   <div className="p-4 border-b">
                     <label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Type</label>
                     <select
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
+                      value={tempFilterType}
+                      onChange={(e) => setTempFilterType(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="">All Types</option>
@@ -355,21 +422,21 @@ const MyQueriesPage: React.FC = () => {
                       <label className="text-sm font-medium text-gray-700 mb-3 block">Status</label>
                       <div className="grid grid-cols-2 gap-2">
                         {STATUS_OPTIONS
-                          .filter(status => effectiveViewMode === 'history' ? status.value !== 'pending' : true) // Hide Pending in History
+                          .filter(status => effectiveViewMode === 'history' ? status.value !== 'pending' : true)
                           .map((status) => (
                             <label
                               key={status.value}
                               onClick={() => handleStatusToggle(status.value)}
-                              className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${selectedStatuses.includes(status.value)
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${tempSelectedStatuses.includes(status.value)
                                 ? 'bg-purple-50 border border-purple-300'
                                 : 'bg-gray-50 border border-transparent hover:bg-gray-100'
                                 }`}
                             >
-                              <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedStatuses.includes(status.value)
+                              <div className={`w-4 h-4 rounded border flex items-center justify-center ${tempSelectedStatuses.includes(status.value)
                                 ? 'bg-purple-600 border-purple-600'
                                 : 'border-gray-300'
                                 }`}>
-                                {selectedStatuses.includes(status.value) && (
+                                {tempSelectedStatuses.includes(status.value) && (
                                   <Check className="w-3 h-3 text-white" />
                                 )}
                               </div>
@@ -383,41 +450,46 @@ const MyQueriesPage: React.FC = () => {
                   {/* Date Range Filters */}
                   <div className="p-4 border-b">
                     <label className="text-sm font-medium text-gray-700 mb-3 block">Date Range</label>
+                    {dateError && (
+                      <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+                        {dateError}
+                      </div>
+                    )}
                     <div className="space-y-3">
                       <div>
                         <label className="text-xs text-gray-500 mb-1 block">From</label>
                         <input
                           type="date"
-                          value={dateFrom}
-                          onChange={(e) => setDateFrom(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          value={tempDateFrom}
+                          onChange={(e) => {
+                            setTempDateFrom(e.target.value);
+                            setDateError('');
+                          }}
+                          className={`w-full px-3 py-2 border rounded-lg text-sm ${dateError ? 'border-red-300' : 'border-gray-200'}`}
                         />
                       </div>
                       <div>
                         <label className="text-xs text-gray-500 mb-1 block">To</label>
                         <input
                           type="date"
-                          value={dateTo}
-                          onChange={(e) => setDateTo(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                          value={tempDateTo}
+                          onChange={(e) => {
+                            setTempDateTo(e.target.value);
+                            setDateError('');
+                          }}
+                          className={`w-full px-3 py-2 border rounded-lg text-sm ${dateError ? 'border-red-300' : 'border-gray-200'}`}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="p-4 flex gap-3">
-                    <button
-                      onClick={handleClearFilters}
-                      className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                      Clear All
-                    </button>
+                  {/* Apply Button */}
+                  <div className="p-4">
                     <button
                       onClick={handleApplyFilters}
-                      className="flex-1 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg hover:from-pink-600 hover:to-purple-700 transition-all"
+                      className="w-full btn-primary py-2.5 text-sm font-medium"
                     >
-                      Apply
+                      Apply Filters
                     </button>
                   </div>
                 </div>
