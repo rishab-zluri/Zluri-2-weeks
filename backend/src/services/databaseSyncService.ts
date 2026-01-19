@@ -185,17 +185,24 @@ function getOrCreatePgPool(instance: DatabaseInstance, credentials: InstanceCred
     if (!pgSyncPools.has(poolKey)) {
         logger.debug('Creating new PostgreSQL sync pool', { instanceId: instance.id });
 
-        const pool = new Pool({
-            host: instance.host,
-            port: instance.port,
-            database: 'postgres',
-            user: credentials.user,
-            password: credentials.password,
+        const poolConfig: any = {
             connectionTimeoutMillis: SYNC_CONFIG.connectionTimeoutMs,
-            max: 2, // Small pool for sync operations
+            max: 2,
             idleTimeoutMillis: 60000,
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
-        });
+        };
+
+        if (credentials.connectionString) {
+            poolConfig.connectionString = credentials.connectionString;
+        } else {
+            poolConfig.host = instance.host;
+            poolConfig.port = instance.port;
+            poolConfig.database = 'postgres';
+            poolConfig.user = credentials.user;
+            poolConfig.password = credentials.password;
+        }
+
+        const pool = new Pool(poolConfig);
 
         pool.on('error', (err: Error) => {
             logger.error('PostgreSQL sync pool error', { instanceId: instance.id, error: err.message });
