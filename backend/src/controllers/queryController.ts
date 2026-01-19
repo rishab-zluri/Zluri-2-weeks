@@ -69,18 +69,17 @@ export const submitRequest = async (req: Request<unknown, unknown, SubmitRequest
 
         const user = req.user!;
 
-        // Get instance details
-        const instance = staticData.getInstanceById(instanceId);
+        // Get instance details from database (not static config)
+        const instance = await databaseSyncService.getInstanceById(instanceId);
         if (!instance) {
             throw new ValidationError('Invalid instance selected');
         }
 
-        // Validate database exists (check Sync Service first, then Static)
+        // Validate database exists in synced databases
         const syncedDbs = await databaseSyncService.getDatabasesForInstance(instanceId);
         const isSynced = syncedDbs.some(db => db.name === databaseName);
-        const isStatic = staticData.validateInstanceDatabase(instanceId, databaseName);
 
-        if (!isSynced && !isStatic) {
+        if (!isSynced) {
             throw new ValidationError('Invalid database for this instance');
         }
 
