@@ -235,16 +235,17 @@ export function clearAuthCookies(res: Response): void {
  * TYPE: Uses generic to accept any Express Request variant
  */
 export function extractAccessToken(req: Pick<Request, 'cookies' | 'headers'>): string | null {
-    // 1. Try cookie first (more secure for web)
-    const cookieToken = (req as any).cookies?.[COOKIE_NAMES.ACCESS_TOKEN];
-    if (cookieToken) {
-        return cookieToken;
-    }
-
-    // 2. Fall back to Authorization header (API clients)
+    // 1. Try Authorization header first (API clients & SPA Header Mode)
+    // This takes priority to allow headers to override potentially stale/invalid cookies
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
         return authHeader.slice(7);
+    }
+
+    // 2. Fall back to cookie (Legacy web / Security fallback)
+    const cookieToken = (req as any).cookies?.[COOKIE_NAMES.ACCESS_TOKEN];
+    if (cookieToken) {
+        return cookieToken;
     }
 
     return null;
