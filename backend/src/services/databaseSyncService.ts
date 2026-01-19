@@ -189,8 +189,7 @@ function getOrCreatePgPool(instance: DatabaseInstance, credentials: InstanceCred
             connectionTimeoutMillis: SYNC_CONFIG.connectionTimeoutMs,
             max: 2,
             idleTimeoutMillis: 60000,
-            ssl: (instance.host && instance.host !== 'localhost' && instance.host !== '127.0.0.1')
-                || (process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT)
+            ssl: (process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT)
                 ? { rejectUnauthorized: false }
                 : undefined,
         };

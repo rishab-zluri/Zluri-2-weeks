@@ -22,7 +22,14 @@ const config: Options = {
     // SSL for Production (Supabase/Neon/Railway)
     driverOptions: {
         connection: {
-            ssl: (process.env.NODE_ENV === 'production' || process.env.PORTAL_DB_SSL === 'true' || process.env.PORTAL_DB_SSL === '1' || (process.env.PORTAL_DB_URL && process.env.PORTAL_DB_URL.includes('sslmode=require')))
+            ssl: (
+                process.env.NODE_ENV === 'production' ||
+                process.env.PORTAL_DB_SSL === 'true' ||
+                process.env.PORTAL_DB_SSL === '1' ||
+                !!process.env.RAILWAY_ENVIRONMENT ||
+                (process.env.PORTAL_DB_URL && process.env.PORTAL_DB_URL.includes('sslmode=require')) ||
+                (process.env.PORTAL_DB_HOST && process.env.PORTAL_DB_HOST !== 'localhost' && process.env.PORTAL_DB_HOST !== '127.0.0.1')
+            )
                 ? { rejectUnauthorized: false }
                 : false
         }
