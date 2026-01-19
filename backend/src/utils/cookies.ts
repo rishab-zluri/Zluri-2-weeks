@@ -261,15 +261,16 @@ export function extractAccessToken(req: Pick<Request, 'cookies' | 'headers'>): s
  * TYPE: Uses flexible interface to accept any Express Request variant
  */
 export function extractRefreshToken(req: Pick<Request, 'cookies'> & { body?: { refreshToken?: string } }): string | null {
-    // 1. Try cookie first
+    // 1. Try request body first (API clients & SPA Header Mode)
+    // This takes priority to override potentially stale/invalid cookies
+    if (req.body?.refreshToken) {
+        return req.body.refreshToken;
+    }
+
+    // 2. Fall back to cookie
     const cookieToken = (req as any).cookies?.[COOKIE_NAMES.REFRESH_TOKEN];
     if (cookieToken) {
         return cookieToken;
-    }
-
-    // 2. Fall back to request body (API clients)
-    if (req.body?.refreshToken) {
-        return req.body.refreshToken;
     }
 
     return null;
