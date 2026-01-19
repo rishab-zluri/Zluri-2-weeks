@@ -23,7 +23,4 @@ export class DatabaseBlacklist extends IntBaseEntity {
 
     @Property({ type: 'text', nullable: true })
     reason?: string;
-
-    @ManyToOne(() => User, { nullable: true, ref: true })
-    createdBy?: Ref<User>;
 }
