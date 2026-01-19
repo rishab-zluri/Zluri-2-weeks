@@ -148,8 +148,8 @@ CREATE TABLE IF NOT EXISTS database_instances (
     id VARCHAR(100) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     type VARCHAR(20) NOT NULL CHECK (type IN ('postgresql', 'mongodb')),
-    host VARCHAR(255) NOT NULL,
-    port INTEGER NOT NULL,
+    host VARCHAR(255),  -- Nullable for connection-string-based instances
+    port INTEGER,       -- Nullable for connection-string-based instances
     description TEXT,
     credentials_env_prefix VARCHAR(100),
     connection_string_env VARCHAR(100),
@@ -158,7 +158,12 @@ CREATE TABLE IF NOT EXISTS database_instances (
     last_sync_status VARCHAR(20) CHECK (last_sync_status IN ('success', 'failed', 'pending')),
     last_sync_error TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    -- Ensure either (host AND port) OR connection_string_env is provided
+    CONSTRAINT check_connection_method CHECK (
+        (host IS NOT NULL AND port IS NOT NULL) OR 
+        (connection_string_env IS NOT NULL)
+    )
 );
 
 -- Indexes for database_instances table
