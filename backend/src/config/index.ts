@@ -333,7 +333,7 @@ const config: AppConfig = {
         max: parseInt(process.env.PORTAL_DB_POOL_SIZE || '', 10) || 20,
         idleTimeoutMillis: parseInt(process.env.PORTAL_DB_IDLE_TIMEOUT || '', 10) || 30000,
         connectionTimeoutMillis: parseInt(process.env.PORTAL_DB_CONN_TIMEOUT || '', 10) || 5000,
-        ssl: process.env.NODE_ENV === 'production' || parseBoolean(process.env.PORTAL_DB_SSL, false) || portalUrlConfig?.ssl
+        ssl: process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_ENVIRONMENT || parseBoolean(process.env.PORTAL_DB_SSL, false) || portalUrlConfig?.ssl
             ? { rejectUnauthorized: parseBoolean(process.env.PORTAL_DB_SSL_REJECT_UNAUTHORIZED, true) }
             : false,
     },
