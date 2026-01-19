@@ -39,6 +39,7 @@ const portalPool = new Pool({
     max: config.portalDb.max,
     idleTimeoutMillis: config.portalDb.idleTimeoutMillis,
     connectionTimeoutMillis: config.portalDb.connectionTimeoutMillis,
+    ssl: config.portalDb.ssl,
 });
 
 // Pool event handlers
