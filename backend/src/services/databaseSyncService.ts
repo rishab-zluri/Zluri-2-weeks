@@ -194,6 +194,7 @@ function getOrCreatePgPool(instance: DatabaseInstance, credentials: InstanceCred
             connectionTimeoutMillis: SYNC_CONFIG.connectionTimeoutMs,
             max: 2, // Small pool for sync operations
             idleTimeoutMillis: 60000,
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
         });
 
         pool.on('error', (err: Error) => {

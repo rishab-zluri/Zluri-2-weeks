@@ -150,7 +150,7 @@ export const getDatabases = async (req: Request<{ instanceId: string }>, res: Re
         }
 
         // Return databases from static config
-        const databases = staticData.getDatabasesForInstance(instanceId);
+        const databases = staticData.getDatabasesForInstance(instanceId).sort();
         res.json({
             success: true,
             data: databases.map((name: string) => ({ name, source: 'static' })),
