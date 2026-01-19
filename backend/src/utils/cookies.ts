@@ -59,7 +59,9 @@ export const COOKIE_NAMES = {
 const getBaseCookieOptions = (): CookieOptions => ({
     httpOnly: true,                     // JavaScript cannot access
     secure: config.isProduction,        // HTTPS only in production
-    sameSite: config.security.cookieSameSite as 'strict' | 'lax' | 'none', // Configurable via ENV
+    // CRITICAL: Must be 'none' for Vercel (frontend) -> Railway (backend)
+    // 'strict'/lax' will BLOCK cookies on cross-site requests
+    sameSite: (config.security.cookieSameSite as 'strict' | 'lax' | 'none') || 'none',
     path: '/',                          // Available to all routes
     // Domain is intentionally NOT set for __Host- prefix compatibility
 });
