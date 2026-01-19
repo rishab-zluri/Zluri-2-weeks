@@ -73,7 +73,7 @@ PROD_MONGO_URI=mongodb+srv://rishab1:123%40Acharjee@ships.gwsbr.mongodb.net/?ret
 
 ### STEP 3: Deploy Python3 Support
 
-Commit and push the nixpacks.toml file:
+The nixpacks.toml has been fixed. Commit and push:
 
 ```bash
 git add backend/nixpacks.toml backend/fix-host-port-nullable.sql backend/portal_db_schema.sql
@@ -82,6 +82,8 @@ git push
 ```
 
 **Why**: Python scripts need Python3 installed in the container.
+
+**Note**: The nixpacks.toml has been simplified to avoid build errors. It now only adds Python3 packages and lets Railway auto-detect the Node.js build process.
 
 ---
 
