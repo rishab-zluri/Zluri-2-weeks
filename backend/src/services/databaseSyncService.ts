@@ -195,7 +195,24 @@ function getOrCreatePgPool(instance: DatabaseInstance, credentials: InstanceCred
         };
 
         if (credentials.connectionString) {
-            poolConfig.connectionString = credentials.connectionString;
+            try {
+                // FORCE 'postgres' as the database for SYNC purposes. 
+                // This avoids "database does not exist" errors if the user drops the DB mentioned in their URL.
+                // We use a safe replacement to avoid issues with query parameters or complex strings
+                const urlStr = credentials.connectionString;
+                if (urlStr.includes('@')) {
+                    // Split at the last slash before query params
+                    const basePart = urlStr.split('?')[0];
+                    const queryPart = urlStr.includes('?') ? '?' + urlStr.split('?')[1] : '';
+                    const lastSlashIndex = basePart.lastIndexOf('/');
+                    const hostPart = basePart.substring(0, lastSlashIndex);
+                    poolConfig.connectionString = `${hostPart}/postgres${queryPart}`;
+                } else {
+                    poolConfig.connectionString = urlStr;
+                }
+            } catch (e) {
+                poolConfig.connectionString = credentials.connectionString;
+            }
         } else {
             poolConfig.host = instance.host;
             poolConfig.port = instance.port;
@@ -762,10 +779,10 @@ export async function addToBlacklist(
     userId: string
 ): Promise<{ id: number }> {
     const result = await portalQuery<{ id: number }>(`
-    INSERT INTO database_blacklist (pattern, pattern_type, reason, created_by)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO database_blacklist (pattern, pattern_type, reason)
+    VALUES ($1, $2, $3)
     RETURNING id
-  `, [pattern, patternType, reason, userId]);
+  `, [pattern, patternType, reason]);
 
     return result.rows[0];
 }
@@ -872,8 +889,8 @@ async function seedBlacklist(): Promise<void> {
         for (const pattern of systemDbs) {
             // Add to blacklist
             await portalQuery(`
-                INSERT INTO database_blacklist (pattern, pattern_type, reason, created_by)
-                VALUES ($1, 'exact', 'System database', 'system')
+                INSERT INTO database_blacklist (pattern, pattern_type, reason)
+                VALUES ($1, 'exact', 'System database')
                 ON CONFLICT DO NOTHING
             `, [pattern]);
 
