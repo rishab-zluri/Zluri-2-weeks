@@ -411,6 +411,16 @@ async function fetchMongoDatabases(instance: DatabaseInstance, credentials: Inst
     } catch (error) {
         const err = error as any;
 
+        // Debug Log
+        const debugUri = credentials.connectionString || (instance as any).uri;
+        logger.warn('Fetch Mongo Databases Error', {
+            instanceId: instance.id,
+            code: err.code,
+            msg: err.message,
+            hasUri: !!debugUri,
+            uriSafe: debugUri ? debugUri.substring(0, 15) + '...' : 'N/A'
+        });
+
         // CHECK: If Unauthorized (Code 13), fallback to URI database
         if (err.code === 13 || err.message?.includes('Unauthorized') || err.message?.includes('not authorized')) {
             const uri = credentials.connectionString || (instance as any).uri;
@@ -428,10 +438,14 @@ async function fetchMongoDatabases(instance: DatabaseInstance, credentials: Inst
                             dbName: path
                         });
                         return [path];
+                    } else {
+                        logger.warn('Fallback URI found but no database name in path', { path });
                     }
                 } catch (parseErr) {
                     logger.warn('Failed to parse database from URI fallback', { uri_partial: uri.substring(0, 20) + '...' });
                 }
+            } else {
+                logger.warn('Unauthorized error but NO URI available for fallback', { instanceId: instance.id });
             }
         }
 

@@ -158,6 +158,7 @@ export const submitRequest = async (req: Request<unknown, unknown, SubmitRequest
         }, 'Request submitted successfully');
     } catch (error) {
         if (error instanceof ValidationError) {
+            logger.warn('Submit request validation failed', { error: error.message, body: req.body });
             response.error(res, error.message, 400, 'VALIDATION_ERROR');
             return;
         }
