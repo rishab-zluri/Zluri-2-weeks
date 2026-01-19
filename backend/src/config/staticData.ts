@@ -87,8 +87,11 @@ const pods: readonly Pod[] = [
  * FIX: Changed from const to function to avoid timing issues with dotenv
  */
 function getDatabaseInstancesArray(): DatabaseInstance[] {
-    return [
-        {
+    const instances: DatabaseInstance[] = [];
+
+    // Development Instances (only include in dev or if explicitly configured)
+    if (process.env.NODE_ENV !== 'production' || process.env.INCLUDE_DEV_INSTANCES === 'true') {
+        instances.push({
             id: 'database-1',
             name: 'Database-1',
             type: 'postgresql',
@@ -103,8 +106,9 @@ function getDatabaseInstancesArray(): DatabaseInstance[] {
                 'arush_db', 'test_backup', 'dev_retool_db', 'postgres_exporter', 'dev_n8n_database',
                 'dbsonarqube', 'dev_de_schema', 'stag_n8n_triggers_db', 'dev_n8n_test_db_rds', 'stag_n8n_db',
             ],
-        } as PostgresInstance,
-        {
+        } as PostgresInstance);
+
+        instances.push({
             id: 'mongo-zluri-1',
             name: 'mongo-zluri-1',
             type: 'mongodb',
@@ -118,8 +122,34 @@ function getDatabaseInstancesArray(): DatabaseInstance[] {
                 '6942609ec8128b37a0c68863_test', '6942609ec8128b37a0c68863_truth',
                 '6942775cfae8702167efe369_test',
             ],
-        } as MongoInstance,
-    ];
+        } as MongoInstance);
+    }
+
+    // Add Production Instances if env vars are present (example pattern)
+    if (process.env.PROD_TARGET_HOST) {
+        instances.push({
+            id: 'prod-target-aws',
+            name: 'Production-AWS',
+            type: 'postgresql',
+            host: process.env.PROD_TARGET_HOST,
+            port: parseInt(process.env.PROD_TARGET_PORT || '5432', 10),
+            user: process.env.PROD_TARGET_USER || 'postgres',
+            password: process.env.PROD_TARGET_PASSWORD || '',
+            databases: [], // Will be populated by sync
+        } as PostgresInstance);
+    }
+
+    if (process.env.PROD_MONGO_URI) {
+        instances.push({
+            id: 'prod-mongo-atlas',
+            name: 'Production-Atlas',
+            type: 'mongodb',
+            uri: process.env.PROD_MONGO_URI,
+            databases: [], // Will be populated by sync
+        } as MongoInstance);
+    }
+
+    return instances;
 }
 
 // ============================================================================
