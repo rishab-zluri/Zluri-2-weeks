@@ -42,6 +42,7 @@ const ApprovalDashboardPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [filterType, setFilterType] = useState(''); // Add type filter
 
   // Mutations
   const approveMutation = useApproveRequest();
@@ -113,13 +114,14 @@ const ApprovalDashboardPage: React.FC = () => {
   // Reset page on filter change
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, filterPod, dateFrom, dateTo]);
+  }, [debouncedSearch, filterPod, dateFrom, dateTo, filterType]);
 
   // Build filter params
   const commonFilters: any = { page, limit, status: 'pending' };
   if (debouncedSearch) commonFilters.search = debouncedSearch;
   if (dateFrom) commonFilters.fromDate = dateFrom;
   if (dateTo) commonFilters.toDate = dateTo;
+  if (filterType) commonFilters.submissionType = filterType;
 
   // Data Fetching: Approvals (Incoming)
   const approvalsFilters = { ...commonFilters };
@@ -176,13 +178,14 @@ const ApprovalDashboardPage: React.FC = () => {
     setDateTo('');
     setSearchInput('');
     setFilterPod('');
+    setFilterType('');
   };
 
   // Helper to update search input directly
   const setSearchInput = (val: string) => setSearchQuery(val);
 
   // Count active filters
-  const activeFilterCount = (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (filterPod ? 1 : 0);
+  const activeFilterCount = (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (filterPod ? 1 : 0) + (filterType ? 1 : 0);
 
   return (
     <div>
@@ -262,7 +265,19 @@ const ApprovalDashboardPage: React.FC = () => {
                     </select>
                   </div>
 
-
+                  {/* Type Filter */}
+                  <div className="p-4 border-b">
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Type</label>
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">All Types</option>
+                      <option value="query">Query</option>
+                      <option value="script">Script</option>
+                    </select>
+                  </div>
 
                   {/* Date Range Filters */}
                   <div className="p-4">
@@ -313,8 +328,8 @@ const ApprovalDashboardPage: React.FC = () => {
               <table className="w-full">
                 <thead>
                   <tr className="text-left text-sm text-gray-500 border-b">
-                    <th className="pb-3 font-medium">Database</th>
                     <th className="pb-3 font-medium">ID</th>
+                    <th className="pb-3 font-medium">Database</th>
                     <th className="pb-3 font-medium">Type</th>
                     <th className="pb-3 font-medium">Status</th>
                     <th className="pb-3 font-medium">User</th>
@@ -330,6 +345,11 @@ const ApprovalDashboardPage: React.FC = () => {
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
                       onClick={() => handleViewDetails(request.uuid)}
                     >
+                      {/* ID */}
+                      <td className="py-4 text-sm font-mono text-gray-600">
+                        #{request.id}
+                      </td>
+
                       {/* Database Info */}
                       <td className="py-4">
                         <div className="flex items-center gap-2">
@@ -339,11 +359,6 @@ const ApprovalDashboardPage: React.FC = () => {
                             <p className="text-xs text-gray-500">{request.databaseName}</p>
                           </div>
                         </div>
-                      </td>
-
-                      {/* ID */}
-                      <td className="py-4 text-sm font-mono text-gray-600">
-                        #{request.uuid?.substring(0, 8)}
                       </td>
 
                       {/* Type (Query/Script) */}
@@ -381,7 +396,7 @@ const ApprovalDashboardPage: React.FC = () => {
                         {new Date(request.createdAt).toLocaleDateString()}
                       </td>
 
-                      {/* Actions */}
+                      {/* Actions - Only View button */}
                       <td className="py-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button
@@ -391,28 +406,6 @@ const ApprovalDashboardPage: React.FC = () => {
                           >
                             <Eye className="w-4 h-4 text-gray-500" />
                           </button>
-
-                          {/* Only show Approve/Reject actions if Pending */}
-                          {request.status === RequestStatus.PENDING && (
-                            <>
-                              <button
-                                onClick={() => openApproveModal(request.uuid)}
-                                disabled={actionLoading}
-                                className="p-2 hover:bg-green-100 rounded-lg transition-colors disabled:opacity-50"
-                                title="Approve"
-                              >
-                                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                              </button>
-                              <button
-                                onClick={() => openRejectModal(request.uuid)}
-                                disabled={actionLoading}
-                                className="p-2 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
-                                title="Reject"
-                              >
-                                <XCircle className="w-4 h-4 text-red-600" />
-                              </button>
-                            </>
-                          )}
                         </div>
                       </td>
                     </tr>

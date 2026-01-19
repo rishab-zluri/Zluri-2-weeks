@@ -62,6 +62,7 @@ const MyQueriesPage: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [filterPod, setFilterPod] = useState(''); // Only for Approvals/History
+  const [filterType, setFilterType] = useState(''); // Add type filter
 
   // Modal state
   const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
@@ -97,6 +98,7 @@ const MyQueriesPage: React.FC = () => {
   if (debouncedSearch) commonFilters.search = debouncedSearch;
   if (dateFrom) commonFilters.fromDate = dateFrom;
   if (dateTo) commonFilters.toDate = dateTo;
+  if (filterType) commonFilters.submissionType = filterType;
 
   // Status Filter Logic based on Mode
   if (viewMode === 'my-requests') {
@@ -199,6 +201,7 @@ const MyQueriesPage: React.FC = () => {
     setDateTo('');
     setSearchInput('');
     setFilterPod('');
+    setFilterType('');
   };
 
   const handleApplyFilters = () => {
@@ -206,7 +209,7 @@ const MyQueriesPage: React.FC = () => {
     setPage(1);
   };
 
-  const activeFilterCount = selectedStatuses.length + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (filterPod ? 1 : 0);
+  const activeFilterCount = selectedStatuses.length + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (filterPod ? 1 : 0) + (filterType ? 1 : 0);
 
   if (loading && !queries.length) {
     return (
@@ -247,7 +250,7 @@ const MyQueriesPage: React.FC = () => {
                 : 'text-gray-500 hover:text-gray-700'
                 }`}
             >
-              Requests
+              My Requests
             </button>
             <button
               onClick={() => setViewMode('history')}
@@ -331,6 +334,20 @@ const MyQueriesPage: React.FC = () => {
                       </select>
                     </div>
                   )}
+
+                  {/* Type Filter */}
+                  <div className="p-4 border-b">
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Type</label>
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">All Types</option>
+                      <option value="query">Query</option>
+                      <option value="script">Script</option>
+                    </select>
+                  </div>
 
                   {/* Status Filters (Hidden for "Approvals" which forces Pending) */}
                   {effectiveViewMode !== 'approvals' && (
@@ -495,7 +512,7 @@ const MyQueriesPage: React.FC = () => {
                       onClick={() => handleViewDetails(query.uuid)}
                     >
                       <td className="py-4 text-sm font-mono text-gray-600">
-                        #{query.uuid?.substring(0, 8)}
+                        #{query.id}
                       </td>
                       <td className="py-4">
                         <div className="flex items-center gap-2">
