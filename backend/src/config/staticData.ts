@@ -130,7 +130,7 @@ function getDatabaseInstancesArray(): DatabaseInstance[] {
     if (process.env.PROD_TARGET_HOST) {
         instances.push({
             id: 'prod-target-aws',
-            name: 'Production-AWS',
+            name: 'Target Database',
             type: 'postgresql',
             host: process.env.PROD_TARGET_HOST,
             port: parseInt(process.env.PROD_TARGET_PORT || '5432', 10),
