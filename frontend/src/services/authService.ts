@@ -99,6 +99,12 @@ const authService = {
    * Storing tokens in localStorage to support Header-Based Auth (Cross-Domain Fix)
    */
   storeAuth(data: Partial<AuthTokens>) {
+    console.log('[AuthService] Storing Auth Data:', {
+      hasUser: !!data.user,
+      hasAccess: !!data.accessToken,
+      hasRefresh: !!data.refreshToken
+    });
+
     // Cache User
     if (data.user) {
       localStorage.setItem('user', JSON.stringify(data.user));

@@ -23,8 +23,11 @@ client.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
         // Retrieve Access Token from Local Storage (Header-Based Auth)
         const token = localStorage.getItem('accessToken');
+        console.log('[API Client] Request:', config.url, { hasToken: !!token });
+
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log('[API Client] Attached Auth Header');
         }
         return config;
     },
