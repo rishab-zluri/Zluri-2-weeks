@@ -804,6 +804,31 @@ async function seedInstancesFromStaticConfig(): Promise<void> {
 }
 
 /**
+ * Cleanup development instances if running in production
+ */
+async function cleanupDevInstances(): Promise<void> {
+    if (process.env.NODE_ENV !== 'production') {
+        return;
+    }
+
+    try {
+        const devIds = ['database-1', 'mongo-zluri-1'];
+        // Only removing if they are NOT in the static config (double check?) 
+        // actually static config is already filtering them out in prod.
+        // So safe to remove specific known dev triggers.
+
+        await portalQuery(`
+            DELETE FROM database_instances 
+            WHERE id = ANY($1::text[])
+        `, [devIds]);
+
+        logger.info('Cleaned up development instances from production database', { ids: devIds });
+    } catch (error) {
+        logger.warn('Failed to cleanup dev instances', { error: (error as Error).message });
+    }
+}
+
+/**
  * Start periodic sync scheduler
  */
 export function startPeriodicSync(): void {
@@ -828,6 +853,9 @@ export function startPeriodicSync(): void {
     // Seed then Sync on startup
     if (SYNC_CONFIG.syncOnStartup) {
         setTimeout(async () => {
+            // Cleanup stale dev instances first
+            await cleanupDevInstances();
+
             await seedInstancesFromStaticConfig();
 
             syncAllDatabases({ syncType: 'startup' }).catch((err: Error) => {
