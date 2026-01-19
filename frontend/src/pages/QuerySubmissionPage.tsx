@@ -321,7 +321,6 @@ const QuerySubmissionPage: React.FC = () => {
                   placeholder="Describe the purpose of this request..."
                   rows={3}
                   className={`textarea-field ${commentsError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
-                  required
                 />
                 {commentsError && (
                   <p className="mt-1 text-sm text-red-600">Please provide comments</p>
@@ -374,7 +373,6 @@ const QuerySubmissionPage: React.FC = () => {
                     placeholder="Enter your SQL or MongoDB query here..."
                     rows={8}
                     className={`textarea-field font-mono text-sm ${queryError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
-                    required
                   />
                   {queryError && (
                     <p className="mt-1 text-sm text-red-600">Please enter a query</p>

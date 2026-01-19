@@ -46,7 +46,6 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
                     value={selectedInstanceId}
                     onChange={(e) => onInstanceChange(e.target.value)}
                     className={`select-field ${instanceError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
-                    required
                 >
                     <option value="">Select Instance</option>
                     {Array.isArray(instances) && instances.map((instance) => (
@@ -74,7 +73,6 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
                                 ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400'
                                 : ''
                             } ${databaseError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
-                        required
                         disabled={isDatabaseDisabled || loadingDatabases}
                     >
                         <option value="">
@@ -125,7 +123,6 @@ export const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({
                     value={selectedPodId}
                     onChange={(e) => onPodChange(e.target.value)}
                     className={`select-field ${podError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
-                    required
                 >
                     <option value="">Select POD</option>
                     {Array.isArray(pods) && pods.map((pod) => (
