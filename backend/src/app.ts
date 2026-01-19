@@ -105,13 +105,16 @@ const generalLimiter = rateLimit({
         success: false,
         error: {
             code: 'RATE_LIMIT_EXCEEDED',
-            message: 'Too many requests, please try again later.',
+            message: 'Global API Rate Limit Exceeded (Try raising RATE_LIMIT_MAX_REQUESTS)',
         },
     },
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => config.isDevelopment,
 });
+
+// Debug Log for Rate Limits
+logger.info(`Rate Limit Config - Window: ${config.rateLimit.windowMs}, General Max: ${config.rateLimit.maxRequests}, Auth Max: ${config.rateLimit.authMaxRequests}`);
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -120,7 +123,7 @@ const authLimiter = rateLimit({
         success: false,
         error: {
             code: 'AUTH_RATE_LIMIT_EXCEEDED',
-            message: 'Too many authentication attempts, please try again later.',
+            message: 'Auth Rate Limit Exceeded (Try raising RATE_LIMIT_AUTH_MAX)',
         },
     },
     standardHeaders: true,

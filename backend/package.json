@@ -1,7 +1,7 @@
 {
-  "name": "db-query-portal-backend",
-  "version": "1.0.0",
-  "description": "Database Query Execution Portal - Backend API",
+  "name": "database-query-portal-backend",
+  "version": "1.0.1",
+  "description": "Backend for SRE Internal Portal",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc && node scripts/copy-assets.js",
