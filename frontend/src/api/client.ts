@@ -21,7 +21,11 @@ const client: AxiosInstance = axios.create({
 // Request Interceptor
 client.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        // No need to manually attach tokens - Cookies handle it!
+        // Retrieve Access Token from Local Storage (Header-Based Auth)
+        const token = localStorage.getItem('accessToken');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
         return config;
     },
     (error: AxiosError) => {
@@ -49,8 +53,15 @@ client.interceptors.response.use(
             originalRequest._retry = true;
 
             try {
-                // Call refresh endpoint - Cookies should be sent automatically
-                await client.post('/api/auth/refresh');
+                // Call refresh endpoint with Refresh Token in Body (Header-Based Auth)
+                const refreshToken = localStorage.getItem('refreshToken');
+                const { data } = await client.post('/api/auth/refresh', { refreshToken });
+
+                // Update Access Token from response
+                if (data?.data?.accessToken) {
+                    localStorage.setItem('accessToken', data.data.accessToken);
+                    originalRequest.headers['Authorization'] = `Bearer ${data.data.accessToken}`;
+                }
 
                 // Retry original request
                 return client(originalRequest);

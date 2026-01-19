@@ -76,8 +76,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await authService.login(email, password);
 
       if (response.success) {
-        // Store minimal user info
-        authService.storeAuth({ user: response.data.user });
+        // Store user info AND tokens (for Header-Based Auth)
+        authService.storeAuth({
+          user: response.data.user,
+          accessToken: response.data.accessToken,
+          refreshToken: response.data.refreshToken,
+        });
 
         setUser(response.data.user);
         setIsAuthenticated(true);

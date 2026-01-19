@@ -95,22 +95,44 @@ const authService = {
   },
 
   /**
-   * Store partial auth data (User object cache)
-   * Tokens are HTTP-Only Cookies now!
+   * Store auth data (User object + Tokens)
+   * Storing tokens in localStorage to support Header-Based Auth (Cross-Domain Fix)
    */
   storeAuth(data: Partial<AuthTokens>) {
-    // Only cache non-sensitive user info
+    // Cache User
     if (data.user) {
       localStorage.setItem('user', JSON.stringify(data.user));
+    }
+    // Cache Tokens
+    if (data.accessToken) {
+      localStorage.setItem('accessToken', data.accessToken);
+    }
+    if (data.refreshToken) {
+      localStorage.setItem('refreshToken', data.refreshToken);
     }
   },
 
   /**
-   * Clear local auth state without calling logout API
-   * Use this when session is invalid but we don't want to revoke refresh token
+   * Get Access Token
+   */
+  getAccessToken(): string | null {
+    return localStorage.getItem('accessToken');
+  },
+
+  /**
+   * Get Refresh Token
+   */
+  getRefreshToken(): string | null {
+    return localStorage.getItem('refreshToken');
+  },
+
+  /**
+   * Clear local auth state
    */
   clearAuth(): void {
     localStorage.removeItem('user');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
   },
 };
 
