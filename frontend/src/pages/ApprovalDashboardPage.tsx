@@ -28,13 +28,8 @@ import queryService, { QueryAnalysis } from '@/services/queryService';
 
 
 
-type TabType = 'pending' | 'processed';
-
 const ApprovalDashboardPage: React.FC = () => {
   const filterDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Tab state
-  const [activeTab, setActiveTab] = useState<TabType>('pending');
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,13 +41,11 @@ const ApprovalDashboardPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [tempDateFrom, setTempDateFrom] = useState('');
   const [tempDateTo, setTempDateTo] = useState('');
-  const [tempFilterPod, setTempFilterPod] = useState('');
   const [tempFilterType, setTempFilterType] = useState('');
   
   // Applied filter states (actually used in API calls)
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [filterPod, setFilterPod] = useState('');
   const [filterType, setFilterType] = useState('');
   
   // Date validation error
@@ -125,22 +118,13 @@ const ApprovalDashboardPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Reset page on filter change or tab change
+  // Reset page on filter change
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, filterPod, dateFrom, dateTo, filterType, activeTab]);
+  }, [debouncedSearch, dateFrom, dateTo, filterType]);
 
-  // Build filter params based on active tab
-  const commonFilters: any = { page, limit };
-  
-  // Set status based on active tab
-  if (activeTab === 'pending') {
-    commonFilters.status = 'pending';
-  } else {
-    // Processed tab shows approved, rejected, completed, failed, executing
-    commonFilters.status = 'approved,rejected,completed,failed,executing';
-  }
-  
+  // Build filter params
+  const commonFilters: any = { page, limit, status: 'pending' };
   if (debouncedSearch) commonFilters.search = debouncedSearch;
   if (dateFrom) commonFilters.fromDate = dateFrom;
   if (dateTo) commonFilters.toDate = dateTo;
@@ -148,7 +132,6 @@ const ApprovalDashboardPage: React.FC = () => {
 
   // Data Fetching: Approvals (Incoming)
   const approvalsFilters = { ...commonFilters };
-  if (filterPod) approvalsFilters.podId = filterPod;
 
   const {
     data: approvalsData,
@@ -199,14 +182,12 @@ const ApprovalDashboardPage: React.FC = () => {
   const handleClearFilters = () => {
     setTempDateFrom('');
     setTempDateTo('');
-    setTempFilterPod('');
     setTempFilterType('');
     setDateError('');
     // Also clear applied filters
     setDateFrom('');
     setDateTo('');
     setSearchInput('');
-    setFilterPod('');
     setFilterType('');
   };
 
@@ -229,7 +210,6 @@ const ApprovalDashboardPage: React.FC = () => {
     // Apply the temporary filters to actual filter states
     setDateFrom(tempDateFrom);
     setDateTo(tempDateTo);
-    setFilterPod(tempFilterPod);
     setFilterType(tempFilterType);
     
     // Close the dropdown
@@ -242,7 +222,6 @@ const ApprovalDashboardPage: React.FC = () => {
     if (showFilters) {
       setTempDateFrom(dateFrom);
       setTempDateTo(dateTo);
-      setTempFilterPod(filterPod);
       setTempFilterType(filterType);
       setDateError('');
     }
@@ -252,46 +231,15 @@ const ApprovalDashboardPage: React.FC = () => {
   const setSearchInput = (val: string) => setSearchQuery(val);
 
   // Count active filters
-  const activeFilterCount = (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (filterPod ? 1 : 0) + (filterType ? 1 : 0);
+  const activeFilterCount = (dateFrom ? 1 : 0) + (dateTo ? 1 : 0) + (filterType ? 1 : 0);
 
   return (
     <div>
       {/* Page Header */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Requests</h1>
-          <p className="text-gray-500 mt-1">Manage approvals and view processed requests</p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="mb-6 border-b border-gray-200">
-        <div className="flex gap-8">
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'pending'
-                ? 'border-purple-600 text-purple-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Pending Approvals
-            {activeTab === 'pending' && requests.length > 0 && (
-              <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full text-xs font-semibold">
-                {requests.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('processed')}
-            className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'processed'
-                ? 'border-purple-600 text-purple-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Processed Requests
-          </button>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 mt-1">Manage approvals</p>
         </div>
       </div>
 
@@ -305,7 +253,7 @@ const ApprovalDashboardPage: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={activeTab === 'pending' ? 'Search pending requests...' : 'Search processed requests...'}
+              placeholder="Search requests to approve..."
               className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm 
                          focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
@@ -346,22 +294,6 @@ const ApprovalDashboardPage: React.FC = () => {
                     <button onClick={handleClearFilters} className="text-xs text-purple-600 font-medium hover:text-purple-700">
                       Clear All
                     </button>
-                  </div>
-
-                  {/* POD Filter */}
-                  <div className="p-4 border-b">
-                    <label className="text-sm font-medium text-gray-700 mb-2 block">Requests for My Pods</label>
-                    <p className="text-xs text-gray-500 mb-2">Filter requests submitted to your managed pods</p>
-                    <select
-                      value={tempFilterPod}
-                      onChange={(e) => setTempFilterPod(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="">All Managed Pods</option>
-                      {pods.map((pod: any) => (
-                        <option key={pod.id} value={pod.id}>{pod.name}</option>
-                      ))}
-                    </select>
                   </div>
 
                   {/* Type Filter */}
@@ -439,8 +371,8 @@ const ApprovalDashboardPage: React.FC = () => {
         ) : requests.length === 0 ? (
           <EmptyState
             icon={CheckCircle2}
-            title={activeTab === 'pending' ? 'No pending approvals' : 'No processed requests'}
-            description={activeTab === 'pending' ? "You're all caught up!" : "No requests have been processed yet"}
+            title="No pending approvals"
+            description="You're all caught up!"
           />
         ) : (
           <>
@@ -454,7 +386,6 @@ const ApprovalDashboardPage: React.FC = () => {
                     <th className="pb-3 font-medium">Status</th>
                     <th className="pb-3 font-medium">User</th>
                     <th className="pb-3 font-medium">POD</th>
-                    {activeTab === 'processed' && <th className="pb-3 font-medium">Processed By</th>}
                     <th className="pb-3 font-medium">Date</th>
                     <th className="pb-3 font-medium text-right">Actions</th>
                   </tr>
@@ -511,22 +442,6 @@ const ApprovalDashboardPage: React.FC = () => {
                           {request.podName}
                         </span>
                       </td>
-
-                      {/* Processed By (only in processed tab) */}
-                      {activeTab === 'processed' && (
-                        <td className="py-4">
-                          {request.approver ? (
-                            <div className="flex items-center gap-2">
-                              <User className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-600">
-                                {request.approver.email || request.approver.name || 'Unknown'}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-gray-400">N/A</span>
-                          )}
-                        </td>
-                      )}
 
                       {/* Date */}
                       <td className="py-4 text-sm text-gray-600">
@@ -589,38 +504,6 @@ const ApprovalDashboardPage: React.FC = () => {
               <label className="text-sm text-gray-500">Comments</label>
               <p className="text-gray-900">{selectedRequest.comments}</p>
             </div>
-
-            {/* Rejection Reason (if rejected) */}
-            {selectedRequest.status === RequestStatus.REJECTED && selectedRequest.rejectionReason && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <label className="text-sm font-medium text-red-800 flex items-center gap-2">
-                  <XCircle className="w-4 h-4" />
-                  Rejection Reason
-                </label>
-                <p className="text-red-700 mt-2">{selectedRequest.rejectionReason}</p>
-              </div>
-            )}
-
-            {/* Approver Info (if approved/rejected) */}
-            {(selectedRequest.status === RequestStatus.APPROVED || 
-              selectedRequest.status === RequestStatus.REJECTED ||
-              selectedRequest.status === RequestStatus.COMPLETED ||
-              selectedRequest.status === RequestStatus.FAILED ||
-              selectedRequest.status === RequestStatus.EXECUTING) && 
-              selectedRequest.approver && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <label className="text-sm font-medium text-gray-700">Processed By</label>
-                <div className="flex items-center gap-2 mt-2">
-                  <User className="w-4 h-4 text-gray-500" />
-                  <span className="text-gray-900">
-                    {selectedRequest.approver.name || selectedRequest.approver.email}
-                  </span>
-                  <span className="text-gray-500 text-sm">
-                    ({selectedRequest.approver.role})
-                  </span>
-                </div>
-              </div>
-            )}
 
             <div>
               <div className="flex items-center justify-between mb-2">
