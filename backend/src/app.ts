@@ -209,6 +209,26 @@ app.get('/api-docs-json', (req: Request, res: Response) => {
 });
 
 // =============================================================================
+// Root Route
+// =============================================================================
+
+app.get('/', (req: Request, res: Response) => {
+    res.status(200).json({
+        success: true,
+        message: 'Database Query Portal API',
+        version: process.env.npm_package_version || '1.0.0',
+        environment: config.env,
+        endpoints: {
+            health: '/health',
+            healthDetailed: '/health/detailed',
+            apiDocs: '/api-docs',
+            api: '/api/v1',
+        },
+        documentation: 'Visit /api-docs for full API documentation',
+    });
+});
+
+// =============================================================================
 // Health Checks
 // =============================================================================
 
