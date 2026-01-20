@@ -49,10 +49,10 @@ export type SubmissionType = z.infer<typeof SubmissionTypeEnum>;
  * - Query content is within size limits
  * - Script files have valid extensions
  *
- * SIZE LIMITS (DoS Prevention):
- * - queryContent: 50KB (typical SQL is < 10KB)
- * - scriptContent: 500KB (reasonable for JS/Python)
- * - comments: 1000 chars
+ * SIZE LIMITS (DoS Prevention & Reasonable Usage):
+ * - queryContent: 10KB (typical SQL is < 2KB, allows complex queries)
+ * - scriptContent: 100KB (reasonable for JS/Python scripts)
+ * - comments: 1000 chars (sufficient for detailed explanations)
  */
 export const SubmitRequestSchema = z
     .object({
@@ -70,14 +70,14 @@ export const SubmitRequestSchema = z
 
         queryContent: z
             .string()
-            .max(50000, 'Query content must be at most 50KB')
+            .max(10000, 'Query content must be at most 10,000 characters (10KB)')
             .optional(),
 
         comments: z
             .string()
             .transform((c) => c.trim())
             .refine((c) => c.length > 0, 'Comments are required')
-            .refine((c) => c.length <= 1000, 'Comments must be at most 1000 characters'),
+            .refine((c) => c.length <= 1000, 'Comments must be at most 1,000 characters'),
 
         podId: z
             .string()
@@ -86,7 +86,7 @@ export const SubmitRequestSchema = z
         // Script-specific fields
         scriptContent: z
             .string()
-            .max(500000, 'Script content must be at most 500KB')
+            .max(100000, 'Script content must be at most 100,000 characters (100KB)')
             .optional(),
 
         scriptFilename: z
