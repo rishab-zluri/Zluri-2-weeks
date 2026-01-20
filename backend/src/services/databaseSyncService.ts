@@ -723,6 +723,7 @@ export async function getInstances(type: string | null = null): Promise<Database
 
 /**
  * Get databases for an instance (from local table - FAST)
+ * Filters out the portal database (zluri_portal_db) from the list
  */
 export async function getDatabasesForInstance(instanceId: string): Promise<DatabaseEntry[]> {
     const result = await portalQuery<DatabaseEntry>(`
@@ -732,7 +733,9 @@ export async function getDatabasesForInstance(instanceId: string): Promise<Datab
     ORDER BY name
   `, [instanceId]);
 
-    return result.rows;
+    // Filter out the portal database from the dropdown
+    // The database still exists in Neon, just hidden from users
+    return result.rows.filter(db => db.name !== 'zluri_portal_db');
 }
 
 /**
