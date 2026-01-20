@@ -137,10 +137,8 @@ const MyQueriesPage: React.FC = () => {
   // 2. Approvals/History Data (Only computed if Manager)
   const managerFilters: Record<string, any> = { ...commonFilters };
   if (filterPod) managerFilters.podId = filterPod;
-  // Exclude manager's own requests in history (Processed Requests) view
-  if (viewMode === 'history') {
-    managerFilters.excludeOwnRequests = 'true';
-  }
+  // Note: We DON'T exclude manager's own requests in history
+  // Managers should see ALL requests they've processed, including their own
 
   const {
     data: managerData,
@@ -572,6 +570,7 @@ const MyQueriesPage: React.FC = () => {
                     <th className="pb-3 font-medium">Type</th>
                     <th className="pb-3 font-medium">User</th>
                     <th className="pb-3 font-medium">Status</th>
+                    {effectiveViewMode === 'history' && <th className="pb-3 font-medium">Processed By</th>}
                     <th className="pb-3 font-medium">Date</th>
                     <th className="pb-3 font-medium">Actions</th>
                   </tr>
@@ -615,6 +614,23 @@ const MyQueriesPage: React.FC = () => {
                       <td className="py-4">
                         <StatusBadge status={query.status} />
                       </td>
+                      
+                      {/* Processed By column (only in history tab) */}
+                      {effectiveViewMode === 'history' && (
+                        <td className="py-4">
+                          {query.approver ? (
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm text-gray-600">
+                                {query.approver.email || query.approver.name || 'Unknown'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">N/A</span>
+                          )}
+                        </td>
+                      )}
+                      
                       <td className="py-4 text-sm text-gray-500">
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
@@ -779,11 +795,28 @@ const MyQueriesPage: React.FC = () => {
             )}
 
             {selectedQuery.rejectionReason && (
-              <div>
-                <label className="text-sm text-gray-500">Rejection Reason</label>
-                <p className="mt-1 p-3 bg-yellow-50 text-yellow-800 rounded-lg">
-                  {selectedQuery.rejectionReason}
-                </p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <label className="text-sm font-medium text-red-800 flex items-center gap-2">
+                  <XCircle className="w-4 h-4" />
+                  Rejection Reason
+                </label>
+                <p className="text-red-700 mt-2">{selectedQuery.rejectionReason}</p>
+              </div>
+            )}
+
+            {/* Approver Info (if processed) */}
+            {selectedQuery.approver && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <label className="text-sm font-medium text-gray-700">Processed By</label>
+                <div className="flex items-center gap-2 mt-2">
+                  <User className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-900">
+                    {selectedQuery.approver.name || selectedQuery.approver.email}
+                  </span>
+                  <span className="text-gray-500 text-sm">
+                    ({selectedQuery.approver.role})
+                  </span>
+                </div>
               </div>
             )}
 
