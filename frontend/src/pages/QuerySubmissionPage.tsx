@@ -320,11 +320,19 @@ const QuerySubmissionPage: React.FC = () => {
                   }}
                   placeholder="Describe the purpose of this request..."
                   rows={3}
+                  maxLength={1000}
                   className={`textarea-field ${commentsError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
                 />
-                {commentsError && (
-                  <p className="mt-1 text-sm text-red-600">Please provide comments</p>
-                )}
+                <div className="flex items-center justify-between mt-1">
+                  {commentsError ? (
+                    <p className="text-sm text-red-600">Please provide comments</p>
+                  ) : (
+                    <p className="text-sm text-gray-500">Explain why you need this query/script</p>
+                  )}
+                  <p className={`text-sm ${comments.length > 900 ? 'text-orange-600 font-medium' : comments.length > 950 ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+                    {comments.length} / 1,000
+                  </p>
+                </div>
               </div>
 
               {/* Submission Type Toggle - Now BELOW comments */}
@@ -372,11 +380,19 @@ const QuerySubmissionPage: React.FC = () => {
                     }}
                     placeholder="Enter your SQL or MongoDB query here..."
                     rows={8}
+                    maxLength={10000}
                     className={`textarea-field font-mono text-sm ${queryError ? 'border-red-500 border-2 focus:ring-red-500' : ''}`}
                   />
-                  {queryError && (
-                    <p className="mt-1 text-sm text-red-600">Please enter a query</p>
-                  )}
+                  <div className="flex items-center justify-between mt-1">
+                    {queryError ? (
+                      <p className="text-sm text-red-600">Please enter a query</p>
+                    ) : (
+                      <p className="text-sm text-gray-500">Write your SQL or MongoDB query</p>
+                    )}
+                    <p className={`text-sm ${query.length > 9000 ? 'text-orange-600 font-medium' : query.length > 9500 ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+                      {query.length} / 10,000
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -386,6 +402,21 @@ const QuerySubmissionPage: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Upload Script File <span className="text-red-500">*</span>
                   </label>
+
+                  {/* Timeout Warning */}
+                  <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
+                    <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div className="text-sm">
+                      <p className="font-medium text-yellow-800">Script Execution Limits</p>
+                      <p className="text-yellow-700 mt-1">
+                        • Scripts will timeout after <strong>30 seconds</strong><br />
+                        • Maximum file size: <strong>16MB</strong><br />
+                        • Allowed formats: <strong>.js, .py</strong>
+                      </p>
+                    </div>
+                  </div>
 
                   {selectedFile ? (
                     <div className="flex items-center justify-between p-4 bg-purple-50 border border-purple-200 rounded-lg">
