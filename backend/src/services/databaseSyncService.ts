@@ -723,7 +723,8 @@ export async function getInstances(type: string | null = null): Promise<Database
 
 /**
  * Get databases for an instance (from local table - FAST)
- * Filters out the portal database (zluri_portal_db) from the list
+ * Filters out the portal database (zluri_portal_db) from PostgreSQL
+ * Filters out MongoDB system databases and limits to 2 legitimate databases
  */
 export async function getDatabasesForInstance(instanceId: string): Promise<DatabaseEntry[]> {
     const result = await portalQuery<DatabaseEntry>(`
@@ -733,9 +734,29 @@ export async function getDatabasesForInstance(instanceId: string): Promise<Datab
     ORDER BY name
   `, [instanceId]);
 
-    // Filter out the portal database from the dropdown
-    // The database still exists in Neon, just hidden from users
-    return result.rows.filter(db => db.name !== 'zluri_portal_db');
+    // Get instance to check type
+    const instance = await getInstanceById(instanceId);
+    
+    if (!instance) {
+        return result.rows;
+    }
+
+    let filteredDatabases = result.rows;
+
+    // Filter based on database type
+    if (instance.type === 'postgresql') {
+        // Filter out the portal database from PostgreSQL dropdown
+        filteredDatabases = filteredDatabases.filter(db => db.name !== 'zluri_portal_db');
+    } else if (instance.type === 'mongodb') {
+        // Filter out MongoDB system databases
+        const systemDatabases = ['admin', 'local', 'config'];
+        filteredDatabases = filteredDatabases.filter(db => !systemDatabases.includes(db.name));
+        
+        // Limit to only 2 legitimate databases for MongoDB
+        filteredDatabases = filteredDatabases.slice(0, 2);
+    }
+
+    return filteredDatabases;
 }
 
 /**
