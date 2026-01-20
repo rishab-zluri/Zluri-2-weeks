@@ -184,7 +184,7 @@ export const getRequest = async (req: Request<{ uuid: string }>, res: Response):
 
         const em = getEntityManager();
         // SECURE: Use UUID lookup only
-        const queryRequest = await em.findOne(QueryRequest, { uuid });
+        const queryRequest = await em.findOne(QueryRequest, { uuid }, { populate: ['user', 'approver'] });
 
         if (!queryRequest) {
             response.error(res, 'Request not found', 404, 'NOT_FOUND');
@@ -671,7 +671,7 @@ export const getAllRequests = async (req: Request, res: Response): Promise<void>
             limit,
             offset,
             orderBy: { createdAt: 'DESC' },
-            populate: ['user']
+            populate: ['user', 'approver']
         });
 
         // Transform to include userEmail for frontend display
