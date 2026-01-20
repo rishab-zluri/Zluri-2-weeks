@@ -199,30 +199,79 @@ SLACK_CHANNEL_ID=C0123456789
 
 ## API Endpoints
 
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/login` | User login |
-| POST | `/api/auth/logout` | User logout |
-| POST | `/api/auth/refresh` | Refresh access token |
-| GET | `/api/auth/me` | Get current user |
+### Authentication (`/api/auth`)
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| POST | `/auth/login` | User login | No |
+| POST | `/auth/register` | Register new user (Admin only) | Yes (Admin) |
+| POST | `/auth/refresh` | Refresh access token | No |
+| POST | `/auth/logout` | User logout | No |
+| POST | `/auth/logout-all` | Logout from all devices | Yes |
+| GET | `/auth/profile` | Get current user profile | Yes |
+| PUT | `/auth/profile` | Update user profile | Yes |
+| PUT | `/auth/password` | Change password | Yes |
+| GET | `/auth/sessions` | Get active sessions | Yes |
+| DELETE | `/auth/sessions/:sessionId` | Revoke a session | Yes |
 
-### Query Requests
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/requests` | Submit new query/script |
-| GET | `/api/requests/my` | Get user's requests |
-| GET | `/api/requests/:uuid` | Get request details |
-| POST | `/api/requests/:uuid/approve` | Approve request |
-| POST | `/api/requests/:uuid/reject` | Reject request |
-| POST | `/api/requests/:uuid/clone` | Clone a request |
+### Query Requests (`/api/queries`)
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| POST | `/queries/submit` | Submit new query | Yes |
+| POST | `/queries/submit-script` | Submit new script | Yes |
+| GET | `/queries/my-requests` | Get user's requests | Yes |
+| GET | `/queries/my-status-counts` | Get status counts | Yes |
+| GET | `/queries/requests/:uuid` | Get request details | Yes |
+| POST | `/queries/requests/:uuid/approve` | Approve request | Yes (Manager/Admin) |
+| POST | `/queries/requests/:uuid/reject` | Reject request | Yes (Manager/Admin) |
+| POST | `/queries/requests/:uuid/clone` | Clone a request | Yes |
+| GET | `/queries/pending` | Get pending requests | Yes (Manager/Admin) |
+| GET | `/queries/requests` | Get all requests (filtered) | Yes |
+| GET | `/queries/all` | Get all requests (Admin) | Yes (Admin) |
+| GET | `/queries/stats` | Get query statistics | Yes (Admin) |
+| POST | `/queries/analyze` | Analyze query content | Yes |
+| GET | `/queries/instances` | List database instances | Yes |
+| GET | `/queries/instances/:instanceId/databases` | List databases for instance | Yes |
+| GET | `/queries/pods` | List PODs | Yes |
 
-### Databases
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/databases/instances` | List database instances |
-| GET | `/api/databases/instances/:id/databases` | List databases (runtime query) |
-| POST | `/api/databases/instances/:id/sync` | Trigger database sync |
+### Database Management (`/api/databases`)
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/databases/instances` | List all database instances | Yes |
+| GET | `/databases/instances/:instanceId` | Get instance details | Yes |
+| GET | `/databases/instances/:instanceId/databases` | List databases (runtime sync) | Yes |
+| POST | `/databases/instances/:instanceId/sync` | Trigger database sync | Yes (Admin) |
+| GET | `/databases/instances/:instanceId/sync-history` | Get sync history | Yes (Admin) |
+| POST | `/databases/sync-all` | Sync all instances | Yes (Admin) |
+| GET | `/databases/blacklist` | Get blacklist entries | Yes (Admin) |
+| POST | `/databases/blacklist` | Add to blacklist | Yes (Admin) |
+| DELETE | `/databases/blacklist/:id` | Remove from blacklist | Yes (Admin) |
+
+### User Management (`/api/users`)
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/users` | List all users | Yes (Admin) |
+| GET | `/users/:id` | Get user details | Yes (Admin) |
+| PUT | `/users/:id` | Update user | Yes (Admin) |
+| DELETE | `/users/:id` | Delete user | Yes (Admin) |
+| POST | `/users/:id/activate` | Activate/deactivate user | Yes (Admin) |
+| POST | `/users/:id/reset-password` | Reset user password | Yes (Admin) |
+
+### Secrets Management (`/api/secrets`)
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/secrets` | List all secrets | Yes |
+| GET | `/secrets/search` | Search secrets | Yes |
+| GET | `/secrets/:secretName` | Get secret value | Yes |
+
+### Health Check
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/health` | Basic health check | No |
+| GET | `/health/detailed` | Detailed health check | No |
+
+---
+
+**Note**: All endpoints are prefixed with `/api` (e.g., `/api/auth/login`). Alternative routes without `/api` prefix are also supported for backward compatibility.
 
 ## Database Architecture
 

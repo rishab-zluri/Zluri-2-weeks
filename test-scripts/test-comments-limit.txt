@@ -1,0 +1,22 @@
+Test Comments: Character Limit Test
+
+PURPOSE: Test the 1,000 character limit for comments
+EXPECTED: Comments under 1,000 characters should be accepted
+
+HOW TO USE:
+1. Copy the text below (between the lines)
+2. Paste into the Comments field in the portal
+3. Check the character counter (should show ~950 / 1,000)
+4. Submit - should be accepted
+
+---START COPY HERE---
+This is a test comment to verify the 1,000 character limit enforcement. The portal should accept comments up to 1,000 characters and prevent users from typing beyond that limit. This comment is intentionally padded to approach the limit for testing purposes. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. This query is needed to analyze user activity patterns and generate reports for the management team. The data will be used to make informed decisions about resource allocation and system improvements. We need to run this analysis on a weekly basis to track trends over time and identify any anomalies or issues that require attention.
+---END COPY HERE---
+
+Character count: ~950 characters (under 1,000 limit)
+
+To test the LIMIT:
+1. Copy the text above
+2. Add 50+ more characters
+3. Try to paste - browser should prevent it
+4. Character counter should turn RED when approaching 1,000
