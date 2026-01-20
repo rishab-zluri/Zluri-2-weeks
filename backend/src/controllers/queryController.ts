@@ -674,12 +674,20 @@ export const getAllRequests = async (req: Request, res: Response): Promise<void>
             populate: ['user', 'approver']
         });
 
-        // Transform to include userEmail for frontend display
+        // Transform to include userEmail and properly serialize approver
         const transformedRequests = requests.map(req => {
             const userEntity = req.user?.getEntity?.() || req.user;
+            const approverEntity = req.approver ? (req.approver.getEntity?.() || req.approver) : null;
+            
             return {
                 ...req,
                 userEmail: (userEntity as any)?.email || undefined,
+                approver: approverEntity ? {
+                    id: (approverEntity as any).id,
+                    email: (approverEntity as any).email,
+                    name: (approverEntity as any).name,
+                    role: (approverEntity as any).role,
+                } : undefined,
             };
         });
 
