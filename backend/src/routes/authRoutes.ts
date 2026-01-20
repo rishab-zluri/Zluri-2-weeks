@@ -19,6 +19,7 @@
  */
 
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import * as authController from '../controllers/authController';
 import * as auth from '../middleware/auth';
 import { UserRole } from '../entities/User';
@@ -35,6 +36,35 @@ import {
 } from '../validation';
 
 const router = express.Router();
+
+// =============================================================================
+// RATE LIMITERS
+// =============================================================================
+
+/**
+ * Stricter rate limiter for authentication endpoints
+ * Prevents brute force attacks on login/register
+ */
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // 5 attempts per window
+    message: 'Too many authentication attempts, please try again later',
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: false, // Count all attempts
+});
+
+/**
+ * Rate limiter for password operations
+ * Stricter to prevent password reset abuse
+ */
+const passwordLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 3, // 3 attempts per hour
+    message: 'Too many password change attempts, please try again later',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 // =============================================================================
 // PUBLIC ROUTES
@@ -98,6 +128,7 @@ const router = express.Router();
  */
 router.post(
     '/login',
+    authLimiter, // Add stricter rate limiting
     validate(LoginSchema),
     authController.login
 );
@@ -194,6 +225,7 @@ router.put(
 router.put(
     '/password',
     auth.authenticate,
+    passwordLimiter, // Add stricter rate limiting for password changes
     validate(ChangePasswordSchema),
     authController.changePassword
 );

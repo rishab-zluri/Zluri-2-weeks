@@ -230,16 +230,18 @@ export class MongoDriver implements IDatabaseDriver {
 
     private async executeMongoOperation(collection: Collection<Document>, parsedQuery: ParsedMongoQuery): Promise<unknown> {
         const maxRows = QUERY_CONFIG.maxRows;
+        const maxTimeMS = QUERY_CONFIG.statementTimeout; // Use same timeout as PostgreSQL
 
         switch (parsedQuery.method) {
             case 'find':
                 return collection
                     .find(parsedQuery.query || {})
                     .limit(Math.min(parsedQuery.limit || maxRows, maxRows))
+                    .maxTimeMS(maxTimeMS)
                     .toArray();
 
             case 'findOne':
-                return collection.findOne(parsedQuery.query || {});
+                return collection.findOne(parsedQuery.query || {}, { maxTimeMS });
 
             case 'aggregate': {
                 const pipeline = [...(parsedQuery.pipeline || [])];
@@ -250,18 +252,18 @@ export class MongoDriver implements IDatabaseDriver {
                     pipeline.push({ $limit: maxRows });
                 }
 
-                return collection.aggregate(pipeline).toArray();
+                return collection.aggregate(pipeline, { maxTimeMS }).toArray();
             }
 
             case 'count':
             case 'countDocuments':
-                return collection.countDocuments(parsedQuery.query || {});
+                return collection.countDocuments(parsedQuery.query || {}, { maxTimeMS });
 
             case 'estimatedDocumentCount':
-                return collection.estimatedDocumentCount();
+                return collection.estimatedDocumentCount({ maxTimeMS });
 
             case 'distinct':
-                return collection.distinct(parsedQuery.field!, parsedQuery.query || {});
+                return collection.distinct(parsedQuery.field!, parsedQuery.query || {}, { maxTimeMS });
 
             case 'insertOne':
                 return collection.insertOne(parsedQuery.document!);
@@ -270,26 +272,26 @@ export class MongoDriver implements IDatabaseDriver {
                 return collection.insertMany(parsedQuery.documents!);
 
             case 'updateOne':
-                return collection.updateOne(parsedQuery.filter!, parsedQuery.update!, parsedQuery.options);
+                return collection.updateOne(parsedQuery.filter!, parsedQuery.update!, { ...parsedQuery.options, maxTimeMS });
 
             case 'updateMany':
-                return collection.updateMany(parsedQuery.filter!, parsedQuery.update!, parsedQuery.options);
+                return collection.updateMany(parsedQuery.filter!, parsedQuery.update!, { ...parsedQuery.options, maxTimeMS });
 
             case 'deleteOne':
-                return collection.deleteOne(parsedQuery.filter!);
+                return collection.deleteOne(parsedQuery.filter!, { maxTimeMS });
 
             case 'deleteMany':
-                return collection.deleteMany(parsedQuery.filter!);
+                return collection.deleteMany(parsedQuery.filter!, { maxTimeMS });
 
             case 'findOneAndUpdate':
                 return collection.findOneAndUpdate(
                     parsedQuery.filter!,
                     parsedQuery.update!,
-                    parsedQuery.options || { returnDocument: 'after' }
+                    { ...parsedQuery.options, returnDocument: 'after', maxTimeMS }
                 );
 
             case 'findOneAndDelete':
-                return collection.findOneAndDelete(parsedQuery.filter!); // removed options as per original fallback
+                return collection.findOneAndDelete(parsedQuery.filter!, { maxTimeMS });
 
             default:
                 throw new ValidationError(`Unsupported MongoDB method: ${parsedQuery.method}`);

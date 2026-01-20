@@ -57,6 +57,9 @@ interface RejectRequestBody {
  * WHY: Entry point for proper query governance workflow
  */
 export const submitRequest = async (req: Request<unknown, unknown, SubmitRequestBody>, res: Response): Promise<void> => {
+    const reqWithScript = req as any;
+    let uploadedFilePath: string | undefined;
+
     try {
         const {
             instanceId,
@@ -68,6 +71,11 @@ export const submitRequest = async (req: Request<unknown, unknown, SubmitRequest
         } = req.body;
 
         const user = req.user!;
+
+        // Store uploaded file path for cleanup
+        if (reqWithScript.scriptInfo?.path) {
+            uploadedFilePath = reqWithScript.scriptInfo.path;
+        }
 
         // Get instance details from database (not static config)
         const instance = await databaseSyncService.getInstanceById(instanceId);
@@ -108,7 +116,6 @@ export const submitRequest = async (req: Request<unknown, unknown, SubmitRequest
         queryRequest.status = RequestStatus.PENDING;
 
         // Handle script uploads
-        const reqWithScript = req as any;
         if (submissionType === SubmissionType.SCRIPT) {
             if (!reqWithScript.scriptInfo && !req.body.scriptContent) {
                 throw new ValidationError('Script file is required');
@@ -164,6 +171,12 @@ export const submitRequest = async (req: Request<unknown, unknown, SubmitRequest
         const err = error as Error;
         logger.error('Submit request error', { error: err.message });
         response.error(res, 'Failed to submit request', 500);
+    } finally {
+        // Cleanup uploaded file after processing (success or failure)
+        if (uploadedFilePath) {
+            const { cleanupFile } = await import('../middleware/upload');
+            await cleanupFile(uploadedFilePath);
+        }
     }
 };
 

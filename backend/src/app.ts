@@ -80,7 +80,14 @@ const corsOptions: cors.CorsOptions = {
         if (!origin) return callback(null, true);
 
         const allowedOrigins = Array.isArray(config.cors.origin) ? config.cors.origin : [config.cors.origin];
-        if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        
+        // SECURITY: Prevent wildcard (*) in production with credentials
+        if (config.isProduction && allowedOrigins.includes('*')) {
+            logger.error('SECURITY ERROR: CORS wildcard (*) is not allowed in production with credentials');
+            return callback(new Error('Invalid CORS configuration'));
+        }
+        
+        if (allowedOrigins.includes(origin) || (!config.isProduction && allowedOrigins.includes('*'))) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));

@@ -31,7 +31,7 @@ const startBackgroundTasks = (): void => {
     databaseSyncService.startPeriodicSync();
     logger.info('Database sync scheduler started');
 
-    // Schedule refresh token cleanup every hour
+    // Schedule refresh token cleanup every 15 minutes
     tokenCleanupInterval = setInterval(async () => {
         try {
             const deletedCount = await cleanupExpiredTokens();
@@ -41,7 +41,7 @@ const startBackgroundTasks = (): void => {
         } catch (error) {
             logger.warn('Token cleanup failed:', (error as Error).message);
         }
-    }, 60 * 60 * 1000); // Every hour
+    }, 15 * 60 * 1000); // Every 15 minutes (was 60 minutes)
 
     logger.info('Background tasks started');
 };
