@@ -23,7 +23,7 @@ import logger from './utils/logger';
 import { errorHandler as globalErrorHandler, notFound as notFoundHandler } from './middleware/errorHandler';
 import { sensitiveEndpointsOriginCheck } from './middleware/originValidation';
 // Import routes from index to ensure all are included
-import { authRoutes, queryRoutes, userRoutes, secretsRoutes, databaseRoutes } from './routes';
+import { authRoutes, queryRoutes, userRoutes, secretsRoutes, databaseRoutes, healthRoutes } from './routes';
 import { testConnection } from './config/database'; // Legacy connection check, will be replaced/augmented by MikroORM check in server.ts or here?
 import * as databaseSyncService from './services/databaseSyncService';
 import { getORM } from './db';
@@ -124,13 +124,13 @@ const generalLimiter = rateLimit({
 logger.info(`Rate Limit Config - Window: ${config.rateLimit.windowMs}, General Max: ${config.rateLimit.maxRequests}, Auth Max: ${config.rateLimit.authMaxRequests}`);
 
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: config.rateLimit.authMaxRequests,
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    limit: 15, // 15 attempts per 5 minutes
     message: (req: Request, res: Response) => ({
         success: false,
         error: {
             code: 'AUTH_RATE_LIMIT_EXCEEDED',
-            message: `Auth Rate Limit Exceeded for IP: ${req.ip} (Try raising RATE_LIMIT_AUTH_MAX)`,
+            message: `Too many login attempts. Please try again after 5 minutes.`,
         },
     }),
     standardHeaders: true,
@@ -283,6 +283,11 @@ app.get('/health/detailed', async (req: Request, res: Response) => {
 // =============================================================================
 // Routes
 // =============================================================================
+
+// Health check routes (no auth required)
+app.use('/health', healthRoutes);
+app.use('/api/health', healthRoutes);
+app.use('/api/v1/health', healthRoutes);
 
 // API versioning - v1
 app.use('/api/v1/auth', authRoutes);

@@ -20,6 +20,7 @@ import express from 'express';
 import * as queryController from '../controllers/queryController';
 import * as auth from '../middleware/auth';
 import { handleScriptUpload } from '../middleware/upload';
+import { rateLimitSubmission, rateLimitExecution } from '../middleware/rateLimiter';
 import { UserRole } from '../entities/User';
 
 // Zod validation imports
@@ -363,6 +364,7 @@ router.post(
 router.post(
     '/submit',
     auth.authenticate,
+    rateLimitSubmission, // Rate limiting
     validate(SubmitRequestSchema),
     queryController.submitRequest
 );
@@ -415,6 +417,7 @@ router.post(
 router.post(
     '/submit-script',
     auth.authenticate,
+    rateLimitSubmission, // Rate limiting
     handleScriptUpload,
     validate(SubmitRequestSchema),
     queryController.submitRequest
@@ -698,6 +701,7 @@ router.post(
     '/requests/:uuid/approve',
     auth.authenticate,
     auth.requireRole(UserRole.MANAGER, UserRole.ADMIN),
+    rateLimitExecution, // Rate limiting for execution
     validateParams(RequestUuidParamSchema),
     queryController.approveRequest
 );

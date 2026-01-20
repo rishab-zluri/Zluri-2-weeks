@@ -14,6 +14,7 @@ import databaseRoutes from './databaseRoutes';
 import queryRoutes from './queryRoutes';
 import userRoutes from './userRoutes';
 import secretsRoutes from './secretsRoutes';
+import healthRoutes from './healthRoutes';
 
 export {
     authRoutes,
@@ -21,4 +22,5 @@ export {
     queryRoutes,
     userRoutes,
     secretsRoutes,
+    healthRoutes,
 };

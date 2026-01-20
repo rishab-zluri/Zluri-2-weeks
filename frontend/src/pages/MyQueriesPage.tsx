@@ -13,6 +13,7 @@ import {
   X,
   Check,
   CheckCircle2,
+  XCircle,
   User,
   Copy
 } from 'lucide-react';

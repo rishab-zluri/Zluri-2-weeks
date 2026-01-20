@@ -46,9 +46,9 @@ const router = express.Router();
  * Prevents brute force attacks on login/register
  */
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // 5 attempts per window
-    message: 'Too many authentication attempts, please try again later',
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 15, // 15 attempts per 5 minutes
+    message: 'Too many authentication attempts, please try again after 5 minutes',
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: false, // Count all attempts

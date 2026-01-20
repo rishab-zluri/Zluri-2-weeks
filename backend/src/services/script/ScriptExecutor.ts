@@ -13,6 +13,8 @@ import path from 'path';
 import fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import logger from '../../utils/logger';
+import { validateResult } from '../../utils/resultValidator';
+import { getResourcePool } from './ResourcePool';
 import {
     ExecutionConfig,
     ScriptExecutionResult,
@@ -279,6 +281,8 @@ export class ScriptExecutor {
         const startTime = Date.now();
         const output: OutputItem[] = [];
         const { scriptContent, databaseType, instanceId, databaseName } = request;
+        const resourcePool = getResourcePool();
+        let resourceSlot: any = null;
 
         output.push({
             type: 'info',
@@ -305,11 +309,40 @@ export class ScriptExecutor {
         }
 
         try {
-            // 1. Detect language FIRST (before any validation)
+            // 1. Acquire resources from global pool
+            try {
+                output.push({
+                    type: 'info',
+                    message: 'Acquiring execution resources...',
+                    timestamp: new Date().toISOString(),
+                });
+                
+                resourceSlot = await resourcePool.acquire(
+                    `${instanceId}-${Date.now()}`,
+                    EXECUTION_LIMITS.MAX_MEMORY_MB
+                );
+                
+                output.push({
+                    type: 'info',
+                    message: 'Resources acquired successfully',
+                    timestamp: new Date().toISOString(),
+                });
+            } catch (error) {
+                const err = error as Error;
+                return this.createErrorResult(
+                    'ResourceError',
+                    `Failed to acquire resources: ${err.message}. System may be busy, please try again later.`,
+                    output,
+                    startTime,
+                    request
+                );
+            }
+
+            // 2. Detect language FIRST (before any validation)
             const language = this.detectLanguage(request);
             logger.info('Script language detected', { language, instanceId, databaseName });
 
-            // 2. Validate based on detected language
+            // 3. Validate based on detected language
             if (language === 'javascript') {
                 // JavaScript syntax validation
                 const syntaxCheck = this.validateSyntax(scriptContent);
@@ -327,7 +360,7 @@ export class ScriptExecutor {
                 }
             }
 
-            // 3. Get Instance from database (not static config)
+            // 4. Get Instance from database (not static config)
             const { getInstanceById } = await import('../databaseSyncService');
             const dbInstance = await getInstanceById(instanceId);
 
@@ -366,7 +399,7 @@ export class ScriptExecutor {
                 }
             }
 
-            // 4. Prepare Worker Config
+            // 5. Prepare Worker Config
             const workerConfig: WorkerConfig = {
                 scriptContent,
                 databaseType,
@@ -375,25 +408,42 @@ export class ScriptExecutor {
                 timeout: this.config.timeout,
             };
 
-            // 5. Run in appropriate Child Process
+            // 6. Run in appropriate Child Process
             const result = language === 'python'
                 ? await this.runPythonWorker(workerConfig)
                 : await this.runWorker(workerConfig);
 
-            // 5. Merge Output
+            // 7. Merge Output
             if (result.output) output.push(...result.output);
 
             const duration = Date.now() - startTime;
 
             if (result.success) {
+                // 8. Validate and potentially truncate result
+                const validation = validateResult(result.result);
+                
+                if (validation.warning) {
+                    output.push({
+                        type: 'warn',
+                        message: validation.warning,
+                        timestamp: new Date().toISOString(),
+                    });
+                }
+                
                 output.push({ type: 'info', message: `Completed in ${duration}ms`, timestamp: new Date().toISOString() });
+                
                 return {
                     success: true,
-                    result: result.result,
+                    result: validation.result, // Use validated/truncated result
                     output,
                     summary: this.buildSummary(output),
                     duration,
-                    metadata: { databaseType, databaseName, instanceId, executedAt: new Date().toISOString() }
+                    metadata: {
+                        databaseType,
+                        databaseName,
+                        instanceId,
+                        executedAt: new Date().toISOString(),
+                    }
                 };
             } else {
                 return {
@@ -408,6 +458,11 @@ export class ScriptExecutor {
         } catch (error) {
             const err = error as Error;
             return this.createErrorResult('ExecutionError', err.message, output, startTime, request);
+        } finally {
+            // Always release resources
+            if (resourceSlot) {
+                resourcePool.release(resourceSlot.id);
+            }
         }
     }
 

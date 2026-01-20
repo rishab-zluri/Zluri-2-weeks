@@ -13,6 +13,7 @@ import app from './app';
 import logger from './utils/logger';
 import { initORM, closeORM, getORM, syncSchema } from './db';
 import * as databaseSyncService from './services/databaseSyncService';
+import { startHealthMonitoring, stopHealthMonitoring } from './services/healthMonitor';
 import { cleanupExpiredTokens } from './middleware/auth';
 import { pool } from './config/database'; // Legacy pool to close if still used
 
@@ -30,6 +31,10 @@ const startBackgroundTasks = (): void => {
     // Start database sync scheduler
     databaseSyncService.startPeriodicSync();
     logger.info('Database sync scheduler started');
+
+    // Start health monitoring
+    startHealthMonitoring();
+    logger.info('Health monitoring started');
 
     // Schedule refresh token cleanup every 15 minutes
     tokenCleanupInterval = setInterval(async () => {
@@ -52,6 +57,9 @@ const startBackgroundTasks = (): void => {
 const stopBackgroundTasks = (): void => {
     databaseSyncService.stopPeriodicSync();
     logger.info('Database sync scheduler stopped');
+
+    stopHealthMonitoring();
+    logger.info('Health monitoring stopped');
 
     if (tokenCleanupInterval) {
         clearInterval(tokenCleanupInterval);
