@@ -114,6 +114,7 @@ function getDatabaseInstancesArray(): DatabaseInstance[] {
             name: 'mongo-zluri-1',
             type: 'mongodb',
             uri: process.env.MONGO_INSTANCE_1_URI || 'mongodb://localhost:27017',
+            connection_string_env: 'MONGO_INSTANCE_1_URI', // Explicitly set for seeding
             databases: [
                 '69401559e576ef4085e50133_test', '69401559e576ef4085e50133_truth',
                 '694047d693600ea800754f3c_test', '694047d693600ea800754f3c_truth',

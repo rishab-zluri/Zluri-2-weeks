@@ -851,11 +851,6 @@ export async function getBlacklistEntries(): Promise<BlacklistEntry[]> {
  */
 async function seedInstancesFromStaticConfig(): Promise<void> {
     try {
-        // Check if we have instances
-        // REMOVED check to allow updates to existing instances (idempotent seeding)
-        // const existing = await portalQuery('SELECT COUNT(*) as count FROM database_instances');
-        // if (parseInt(existing.rows[0].count, 10) > 0) { ... }
-
         logger.info('Seeding/Updating database instances from static config...');
         const staticData = require('../config/staticData');
         const instances = staticData.getDatabaseInstancesArray();
@@ -863,19 +858,30 @@ async function seedInstancesFromStaticConfig(): Promise<void> {
         for (const inst of instances) {
             // Map static instance to DB columns
             const type = inst.type;
-            const connectionStringEnv = (inst as any).connection_string_env || null;
+            
+            // For MongoDB instances, ensure connection_string_env is set
+            let connectionStringEnv = (inst as any).connection_string_env || null;
+            let host = (inst as any).host || null;
+            let port = (inst as any).port || null;
+            
+            // MongoDB instances use URI, so we need to set connection_string_env
+            if (type === 'mongodb' && !connectionStringEnv) {
+                // For MongoDB, we need a connection string env var
+                // Use a default based on instance ID if not explicitly set
+                connectionStringEnv = `${inst.id.toUpperCase().replace(/-/g, '_')}_URI`;
+            }
 
             // For params
             const params = [
                 inst.id,
                 inst.name,
                 type,
-                (inst as any).host || null,
-                (inst as any).port || null,
-                connectionStringEnv, // Use the explicitly provided env var name
+                host,
+                port,
+                connectionStringEnv,
             ];
 
-            // DB schema: id, name, type, host, port, credentials_env_prefix, connection_string_env, is_active
+            // DB schema: id, name, type, host, port, connection_string_env, is_active
             await portalQuery(`
                 INSERT INTO database_instances 
                 (id, name, type, host, port, connection_string_env, is_active, created_at, updated_at)
