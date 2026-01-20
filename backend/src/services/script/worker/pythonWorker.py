@@ -464,6 +464,7 @@ def execute_script(config: Dict[str, Any]) -> Dict[str, Any]:
                 'database': database_name,
                 'user': instance.get('user') or instance.get('credentialsEnvPrefix', 'postgres'),
                 'password': instance.get('password', ''),
+                'sslmode': 'require',  # Enable SSL for PostgreSQL connections
             }
             # Handle env-based credentials
             if 'credentialsEnvPrefix' in instance:
